@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
-
 from decouple import config  # pip install python-decouple
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -27,6 +26,11 @@ SECRET_KEY = config("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+
+VAPID_PUBLIC_KEY = config("VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = config("VAPID_PRIVATE_KEY")
+VAPID_CLAIMS = {"sub": config("VAPID_CLAIM_SUB")}
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
@@ -97,6 +101,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "channels",
     "ocr_app",
+    "accounts",
+    "rest_framework",
 ]
 
 MIDDLEWARE = [

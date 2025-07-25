@@ -59,7 +59,7 @@
 				if (prevUrl) URL.revokeObjectURL(prevUrl);
 
 				// 새 Blob URL 생성 & img.src 에 할당
-				const blob = new Blob([data], { type: "image/webp" });
+				const blob = new Blob([data], { type: "image/jpeg" });
 				const url = URL.createObjectURL(blob);
 				document.getElementById("stream").src = url;
 
