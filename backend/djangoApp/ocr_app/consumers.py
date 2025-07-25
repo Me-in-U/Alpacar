@@ -32,6 +32,8 @@ class OCRTextConsumer(AsyncWebsocketConsumer):
 # 새로 추가: binary frame 전송용 소비자
 class OcrImageConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        # WebSocket 열리면 OCR 캡처도 시작
+        ocr.start_capture()
         await self.accept()
         self.task = asyncio.create_task(self.send_loop())
 
@@ -49,5 +51,6 @@ class OcrImageConsumer(AsyncWebsocketConsumer):
                 # boundary, headers 분리 → 순수 JPEG 바이트만 전송
                 raw = frame.split(b"\r\n\r\n", 1)[1]
                 jpg = raw[:-2]
-                await self.send(bytes=jpg)  # ← 수정
+                # Channels 4.x: send(bytes_data=…) 로 맞춰야 바이너리 전송
+                await self.send(bytes_data=jpg)
                 prev = frame

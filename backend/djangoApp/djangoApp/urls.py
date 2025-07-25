@@ -15,10 +15,25 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.contrib.staticfiles.storage import staticfiles_storage
+from django.urls import include, path
+from django.views.generic import RedirectView
 
 urlpatterns = [
-    path("", include("ocr_app.urls")),  # 루트로 ocr_app 연결
+    path(
+        "favicon.ico",
+        RedirectView.as_view(
+            url=staticfiles_storage.url("icons/favicon.ico"), permanent=True
+        ),
+    ),
+    path("ocr/", include("ocr_app.urls")),
     path("admin/", admin.site.urls),
 ]
+# DEBUG=True 환경에서 STATICFILES_DIRS 를 /static/ URL로 서빙
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.STATIC_URL, document_root=settings.BASE_DIR / "static"
+    )

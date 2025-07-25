@@ -62,8 +62,8 @@ def capture_loop():
         cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 2000)
         if not cap.isOpened():
             print(f"[ERROR] CAM_STREAM 연결 실패 → {CAM_STREAM_URL}", file=sys.stderr)
-            time.sleep(2)
-            print("[INFO] 2초 후 재연결 시도...", file=sys.stderr)
+            print("[INFO] 5초 후 재연결 시도...", file=sys.stderr)
+            time.sleep(5)
             continue
 
         while True:
@@ -96,8 +96,9 @@ def capture_loop():
                 draw.text((x1, y1 - 30), text, font=font, fill="lime")
 
             # JPEG 인코딩 & 캐시
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 30]
             annotated = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
-            ok, buf = cv2.imencode(".jpg", annotated)
+            ok, buf = cv2.imencode(".jpg", annotated, encode_param)
             if ok:
                 chunk = (
                     boundary

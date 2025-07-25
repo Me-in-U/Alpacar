@@ -11,20 +11,20 @@ def index(request):
     return render(request, "index.html")
 
 
-async def annot_stream(request):
-    # 시작되지 않았으면 OCR 캡처 스레드 시작
-    ocr.start_capture()
-    boundary = b"--frame\r\n"
+# async def annot_stream(request):
+#     # 시작되지 않았으면 OCR 캡처 스레드 시작
+#     ocr.start_capture()
+#     boundary = b"--frame\r\n"
 
-    async def gen():
-        while True:
-            with ocr.frame_lock:
-                chunk = ocr.latest_frame
-            if chunk:
-                yield chunk
-            else:
-                await asyncio.sleep(0.1)
+#     async def gen():
+#         while True:
+#             with ocr.frame_lock:
+#                 chunk = ocr.latest_frame
+#             if chunk:
+#                 yield chunk
+#             else:
+#                 await asyncio.sleep(0.1)
 
-    return StreamingHttpResponse(
-        gen(), content_type="multipart/x-mixed-replace;boundary=frame"
-    )
+#     return StreamingHttpResponse(
+#         gen(), content_type="multipart/x-mixed-replace;boundary=frame"
+#     )

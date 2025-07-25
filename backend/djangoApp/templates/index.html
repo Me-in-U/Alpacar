@@ -1,10 +1,13 @@
-<!-- C:\Users\SSAFY\Documents\GitHub\S13P11E102\backend\djangoApp\templates\index.html -->
-
+<!-- templates -->
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 	<head>
 		<meta charset="UTF-8" />
 		<title>WebSocket 스트리밍</title>
+		<link rel="icon" href="{% static 'icons/favicon.ico' %}" />
+		<link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}" />
+		<link rel="manifest" href="{% static 'icons/site.webmanifest' %}" />
 		<style>
 			html,
 			body {
@@ -41,19 +44,27 @@
 	<body>
 		<div class="stream">
 			<div class="label">OCR 결과</div>
-			<img src="{% url 'annot_stream' %}" alt="Annotated" />
+			<img id="stream" alt="Annotated" />
 		</div>
 
 		<!-- Socket.IO 클라이언트 -->
 		<script>
+			const img = document.getElementById("stream");
 			const ws = new WebSocket(`ws://${location.host}/ws_ocr`);
 			ws.binaryType = "arraybuffer";
-			ws.onmessage = ({ data }) => {
-				// data가 ArrayBuffer인 경우, blob→objectURL로 img 교체
-				const blob = new Blob([data], { type: "image/jpeg" });
-				document.querySelector(".stream img").src = URL.createObjectURL(blob);
-			};
 			ws.onopen = () => console.log("WS 연결됨");
+			let prevUrl = null;
+			ws.onmessage = ({ data }) => {
+				// 이전 URL 해제
+				if (prevUrl) URL.revokeObjectURL(prevUrl);
+
+				// 새 Blob URL 생성 & img.src 에 할당
+				const blob = new Blob([data], { type: "image/webp" });
+				const url = URL.createObjectURL(blob);
+				document.getElementById("stream").src = url;
+
+				prevUrl = url;
+			};
 			ws.onclose = () => console.log("WS 끊김");
 			ws.onerror = (e) => console.error("WS 에러", e);
 		</script>
