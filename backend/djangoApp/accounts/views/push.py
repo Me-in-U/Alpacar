@@ -1,10 +1,12 @@
-# accounts/push_views.py
+# accounts/views/push.py
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Member, PushSubscription
+from djangoApp import settings
+
+from ..models import PushSubscription
 
 
 @api_view(["GET", "POST"])
@@ -12,12 +14,18 @@ from .models import Member, PushSubscription
 def push_setting(request):
     user = request.user
     if request.method == "GET":
-        return Response({"push_on": user.push_enabled})
+        return Response(
+            {
+                "push_on": request.user.push_enabled,
+                "vapid_public_key": settings.VAPID_PUBLIC_KEY,  # settings.py에 정의
+            }
+        )
     # POST: {"push_on": true/false}
     on = request.data.get("push_on", False)
     user.push_enabled = bool(on)
     user.save()
     return Response({"push_on": user.push_enabled})
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -29,6 +37,7 @@ def subscribe_push(request):
         defaults={"p256dh": data["keys"]["p256dh"], "auth": data["keys"]["auth"]},
     )
     return Response(status=status.HTTP_201_CREATED)
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])

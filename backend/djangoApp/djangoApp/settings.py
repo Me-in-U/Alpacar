@@ -118,10 +118,11 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "rest_framework_simplejwt",
-    # "rest_framework_simplejwt.token_blacklist",
-    # dj-rest-auth
+    "rest_framework_simplejwt.token_blacklist",
+    # dj-rest-MIDDLEWARE
     # "dj_rest_auth",
     # "dj_rest_auth.registration",
+    "corsheaders",
 ]
 # allauth
 SITE_ID = 1
@@ -156,11 +157,16 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 MIDDLEWARE = [
@@ -173,6 +179,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # ── allauth용 미들웨어 ──
     # "allauth.account.middleware.AccountMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:8000",
 ]
 
 ROOT_URLCONF = "djangoApp.urls"

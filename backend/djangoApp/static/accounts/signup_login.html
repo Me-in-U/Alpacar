@@ -1,4 +1,3 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 	<head>
@@ -55,18 +54,16 @@
 					phone: su_phone.value,
 					plate_number: su_plate.value,
 				};
-				const res = await fetch(`${API}/api/signup/`, {
+				const result = await fetch(`${API}/api/signup/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(data),
 				});
-				const j = await res.json();
-				if (res.ok) {
-					localStorage.setItem("access_token", j.access);
-					localStorage.setItem("refresh_token", j.refresh);
-					alert("회원가입 및 토큰 발급 성공");
+				const json = await result.json();
+				if (result.ok) {
+					alert("회원가입 성공! 이제 로그인해주세요.");
 				} else {
-					alert("실패: " + JSON.stringify(j));
+					alert("실패: " + JSON.stringify(json));
 				}
 			}
 
@@ -80,19 +77,20 @@
 				const email = document.getElementById("li_email").value;
 				const password = document.getElementById("li_pass").value;
 
-				const res = await fetch(`${API}/api/login/`, {
+				const result = await fetch(`${API}/api/login/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ email, password }),
 				});
-				const j = await res.json();
+				const json = await result.json();
 
-				if (res.ok) {
-					localStorage.setItem("access_token", j.access);
-					localStorage.setItem("refresh_token", j.refresh);
-					alert("로그인 및 토큰 발급 성공");
+				if (result.ok) {
+					localStorage.setItem("access_token", json.access);
+					localStorage.setItem("refresh_token", json.refresh);
+					// SPA 라우터 대신 단순 이동
+					window.location.href = "/static/accounts/push_setting.html";
 				} else {
-					alert("실패: " + JSON.stringify(j));
+					alert("실패: " + JSON.stringify(json));
 				}
 			}
 		</script>
