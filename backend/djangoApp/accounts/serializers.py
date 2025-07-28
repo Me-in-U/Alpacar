@@ -1,22 +1,20 @@
 # accounts/serializers.py
+
 import hashlib
 
-from django.contrib.auth import authenticate
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import Member
 
 
 class SignupSerializer(serializers.ModelSerializer):
     """
-    회원가입용 Serializer
-    - password: write_only, 해시화 후 password_hash 필드에 저장
-    - plate_number: 번호판 필드
+    DRF 회원가입 Serializer:
+     - password: write_only 으로 받고
+     - create() 에서 create_user() 호출
     """
 
     password = serializers.CharField(write_only=True)
-    plate_number = serializers.CharField()
 
     class Meta:
         model = Member
@@ -30,11 +28,5 @@ class SignupSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        # 비밀번호 추출
-        raw_password = validated_data.pop("password")
-        # SHA-256 해시 생성
-        validated_data["password_hash"] = hashlib.sha256(
-            raw_password.encode()
-        ).hexdigest()
-        # 나머지 필드로 Member 객체 생성
-        return super().create(validated_data)
+        # create_user() 내부에서 set_password() 가 호출됩니다.
+        return Member.objects.create_user(**validated_data)

@@ -1,4 +1,4 @@
-{% comment %} accounts/push_setting.html {% endcomment %} {% load static %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 	<head>
@@ -27,7 +27,7 @@
 				left: 0;
 				right: 0;
 				bottom: 0;
-				background-color: #ccc;
+				background: #ccc;
 				transition: 0.4s;
 				border-radius: 34px;
 			}
@@ -38,12 +38,12 @@
 				width: 26px;
 				left: 4px;
 				bottom: 4px;
-				background-color: white;
+				background: white;
 				transition: 0.4s;
 				border-radius: 50%;
 			}
 			input:checked + .slider {
-				background-color: #66bb6a;
+				background: #66bb6a;
 			}
 			input:checked + .slider:before {
 				transform: translateX(26px);
@@ -56,48 +56,40 @@
 		</style>
 	</head>
 	<body>
-		<h2>푸시 알림 설정</h2>
+		<h2>OCR 푸시 알림 설정</h2>
 		<label>
-			OCR 결과 푸시 알림 받기
+			푸시 받기
 			<div class="switch">
-				<input type="checkbox" id="push_on" {% if push_on %}checked{% endif %} />
+				<input type="checkbox" id="push_on" />
 				<span class="slider"></span>
 			</div>
 		</label>
 
 		<script>
-			const API_BASE = "http://localhost:8000";
-			const TOKEN = localStorage.getItem("access_token");
-			const headers = {
-				"Content-Type": "application/json",
-				Authorization: "Bearer " + TOKEN,
-			};
+			const API = "http://localhost:8000";
+			const TOK = localStorage.getItem("access_token");
+			const HEADS = { "Content-Type": "application/json", Authorization: "Bearer " + TOK };
+			const VAPID_PUBLIC_KEY = "{{ VAPID_PUBLIC_KEY }}";
 
-			// 1) 현재 설정 불러오기
+			// 초기 설정 로드
 			async function loadSetting() {
-				const res = await fetch(`${API_BASE}/api/push/setting/`, {
-					method: "GET",
-					headers,
-				});
-				const data = await res.json();
-				document.getElementById("push_on").checked = data.push_on;
+				const res = await fetch(`${API}/api/push/setting/`, { method: "GET", headers: HEADS });
+				const j = await res.json();
+				push_on.checked = j.push_on;
 			}
 
-			// 2) 서비스워커 준비
-			function urlBase64ToUint8Array(base64String) {
-				const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-				const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-				const raw = atob(base64);
-				return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+			function urlBase64ToUint8Array(b64) {
+				const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+				const str = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+				const bin = atob(str);
+				return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 			}
 
 			async function readySW() {
-				const reg = await navigator.serviceWorker.register("/static/service-worker.js");
-				return reg;
+				return navigator.serviceWorker.register("/static/service-worker.js");
 			}
 
-			// 3) 구독 등록/해제 & 서버 동기화
-			document.getElementById("push_on").addEventListener("change", async (e) => {
+			push_on.addEventListener("change", async (e) => {
 				const on = e.target.checked;
 				const reg = await readySW();
 				const pm = reg.pushManager;
@@ -107,38 +99,36 @@
 					if (!sub) {
 						sub = await pm.subscribe({
 							userVisibleOnly: true,
-							applicationServerKey: urlBase64ToUint8Array("{{ VAPID_PUBLIC_KEY }}"),
+							applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
 						});
 					}
-					// 서버에 구독 등록
-					await fetch(`${API_BASE}/push/subscribe/`, {
+					// 구독 정보 서버 전송
+					await fetch(`${API}/api/push/subscribe/`, {
 						method: "POST",
-						headers,
+						headers: HEADS,
 						body: JSON.stringify(sub.toJSON()),
 					});
 				} else {
 					if (sub) {
 						await sub.unsubscribe();
-						// 서버에 구독 해제 알림
-						await fetch(`${API_BASE}/push/unsubscribe/`, {
+						await fetch(`${API}/api/push/unsubscribe/`, {
 							method: "POST",
-							headers,
+							headers: HEADS,
 							body: JSON.stringify({ endpoint: sub.endpoint }),
 						});
 					}
 				}
 
-				// 4) 설정 상태 업데이트
-				await fetch(`${API_BASE}/push/setting/update/`, {
+				// 설정 상태 저장
+				await fetch(`${API}/api/push/setting/`, {
 					method: "POST",
-					headers,
+					headers: HEADS,
 					body: JSON.stringify({ push_on: on }),
 				});
 
 				alert(`푸시 알림이 ${on ? "ON" : "OFF"} 처리되었습니다.`);
 			});
 
-			// 페이지 로드 시 초기화
 			loadSetting().catch(console.error);
 		</script>
 	</body>

@@ -1,22 +1,44 @@
 # accounts/models.py
 from django.db import models
 
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    PermissionsMixin,
+    BaseUserManager,
+)
 
-class Member(models.Model):
-    """
-    회원 기본 정보 모델
-    - 이메일(email)로 로그인
-    - plate_number: 차량 번호판 (고유)
-    - push_enabled: 푸시 알림 수신 여부
-    """
 
-    name = models.CharField(max_length=50)  # 실명
-    nickname = models.CharField(max_length=50)  # 별명
-    email = models.EmailField(unique=True)  # 로그인 이메일 (고유)
-    password_hash = models.CharField(max_length=128)  # SHA-256 해시된 비밀번호
-    phone = models.CharField(max_length=20)  # 연락처
-    plate_number = models.CharField(max_length=20, unique=True)  # 차량 번호판 (고유)
-    push_enabled = models.BooleanField(default=False)  # 푸시 알림 수신 설정
+class MemberManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("Users must have an email address")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        return self.create_user(email, password, **extra_fields)
+
+
+class Member(AbstractBaseUser, PermissionsMixin):
+    name = models.CharField(max_length=50)
+    nickname = models.CharField(max_length=50)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=20)
+    plate_number = models.CharField(max_length=20, unique=True)
+    push_enabled = models.BooleanField(default=False)
+
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+
+    objects = MemberManager()
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["name", "nickname", "phone", "plate_number"]
 
     def __str__(self):
         return f"{self.nickname} <{self.email}>"

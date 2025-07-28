@@ -36,6 +36,12 @@ urlpatterns = [
     path("", include("streamapp.urls")),
     # 계정 관리 앱 URL (회원가입, 로그인, 푸시 설정 등)
     path("", include("accounts.urls")),
+    # allauth 콜백
+    # path("accounts/", include("allauth.urls")),
+    # dj‑rest‑auth
+    # path("dj-rest-auth/", include("dj_rest_auth.urls")),
+    # path("dj-rest-auth/registration/", include("dj_rest_auth.registration.urls")),
+    # path("dj-rest-auth/social/", include("dj_rest_auth.social_urls")),
 ]
 # DEBUG=True 환경에서 STATICFILES_DIRS 를 /static/ URL로 서빙
 if settings.DEBUG:

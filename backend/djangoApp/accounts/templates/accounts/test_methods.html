@@ -1,9 +1,9 @@
-{% comment %} accounts/test_methods.html {% endcomment %} {% load static %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 	<head>
 		<meta charset="UTF-8" />
-		<title>API 기반 테스트</title>
+		<title>JWT 테스트 페이지</title>
 		<style>
 			body {
 				margin: 0;
@@ -14,8 +14,7 @@
 				padding: 20px;
 				box-sizing: border-box;
 			}
-			h2,
-			h3 {
+			h2 {
 				margin: 10px 0;
 			}
 			button {
@@ -30,48 +29,33 @@
 			}
 		</style>
 		<script>
+			const API = "http://localhost:8000";
+
 			function rand(len) {
 				return Math.random().toString(36).substr(2, len);
 			}
-			function fillApiSignup() {
-				document.getElementById("api_signup_name").value = rand(6);
-				document.getElementById("api_signup_nickname").value = rand(6);
-				document.getElementById("api_signup_email").value = rand(5) + "@test.com";
-				document.getElementById("api_signup_password").value = rand(8);
-				document.getElementById("api_signup_phone").value = "010" + ("" + Math.floor(Math.random() * 1e8)).padStart(8, "0");
-				document.getElementById("api_signup_plate").value = "12가" + ("" + Math.floor(Math.random() * 1e4)).padStart(4, "0");
-			}
-			async function onApiSignup(e) {
-				e.preventDefault();
-				const data = {
-					name: document.getElementById("api_signup_name").value,
-					nickname: document.getElementById("api_signup_nickname").value,
-					email: document.getElementById("api_signup_email").value,
-					password: document.getElementById("api_signup_password").value,
-					phone: document.getElementById("api_signup_phone").value,
-					plate_number: document.getElementById("api_signup_plate").value,
-				};
-				const res = await fetch("{% url 'api-signup' %}", {
-					method: "POST",
-					headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
-					body: JSON.stringify(data),
-				});
-				const j = await res.json();
-				alert(res.ok ? j.detail : "실패: " + JSON.stringify(j));
+
+			// 랜덤 채우기
+			function fillSignup() {
+				document.getElementById("su_name").value = rand(6);
+				document.getElementById("su_nickname").value = rand(6);
+				document.getElementById("su_email").value = rand(5) + "@test.com";
+				document.getElementById("su_pass").value = rand(8);
+				document.getElementById("su_phone").value = "010" + ("" + Math.floor(Math.random() * 1e8)).padStart(8, "0");
+				document.getElementById("su_plate").value = "12가" + ("" + Math.floor(Math.random() * 1e4)).padStart(4, "0");
 			}
 
-			function fillApiLogin() {
-				document.getElementById("api_login_email").value = rand(5) + "@test.com";
-				document.getElementById("api_login_password").value = rand(8);
-			}
-
-			async function onApiLogin(e) {
+			async function onSignup(e) {
 				e.preventDefault();
 				const data = {
-					email: document.getElementById("api_login_email").value,
-					password: document.getElementById("api_login_password").value,
+					name: su_name.value,
+					nickname: su_nickname.value,
+					email: su_email.value,
+					password: su_pass.value,
+					phone: su_phone.value,
+					plate_number: su_plate.value,
 				};
-				const res = await fetch("{% url 'token_obtain_pair' %}", {
+				const res = await fetch(`${API}/api/signup/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(data),
@@ -80,8 +64,33 @@
 				if (res.ok) {
 					localStorage.setItem("access_token", j.access);
 					localStorage.setItem("refresh_token", j.refresh);
-					alert("로그인 성공");
-					window.location = "{% url 'push-setting' %}";
+					alert("회원가입 및 토큰 발급 성공");
+				} else {
+					alert("실패: " + JSON.stringify(j));
+				}
+			}
+
+			function fillLogin() {
+				document.getElementById("li_email").value = rand(5) + "@test.com";
+				document.getElementById("li_pass").value = rand(8);
+			}
+
+			async function onLogin(e) {
+				e.preventDefault();
+				const email = document.getElementById("li_email").value;
+				const password = document.getElementById("li_pass").value;
+
+				const res = await fetch(`${API}/api/login/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email, password }),
+				});
+				const j = await res.json();
+
+				if (res.ok) {
+					localStorage.setItem("access_token", j.access);
+					localStorage.setItem("refresh_token", j.refresh);
+					alert("로그인 및 토큰 발급 성공");
 				} else {
 					alert("실패: " + JSON.stringify(j));
 				}
@@ -90,23 +99,24 @@
 	</head>
 	<body>
 		<div class="pane">
-			<h2>API 기반 회원가입</h2>
-			<button onclick="fillApiSignup()">랜덤 채우기</button>
-			<form onsubmit="onApiSignup(event)">
-				<input id="api_signup_name" placeholder="Name" />
-				<input id="api_signup_nickname" placeholder="Nickname" />
-				<input id="api_signup_email" placeholder="Email" />
-				<input id="api_signup_password" type="password" placeholder="Password" />
-				<input id="api_signup_phone" placeholder="Phone" />
-				<input id="api_signup_plate" placeholder="Plate Number" />
+			<h2>회원가입(Signup + JWT)</h2>
+			<button onclick="fillSignup()">랜덤 채우기</button>
+			<form onsubmit="onSignup(event)">
+				<input id="su_name" placeholder="Name" />
+				<input id="su_nickname" placeholder="Nickname" />
+				<input id="su_email" placeholder="Email" />
+				<input id="su_pass" type="password" placeholder="Password" />
+				<input id="su_phone" placeholder="Phone" />
+				<input id="su_plate" placeholder="Plate Number" />
 				<button type="submit">가입</button>
 			</form>
 
-			<h2>API 기반 로그인</h2>
-			<button onclick="fillApiLogin()">랜덤 채우기</button>
-			<form onsubmit="onApiLogin(event)">
-				<input id="api_login_email" placeholder="Email" />
-				<input id="api_login_password" type="password" placeholder="Password" />
+			<h2>로그인(Login + JWT)</h2>
+			<button onclick="fillLogin()">랜덤 채우기</button>
+			<form onsubmit="onLogin(event)">
+				<!-- id를 li_email / li_pass 로 통일 -->
+				<input id="li_email" placeholder="Email" />
+				<input id="li_pass" type="password" placeholder="Password" />
 				<button type="submit">로그인</button>
 			</form>
 		</div>

@@ -104,10 +104,53 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "channels",
+    # Custom 앱
     "accounts",
-    "rest_framework",
     "streamapp",
+    # allauth 기본
+    # "allauth",
+    # "allauth.account",
+    # "allauth.socialaccount",
+    # 소셜 프로바이더
+    # "allauth.socialaccount.providers.google",
+    # "allauth.socialaccount.providers.kakao",
+    # DRF + JWT
+    "rest_framework",
+    "rest_framework.authtoken",
+    "rest_framework_simplejwt",
+    # "rest_framework_simplejwt.token_blacklist",
+    # dj-rest-auth
+    # "dj_rest_auth",
+    # "dj_rest_auth.registration",
 ]
+# allauth
+SITE_ID = 1
+REST_USE_JWT = True
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_EMAIL_REQUIRED = True
+AUTH_USER_MODEL = "accounts.Member"
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": "<GOOGLE_CLIENT_ID>",
+            "secret": "<GOOGLE_CLIENT_SECRET>",
+            "key": "",
+        }
+    },
+    "kakao": {
+        "APP": {
+            "client_id": "<KAKAO_CLIENT_ID>",
+            "secret": "<KAKAO_CLIENT_SECRET>",
+            "key": "",
+        }
+    },
+}
+
+# dj‑rest‑auth 소셜 설정
+REST_USE_JWT = True
+JWT_AUTH_COOKIE = None  # 쿠키가 아닌 헤더로
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -128,6 +171,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # ── allauth용 미들웨어 ──
+    # "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "djangoApp.urls"

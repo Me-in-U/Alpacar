@@ -17,25 +17,23 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     username_field = "email"
 
+    @classmethod
+    def get_token(cls, user):
+        return super().get_token(user)
+
     def validate(self, attrs):
+        # attrs: {"email": "...", "password": "..."}
         email = attrs.get("email")
         password = attrs.get("password")
-
-        # 비밀번호 해시화
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
-
-        # Member 직접 조회
-        try:
-            user = Member.objects.get(email=email, password_hash=pw_hash)
-        except Member.DoesNotExist:
+        user = authenticate(
+            request=self.context.get("request"), username=email, password=password
+        )
+        if not user:
             raise serializers.ValidationError(
-                {"non_field_errors": ["이메일 또는 비밀번호가 올바르지 않습니다."]},
+                {"detail": "이메일 또는 비밀번호가 올바르지 않습니다."},
                 code="authorization",
             )
-
-        # 토큰 생성 (부모 메서드의 get_token 사용)
-        token = self.get_token(user)
-        return {
-            "refresh": str(token),
-            "access": str(token.access_token),
-        }
+        # super().validate()를 호출하면 user를 self.user로 설정하고
+        # refresh/access 토큰을 생성해 줍니다.
+        data = super().validate({"email": email, "password": password})
+        return data

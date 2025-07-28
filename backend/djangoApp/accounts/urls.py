@@ -2,23 +2,25 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .api_views import SignupAPI
+from accounts.api_views import SignupAPI
+from accounts.jwt_views import LoginAPI
+
 from .views import (
-    test_methods,
     push_setting_view,
-    update_push_setting,
     subscribe_push,
+    test_methods,
     unsubscribe_push,
+    update_push_setting,
 )
-from .jwt_views import EmailTokenObtainPairView
 
 urlpatterns = [
     # 테스트용 페이지
-    path("test_methods/", test_methods, name="test_methods"),
-    # 회원가입 / 로그인 API
+    path("accounts/test_methods/", test_methods, name="test_methods"),
+    # 회원가입
     path("api/signup/", SignupAPI.as_view(), name="api-signup"),
-    # 기존 로그인 대신 JWT 토큰 발급
-    path("api/token/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    # 로그인 (JWT 발급)
+    path("api/login/", LoginAPI.as_view(), name="api-login"),
+    # JWT 리프레시
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     # 푸시 알림 설정 페이지
     path("push/setting/", push_setting_view, name="push-setting"),
