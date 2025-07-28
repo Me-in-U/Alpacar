@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+
 from decouple import config  # pip install python-decouple
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,6 +38,8 @@ ALLOWED_HOSTS = [
     "localhost",
     "192.168.8.183",
     "192.168.8.9",
+    "192.168.45.183",
+    "192.168.45.9",
 ]
 
 
@@ -100,9 +103,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "channels",
-    "ocr_app",
     "accounts",
     "rest_framework",
+    "streamapp",
 ]
 
 MIDDLEWARE = [

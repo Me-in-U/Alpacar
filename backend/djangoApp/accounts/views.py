@@ -4,13 +4,13 @@ import json
 import random
 import string
 
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render, redirect
-from django.views.decorators.csrf import csrf_exempt
-from django.conf import settings
-from .models import PushSubscription
-from .models import Member
 from decouple import config
+from django.conf import settings
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.csrf import csrf_exempt
+
+from .models import Member, PushSubscription
 
 
 def random_string(n=8):

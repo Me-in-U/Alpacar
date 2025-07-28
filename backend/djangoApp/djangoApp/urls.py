@@ -23,16 +23,19 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 urlpatterns = [
+    # 관리자 사이트
     path("admin/", admin.site.urls),
+    # favicon 처리
     path(
         "favicon.ico",
         RedirectView.as_view(
             url=staticfiles_storage.url("icons/favicon.ico"), permanent=True
         ),
     ),
-    path("ocr/", include("ocr_app.urls")),
-    path("accounts/", include("accounts.urls")),  # 기존 템플릿 뷰
-    path("api/accounts/", include("accounts.urls")),  # DRF API 뷰
+    # 스트리밍 앱 URL (Pi 업로드, 대시보드)
+    path("", include("streamapp.urls")),
+    # 계정 관리 앱 URL (회원가입, 로그인, 푸시 설정 등)
+    path("", include("accounts.urls")),
 ]
 # DEBUG=True 환경에서 STATICFILES_DIRS 를 /static/ URL로 서빙
 if settings.DEBUG:

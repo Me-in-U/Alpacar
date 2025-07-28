@@ -10,14 +10,15 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 # djangoApp/asgi.py
 import os
 
+import streamapp.routing
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "djangoApp.settings")
 
-import ocr_app.routing
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
-from django.core.asgi import get_asgi_application
 from channels.sessions import SessionMiddlewareStack
+from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "djangoApp.settings")
 django_app = get_asgi_application()
@@ -28,9 +29,10 @@ async def debug_scope(scope, receive, send):
     app = ProtocolTypeRouter(
         {
             "http": django_app,
-            "websocket": SessionMiddlewareStack(
-                URLRouter(ocr_app.routing.websocket_urlpatterns)
-            ),
+            # "websocket": SessionMiddlewareStack(
+            #     URLRouter(ocr_app.routing.websocket_urlpatterns)
+            # ),
+            "websocket": URLRouter(streamapp.routing.websocket_urlpatterns),
         }
     )
     await app(scope, receive, send)
