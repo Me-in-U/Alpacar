@@ -12,9 +12,9 @@ const char* SSID = "E102";
 const char* PASSWORD = "08080808";
 
 // === WebSocket 서버 정보 ===
-const char* WS_HOST = "192.168.8.183";
+const char* WS_HOST = "192.168.45.183";
 const uint16_t WS_PORT = 8000;
-const char* WS_PATH = "/ws_text/";  // 수정: 끝의 슬래시 제거
+const char* WS_PATH = "/ws/text/";
 
 // === OLED 설정 ===
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(
