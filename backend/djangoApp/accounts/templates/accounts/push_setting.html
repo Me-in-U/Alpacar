@@ -1,4 +1,4 @@
-{% load static %}
+{% comment %} accounts/push_setting.html {% endcomment %} {% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 	<head>
@@ -66,70 +66,80 @@
 		</label>
 
 		<script>
-			const VAPID_PUBLIC_KEY = "{{ VAPID_PUBLIC_KEY }}";
+			const API_BASE = "http://localhost:8000";
+			const TOKEN = localStorage.getItem("access_token");
+			const headers = {
+				"Content-Type": "application/json",
+				Authorization: "Bearer " + TOKEN,
+			};
 
-			// Base64URL → Uint8Array
+			// 1) 현재 설정 불러오기
+			async function loadSetting() {
+				const res = await fetch(`${API_BASE}/api/push/setting/`, {
+					method: "GET",
+					headers,
+				});
+				const data = await res.json();
+				document.getElementById("push_on").checked = data.push_on;
+			}
+
+			// 2) 서비스워커 준비
 			function urlBase64ToUint8Array(base64String) {
 				const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
 				const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-				const rawData = atob(base64);
-				return Uint8Array.from(rawData, (c) => c.charCodeAt(0));
+				const raw = atob(base64);
+				return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 			}
 
-			// 서비스워커 준비
 			async function readySW() {
-				if (!("serviceWorker" in navigator)) throw "No SW";
-				return navigator.serviceWorker.register("/static/service-worker.js").then((reg) => reg);
+				const reg = await navigator.serviceWorker.register("/static/service-worker.js");
+				return reg;
 			}
 
-			// 서버에 구독 정보 전송
-			async function sendSubscription(sub, url) {
-				await fetch(url, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"X-CSRFToken": "{{ csrf_token }}",
-					},
-					body: JSON.stringify(sub),
-				});
-			}
-
+			// 3) 구독 등록/해제 & 서버 동기화
 			document.getElementById("push_on").addEventListener("change", async (e) => {
-				const checked = e.target.checked;
+				const on = e.target.checked;
 				const reg = await readySW();
 				const pm = reg.pushManager;
 				let sub = await pm.getSubscription();
 
-				if (checked) {
-					// --- 구독 등록 ---
+				if (on) {
 					if (!sub) {
 						sub = await pm.subscribe({
 							userVisibleOnly: true,
-							applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+							applicationServerKey: urlBase64ToUint8Array("{{ VAPID_PUBLIC_KEY }}"),
 						});
 					}
-					// DB에 저장
-					await sendSubscription(sub.toJSON(), "{% url 'push-subscribe' %}");
+					// 서버에 구독 등록
+					await fetch(`${API_BASE}/push/subscribe/`, {
+						method: "POST",
+						headers,
+						body: JSON.stringify(sub.toJSON()),
+					});
 				} else {
-					// --- 구독 해제 ---
 					if (sub) {
 						await sub.unsubscribe();
-						// 서버에도 알려서 레코드 삭제
-						await sendSubscription({ endpoint: sub.endpoint }, "{% url 'push-unsubscribe' %}");
+						// 서버에 구독 해제 알림
+						await fetch(`${API_BASE}/push/unsubscribe/`, {
+							method: "POST",
+							headers,
+							body: JSON.stringify({ endpoint: sub.endpoint }),
+						});
 					}
 				}
 
-				// 알림 on/off 설정도 함께 저장
-				await fetch("{% url 'push-setting-update' %}", {
+				// 4) 설정 상태 업데이트
+				await fetch(`${API_BASE}/push/setting/update/`, {
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"X-CSRFToken": "{{ csrf_token }}",
-					},
-					body: JSON.stringify({ push_on: checked }),
+					headers,
+					body: JSON.stringify({ push_on: on }),
 				});
-				alert(`푸시 알림이 ${checked ? "ON" : "OFF"} 처리되었습니다.`);
+
+				alert(`푸시 알림이 ${on ? "ON" : "OFF"} 처리되었습니다.`);
 			});
+
+			// 페이지 로드 시 초기화
+			loadSetting().catch(console.error);
 		</script>
 	</body>
 </html>
