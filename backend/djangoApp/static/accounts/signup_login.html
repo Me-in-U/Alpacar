@@ -27,73 +27,6 @@
 				box-sizing: border-box;
 			}
 		</style>
-		<script>
-			const API = "http://localhost:8000";
-
-			function rand(len) {
-				return Math.random().toString(36).substr(2, len);
-			}
-
-			// 랜덤 채우기
-			function fillSignup() {
-				document.getElementById("su_name").value = rand(6);
-				document.getElementById("su_nickname").value = rand(6);
-				document.getElementById("su_email").value = rand(5) + "@test.com";
-				document.getElementById("su_pass").value = rand(8);
-				document.getElementById("su_phone").value = "010" + ("" + Math.floor(Math.random() * 1e8)).padStart(8, "0");
-				document.getElementById("su_plate").value = "12가" + ("" + Math.floor(Math.random() * 1e4)).padStart(4, "0");
-			}
-
-			async function onSignup(e) {
-				e.preventDefault();
-				const data = {
-					name: su_name.value,
-					nickname: su_nickname.value,
-					email: su_email.value,
-					password: su_pass.value,
-					phone: su_phone.value,
-					plate_number: su_plate.value,
-				};
-				const result = await fetch(`${API}/api/signup/`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(data),
-				});
-				const json = await result.json();
-				if (result.ok) {
-					alert("회원가입 성공! 이제 로그인해주세요.");
-				} else {
-					alert("실패: " + JSON.stringify(json));
-				}
-			}
-
-			function fillLogin() {
-				document.getElementById("li_email").value = rand(5) + "@test.com";
-				document.getElementById("li_pass").value = rand(8);
-			}
-
-			async function onLogin(e) {
-				e.preventDefault();
-				const email = document.getElementById("li_email").value;
-				const password = document.getElementById("li_pass").value;
-
-				const result = await fetch(`${API}/api/login/`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password }),
-				});
-				const json = await result.json();
-
-				if (result.ok) {
-					localStorage.setItem("access_token", json.access);
-					localStorage.setItem("refresh_token", json.refresh);
-					// SPA 라우터 대신 단순 이동
-					window.location.href = "/static/accounts/push_setting.html";
-				} else {
-					alert("실패: " + JSON.stringify(json));
-				}
-			}
-		</script>
 	</head>
 	<body>
 		<div class="pane">
@@ -117,6 +50,88 @@
 				<input id="li_pass" type="password" placeholder="Password" />
 				<button type="submit">로그인</button>
 			</form>
+			<!-- 소셜 로그인 테스트 섹션 추가 -->
+			<h2>소셜 로그인 테스트</h2>
+			<!-- Google 로그인 -->
+			<button id="btn_google_login">Google로 로그인</button>
+			<!-- Kakao 로그인 -->
+			<button id="btn_kakao_login">Kakao로 로그인</button>
 		</div>
 	</body>
+	<script>
+		const API = "http://localhost:8000";
+
+		function rand(len) {
+			return Math.random().toString(36).substr(2, len);
+		}
+
+		// 랜덤 채우기
+		function fillSignup() {
+			document.getElementById("su_name").value = rand(6);
+			document.getElementById("su_nickname").value = rand(6);
+			document.getElementById("su_email").value = rand(5) + "@test.com";
+			document.getElementById("su_pass").value = rand(8);
+			document.getElementById("su_phone").value = "010" + ("" + Math.floor(Math.random() * 1e8)).padStart(8, "0");
+			document.getElementById("su_plate").value = "12가" + ("" + Math.floor(Math.random() * 1e4)).padStart(4, "0");
+		}
+
+		async function onSignup(e) {
+			e.preventDefault();
+			const data = {
+				name: su_name.value,
+				nickname: su_nickname.value,
+				email: su_email.value,
+				password: su_pass.value,
+				phone: su_phone.value,
+				plate_number: su_plate.value,
+			};
+			const result = await fetch(`${API}/api/signup/`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(data),
+			});
+			const json = await result.json();
+			if (result.ok) {
+				alert("회원가입 성공! 이제 로그인해주세요.");
+			} else {
+				alert("실패: " + JSON.stringify(json));
+			}
+		}
+
+		function fillLogin() {
+			document.getElementById("li_email").value = rand(5) + "@test.com";
+			document.getElementById("li_pass").value = rand(8);
+		}
+
+		async function onLogin(e) {
+			e.preventDefault();
+			const email = document.getElementById("li_email").value;
+			const password = document.getElementById("li_pass").value;
+
+			const result = await fetch(`${API}/api/login/`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email, password }),
+			});
+			const json = await result.json();
+
+			if (result.ok) {
+				localStorage.setItem("access_token", json.access);
+				localStorage.setItem("refresh_token", json.refresh);
+				// SPA 라우터 대신 단순 이동
+				window.location.href = "/static/accounts/push_setting.html";
+			} else {
+				alert("실패: " + JSON.stringify(json));
+			}
+		}
+		document.getElementById("btn_google_login").addEventListener("click", () => {
+			window.location.href = `${API}/api/social/google/login/`;
+		});
+
+		document.getElementById("btn_kakao_login").addEventListener("click", async () => {
+			const res = await fetch(`${API}/api/social/kakao/login_url/`);
+			const { url } = await res.json();
+			window.location.href = url;
+		});
+	</script>
 </html>

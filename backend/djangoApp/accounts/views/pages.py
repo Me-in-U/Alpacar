@@ -2,12 +2,10 @@
 import random
 import string
 
-from django.shortcuts import redirect, render
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.exceptions import AuthenticationFailed
-
-
 from decouple import config
+from django.shortcuts import redirect, render
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 def random_string(n=8):
@@ -16,13 +14,15 @@ def random_string(n=8):
 
 def test_methods_page(request):
     """
-    템플릿 방식과 API 방식을 동시에 테스트하는 페이지 렌더
+    API 방식을 테스트하는 페이지 렌더
     """
     return render(request, "accounts/test_methods.html")
 
 
 def push_setting_page(request):
     """
+    푸시 알림 설정 페이지 렌더링
+    JWT 인증을 사용하여 페이지 접근 제어
     Authorization 헤더에 Bearer <token> 이 있어야 페이지 열도록 검사
     """
     auth = JWTAuthentication()

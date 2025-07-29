@@ -11,10 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from decouple import config  # pip install python-decouple
-from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -97,22 +97,24 @@ DATABASES = {
 # Application definition
 
 INSTALLED_APPS = [
+    "django.contrib.staticfiles",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
+    # sites framework (allauth 필수)
+    "django.contrib.sites",
     "django.contrib.messages",
-    "django.contrib.staticfiles",
     "channels",
     # Custom 앱
     "accounts",
     "streamapp",
     # allauth 기본
-    # "allauth",
-    # "allauth.account",
-    # "allauth.socialaccount",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
     # 소셜 프로바이더
-    # "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.google",
     # "allauth.socialaccount.providers.kakao",
     # DRF + JWT
     "rest_framework",
@@ -120,37 +122,55 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     # dj-rest-MIDDLEWARE
-    # "dj_rest_auth",
-    # "dj_rest_auth.registration",
+    "dj_rest_auth",
+    "dj_rest_auth.registration",
     "corsheaders",
     "vehicles",
     "parking",
     "events",
-
 ]
 # allauth
 SITE_ID = 1
 REST_USE_JWT = True
-ACCOUNT_EMAIL_VERIFICATION = "none"
+# 커스텀 유저 모델 지정
+AUTH_USER_MODEL = "accounts.Member"
+# Allauth에 username 필드가 없다고 알려주기
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_USERNAME_REQUIRED = False
+# 이메일 인증만 사용
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
-AUTH_USER_MODEL = "accounts.Member"
+ACCOUNT_EMAIL_VERIFICATION = "none"  # 개발 단계면 none
+# Serializer가 username_max_length 조회할 때 EMAIL_FIELD 사용하도록
+ACCOUNT_EMAIL_FIELD = "email"
+# Social 로그인 시 리다이렉트 URL (프론트 주소)
+LOGIN_REDIRECT_URL = "/"
+# 로그아웃 후 리디렉션할 페이지
+ACCOUNT_LOGOUT_REDIRECT_URL = "/"
+# 로그아웃 버튼 클릭 시 자동 로그아웃
+ACCOUNT_LOGOUT_ON_GET = True
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
+        # 요청할 권한 범위 (프로필·이메일)
+        "SCOPE": [
+            "profile",
+            "email",
+        ],
+        # 추가 인증 파라미터
+        "AUTH_PARAMS": {
+            "access_type": "online",  # 'offline'으로 하면 refresh token 발급
+        },
+        # PKCE 사용 여부 (보안 강화)
+        "OAUTH_PKCE_ENABLED": True,
         "APP": {
-            "client_id": "<GOOGLE_CLIENT_ID>",
-            "secret": "<GOOGLE_CLIENT_SECRET>",
-            "key": "",
-        }
-    },
-    "kakao": {
-        "APP": {
-            "client_id": "<KAKAO_CLIENT_ID>",
-            "secret": "<KAKAO_CLIENT_SECRET>",
-            "key": "",
-        }
-    },
+            "client_id": config("GOOGLE_CLIENT_ID"),  # 구글 API 콘솔에서 발급받은 ID
+            "secret": config(
+                "GOOGLE_CLIENT_SECRET"
+            ),  # 구글 API 콘솔에서 발급받은 Secret
+            "key": "",  # 일반적으로 비워둠
+        },
+    }
 }
 
 # dj‑rest‑auth 소셜 설정
@@ -182,7 +202,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # ── allauth용 미들웨어 ──
-    # "allauth.account.middleware.AccountMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "corsheaders.middleware.CorsMiddleware",
 ]
 CORS_ALLOWED_ORIGINS = [
@@ -199,7 +219,9 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
+                "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.template.context_processors.i18n",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
@@ -255,8 +277,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
+]
+STATICFILES_FINDERS = [
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
