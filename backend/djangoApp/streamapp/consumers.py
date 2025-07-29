@@ -1,3 +1,4 @@
+# streamapp\consumers.py
 import asyncio
 import json
 import os
@@ -76,10 +77,11 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
     last_entered = None
 
     async def connect(self):
+        print(f"[SERVER][PiUploadConsumer] connect: {self.channel_name}")
         await self.accept()  # 연결 허용
 
     async def disconnect(self, code):
-        pass  # 특별한 처리 없음
+        print(f"[SERVER][PiUploadConsumer] disconnect code={code}")
 
     async def receive(self, text_data=None, bytes_data=None):
         global LATEST_TEXT
@@ -88,6 +90,7 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
         payload = json.loads(text_data)
         b64_img = payload.get("image")
         LATEST_TEXT = payload.get("text", "").strip()
+        print(f"[SERVER][PiUploadConsumer] received text='{LATEST_TEXT}'")
 
         # 중복된 번호판: 입차된 차량 메시지 전송 후 종료
         if LATEST_TEXT == PiUploadConsumer.last_entered:
@@ -116,7 +119,7 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
 
         # DB 조회: 멤버 리스트 & 존재 여부
         member_list, exists = await get_member_qs(LATEST_TEXT)
-        print(f"[DEBUG][receive] exists={exists}, member_count={len(member_list)}")
+        print(f"[SERVER][PiUploadConsumer] exists={exists}, count={len(member_list)}")
 
         # 화면 갱신 및 푸시 발송
         if exists:
@@ -163,14 +166,18 @@ class StreamConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         # 'stream' 그룹에 가입
+        print(f"[SERVER][StreamConsumer] connect: {self.channel_name}")
         await self.channel_layer.group_add("stream", self.channel_name)
         await self.accept()
+        print("[SERVER][StreamConsumer] accepted")
 
     async def disconnect(self, code):
+        print(f"[SERVER][StreamConsumer] disconnect code={code}")
         await self.channel_layer.group_discard("stream", self.channel_name)
 
     async def new_frame(self, event):
         # broadcast 받은 frame/text를 그대로 클라이언트로 전송
+        print(f"[SERVER][StreamConsumer] new_frame event: {event['text'][:20]}…")
         await self.send(
             text_data=json.dumps(
                 {

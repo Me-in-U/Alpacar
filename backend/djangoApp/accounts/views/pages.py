@@ -12,13 +12,6 @@ def random_string(n=8):
     return "".join(random.choices(string.ascii_letters + string.digits, k=n))
 
 
-def test_methods_page(request):
-    """
-    API 방식을 테스트하는 페이지 렌더
-    """
-    return render(request, "accounts/test_methods.html")
-
-
 def push_setting_page(request):
     """
     푸시 알림 설정 페이지 렌더링
