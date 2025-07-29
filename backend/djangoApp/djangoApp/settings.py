@@ -123,6 +123,10 @@ INSTALLED_APPS = [
     # "dj_rest_auth",
     # "dj_rest_auth.registration",
     "corsheaders",
+    "vehicles",
+    "parking",
+    "events",
+
 ]
 # allauth
 SITE_ID = 1
