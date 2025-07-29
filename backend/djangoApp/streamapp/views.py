@@ -1,3 +1,4 @@
+# streamapp\views.py
 import base64
 import time
 from threading import Lock
@@ -49,8 +50,3 @@ def upload_frame(request):
         )
 
     return Response({"status": "ok"})
-
-
-# 3) 대시보드 페이지
-def dashboard(request):
-    return render(request, "streamapp/dashboard.html")

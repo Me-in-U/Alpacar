@@ -3,6 +3,7 @@ from django.urls import path
 
 from accounts.views.auth import LoginAPI, RefreshAPI, SignupAPI
 from accounts.views.google import GoogleLogin, google_callback, google_login
+from accounts.views.profile import UserProfileAPI
 from accounts.views.push import push_setting, subscribe_push, unsubscribe_push
 
 urlpatterns = [
@@ -10,6 +11,8 @@ urlpatterns = [
     path("api/signup/", SignupAPI.as_view(), name="api-signup"),
     path("api/login/", LoginAPI.as_view(), name="api-login"),
     path("api/token/refresh/", RefreshAPI.as_view(), name="api-token-refresh"),
+    # 내 프로필 조회·수정
+    path("api/user/profile/", UserProfileAPI.as_view(), name="api-user-profile"),
     # 푸시 설정(조회·변경)
     path("api/push/setting/", push_setting, name="api-push-setting"),
     # 구독/구독해제

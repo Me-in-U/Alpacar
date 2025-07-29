@@ -143,6 +143,27 @@ def ocr_and_annotate():
     annotated_np = cv2.cvtColor(np.array(pillow), cv2.COLOR_RGB2BGR)
     return annotated_np, text
 
+# ─── WebSocket 전송 함수 ────────────────────────────────────────────────
+def send_with_retry(ws, msg, url, max_retries=3, backoff=2):
+    payload = json.dumps(msg)
+    for attempt in range(1, max_retries+1):
+        try:
+            ws.send(payload)
+            return ws
+        except Exception as e:
+            print(f"[WS send 실패] 시도 {attempt}/{max_retries}: {e}")
+            try:
+                ws.close()
+            except:
+                pass
+            time.sleep(backoff)
+            try:
+                ws = create_connection(url)
+                print("[WS] 재연결 성공")
+            except Exception as e2:
+                print(f"[WS] 재연결 실패: {e2}")
+    raise ConnectionError("WebSocket 전송/재연결 모두 실패")
+
 # ─── 메인 루프: 캡처 → OCR → WebSocket 전송 ─────────────────────────────────
 try:
     while True:
@@ -161,29 +182,10 @@ try:
 
         # WebSocket 전송 및 예외 처리
         try:
-            ws.send(json.dumps(msg))
-        except (WebSocketException, BrokenPipeError,ConnectionResetError) as e:
-            print("WS 전송 오류, 2초 후 재연결 시도:", e)
-            try:
-                ws.close()
-            except:
-                pass
-            time.sleep(2)
-            # WebSocket 재연결 시도
-            try:
-                ws = create_connection(WS_URL)
-                print("WebSocket 재연결 성공")
-            except WebSocketException as e2:
-                print("WebSocket 재연결 실패:", e2)
-                # 재연결 안 되면 다음 루프에서 다시 시도
-                continue
-
-            # 재연결됐으니 메시지 재전송
-            try:
-                ws.send(json.dumps(msg))
-            except WebSocketException as e3:
-                print("재전송 실패:", e3)
-                continue
+            ws = send_with_retry(ws, msg, WS_URL)
+        except ConnectionError as err:
+            print(err)
+            continue  # 다음 루프에서 다시 시도
         
         # 타이머 종료
         elapsed = time.perf_counter() - start
