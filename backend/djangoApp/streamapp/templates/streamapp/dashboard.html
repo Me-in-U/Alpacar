@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>실시간 차량 감지</title>
+	</head>
+	<body>
+		<h1>WebSocket 스트리밍</h1>
+		<img id="video" width="640" height="480" />
+		<p>OCR: <span id="plate-text">대기 중...</span></p>
+
+		<script>
+			const ws = new WebSocket("ws://192.168.45.183:8000/ws/stream/");
+			ws.onmessage = (evt) => {
+				const { image, text } = JSON.parse(evt.data);
+				document.getElementById("video").src = "data:image/jpeg;base64," + image;
+				document.getElementById("plate-text").innerText = text;
+			};
+			ws.onclose = () => console.warn("WebSocket 연결 끊김");
+		</script>
+	</body>
+</html>

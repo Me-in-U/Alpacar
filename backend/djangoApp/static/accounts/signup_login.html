@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="UTF-8" />
+		<title>JWT 테스트 페이지</title>
+		<style>
+			body {
+				margin: 0;
+				font-family: Arial, sans-serif;
+			}
+			.pane {
+				width: 100%;
+				padding: 20px;
+				box-sizing: border-box;
+			}
+			h2 {
+				margin: 10px 0;
+			}
+			button {
+				margin: 5px 0;
+			}
+			input {
+				display: block;
+				margin: 5px 0;
+				padding: 8px;
+				width: 100%;
+				box-sizing: border-box;
+			}
+		</style>
+		<script>
+			const API = "http://localhost:8000";
+
+			function rand(len) {
+				return Math.random().toString(36).substr(2, len);
+			}
+
+			// 랜덤 채우기
+			function fillSignup() {
+				document.getElementById("su_name").value = rand(6);
+				document.getElementById("su_nickname").value = rand(6);
+				document.getElementById("su_email").value = rand(5) + "@test.com";
+				document.getElementById("su_pass").value = rand(8);
+				document.getElementById("su_phone").value = "010" + ("" + Math.floor(Math.random() * 1e8)).padStart(8, "0");
+				document.getElementById("su_plate").value = "12가" + ("" + Math.floor(Math.random() * 1e4)).padStart(4, "0");
+			}
+
+			async function onSignup(e) {
+				e.preventDefault();
+				const data = {
+					name: su_name.value,
+					nickname: su_nickname.value,
+					email: su_email.value,
+					password: su_pass.value,
+					phone: su_phone.value,
+					plate_number: su_plate.value,
+				};
+				const result = await fetch(`${API}/api/signup/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(data),
+				});
+				const json = await result.json();
+				if (result.ok) {
+					alert("회원가입 성공! 이제 로그인해주세요.");
+				} else {
+					alert("실패: " + JSON.stringify(json));
+				}
+			}
+
+			function fillLogin() {
+				document.getElementById("li_email").value = rand(5) + "@test.com";
+				document.getElementById("li_pass").value = rand(8);
+			}
+
+			async function onLogin(e) {
+				e.preventDefault();
+				const email = document.getElementById("li_email").value;
+				const password = document.getElementById("li_pass").value;
+
+				const result = await fetch(`${API}/api/login/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email, password }),
+				});
+				const json = await result.json();
+
+				if (result.ok) {
+					localStorage.setItem("access_token", json.access);
+					localStorage.setItem("refresh_token", json.refresh);
+					// SPA 라우터 대신 단순 이동
+					window.location.href = "/static/accounts/push_setting.html";
+				} else {
+					alert("실패: " + JSON.stringify(json));
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div class="pane">
+			<h2>회원가입(Signup + JWT)</h2>
+			<button onclick="fillSignup()">랜덤 채우기</button>
+			<form onsubmit="onSignup(event)">
+				<input id="su_name" placeholder="Name" />
+				<input id="su_nickname" placeholder="Nickname" />
+				<input id="su_email" placeholder="Email" />
+				<input id="su_pass" type="password" placeholder="Password" />
+				<input id="su_phone" placeholder="Phone" />
+				<input id="su_plate" placeholder="Plate Number" />
+				<button type="submit">가입</button>
+			</form>
+
+			<h2>로그인(Login + JWT)</h2>
+			<button onclick="fillLogin()">랜덤 채우기</button>
+			<form onsubmit="onLogin(event)">
+				<!-- id를 li_email / li_pass 로 통일 -->
+				<input id="li_email" placeholder="Email" />
+				<input id="li_pass" type="password" placeholder="Password" />
+				<button type="submit">로그인</button>
+			</form>
+		</div>
+	</body>
+</html>

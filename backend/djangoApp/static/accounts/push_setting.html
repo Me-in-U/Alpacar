@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="UTF-8" />
+		<title>푸시 알림 설정</title>
+		<script>
+			const API = "http://localhost:8000";
+			const token = localStorage.getItem("access_token");
+			console.log("[디버그] 토큰:", token);
+			if (!token) {
+				alert("로그인이 필요합니다.");
+				window.location.href = "/static/accounts/signup_login.html";
+			}
+
+			(async () => {
+				const res = await fetch(`${API}/api/push/setting/`, {
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: "Bearer " + token,
+					},
+				});
+				console.log("[디버그] 인증 검증 응답:", res.status);
+				if (res.status === 401 || res.status === 403) {
+					alert("인증이 필요합니다. 다시 로그인해주세요.");
+					window.location.href = "/static/accounts/signup_login.html";
+				} else {
+					loadSetting();
+				}
+			})();
+
+			async function readySW() {
+				try {
+					return await navigator.serviceWorker.register("/static/accounts/service-worker.js");
+				} catch (err) {
+					console.warn("[SW 등록 실패]", err);
+					return null;
+				}
+			}
+		</script>
+		<style>
+			/* 기존 스타일 */
+		</style>
+	</head>
+	<body>
+		<h2>OCR 푸시 알림 설정</h2>
+		<label>
+			푸시 받기
+			<div class="switch">
+				<input type="checkbox" id="push_on" />
+				<span class="slider"></span>
+			</div>
+		</label>
+
+		<script>
+			const HEAD = {
+				"Content-Type": "application/json",
+				Authorization: "Bearer " + token,
+			};
+			let vapidKey = null;
+
+			async function loadSetting() {
+				console.log("[디버그] loadSetting");
+				const res = await fetch(`${API}/api/push/setting/`, { method: "GET", headers: HEAD });
+				console.log("[디버그] loadSetting 상태:", res.status);
+				const j = await res.json();
+				console.log("[디버그] loadSetting 데이터:", j);
+				push_on.checked = j.push_on;
+				vapidKey = j.vapid_public_key;
+				console.log("[디버그] vapidKey:", vapidKey);
+			}
+
+			push_on.addEventListener("change", async (e) => {
+				const on = e.target.checked;
+				const reg = await readySW();
+				if (!reg) console.warn("[푸시] SW 준비 실패");
+				// VAPID 키가 없으면 구독 시도하지 않음
+				if (!vapidKey) {
+					console.error("[푸시] VAPID 키가 없습니다. 구독을 건너뜁니다.");
+					// ON/OFF만 서버에 저장하고 종료
+					await fetch(`${API}/api/push/setting/`, {
+						method: "POST",
+						headers: HEAD,
+						body: JSON.stringify({ push_on: on }),
+					});
+					return alert("푸시 키가 없어 설정만 저장되었습니다.");
+				}
+				const pm = reg?.pushManager;
+				let sub = pm ? await pm.getSubscription() : null;
+
+				try {
+					if (on) {
+						if (pm && !sub) {
+							sub = await pm.subscribe({
+								userVisibleOnly: true,
+								applicationServerKey: urlBase64ToUint8Array(vapidKey),
+							});
+						}
+						console.log("[푸시] SW 구독 완료");
+						await fetch(`${API}/api/push/subscribe/`, {
+							method: "POST",
+							headers: HEAD,
+							body: JSON.stringify(sub ? sub.toJSON() : {}),
+						});
+						console.log("[푸시] subscribe 완료");
+					} else {
+						if (sub) {
+							await sub.unsubscribe();
+							console.log("[푸시] SW 구독 해제");
+							await fetch(`${API}/api/push/unsubscribe/`, {
+								method: "POST",
+								headers: HEAD,
+								body: JSON.stringify({ endpoint: sub.endpoint }),
+							});
+							console.log("[푸시] unsubscribe 완료");
+						}
+					}
+
+					const res = await fetch(`${API}/api/push/setting/`, {
+						method: "POST",
+						headers: HEAD,
+						body: JSON.stringify({ push_on: on }),
+					});
+					console.log("[푸시] setting POST 상태:", res.status);
+					alert(`푸시 알림이 ${on ? "ON" : "OFF"} 처리되었습니다.`);
+				} catch (err) {
+					console.error("[푸시] 에러:", err);
+					alert("푸시 처리 중 오류 발생");
+				}
+			});
+
+			function urlBase64ToUint8Array(b64) {
+				const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+				const bin = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+				return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+			}
+		</script>
+	</body>
+</html>

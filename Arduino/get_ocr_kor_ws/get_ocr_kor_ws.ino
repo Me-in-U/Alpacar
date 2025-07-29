@@ -4,22 +4,39 @@
 #include <WebSocketsClient.h>  // Markus Sattler WebSockets
 #include <Wire.h>
 #include <U8g2lib.h>
+#include <Servo.h>             // 서보 모터
+#include <Adafruit_VL53L0X.h>  // VL53L0X 거리센서
 
 // === Wi‑Fi 설정 ===
 const char* SSID = "E102";
 const char* PASSWORD = "08080808";
 
 // === WebSocket 서버 정보 ===
-const char* WS_HOST = "192.168.8.183";
+const char* WS_HOST = "192.168.45.183";
 const uint16_t WS_PORT = 8000;
-const char* WS_PATH = "/ws_text/";  // 수정: 끝의 슬래시 제거
+const char* WS_PATH = "/ws/text/";
 
 // === OLED 설정 ===
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(
   U8G2_R0, U8X8_PIN_NONE, SCL, SDA);
 
+// === Servo 설정 ===
+Servo gateServo;
+const uint8_t SERVO_PIN = D5;  // 예: D5(GPIO14)
+const uint8_t SERVO_OPEN_POS = 90;
+const uint8_t SERVO_CLOSED_POS = 0;
+
+// === VL53L0X 설정 ===
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+const uint16_t TRIGGER_THRESHOLD_MM = 150;  // 5cm
+
 WebSocketsClient webSocket;
 bool wsConnected = false;
+
+// 차량 입차 상태 머신
+bool carEntering = false;           // “입차” 명령을 받았는가?
+bool carLeftZone = false;           // 차량이 센서 구역을 벗어났는가?
+unsigned long leaveDetectedAt = 0;  // 벗어난 시각(ms)
 
 // ——— Wi‑Fi 재연결 함수 ———
 void ensureWiFiConnected() {
@@ -97,7 +114,15 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
           u8g2.print(t.substring(16));
         }
         u8g2.sendBuffer();
-        delay(500);
+
+        // “입차”로 시작하면 문 열기
+        if (txt.startsWith("입차") && !carEntering) {
+          carEntering = true;
+          carLeftZone = false;
+          gateServo.write(SERVO_OPEN_POS);
+          displayStatus("Gate Open");
+          // leaveDetectedAt 는 아직 기록 안 함
+        }
         break;
       }
   }
@@ -122,6 +147,16 @@ void setup() {
   u8g2.begin();
   u8g2.enableUTF8Print();
   u8g2.setFont(u8g2_font_unifont_t_korean2);
+
+  // Servo
+  gateServo.attach(SERVO_PIN);
+  gateServo.write(SERVO_CLOSED_POS);
+
+  // VL53L0X
+  if (!lox.begin()) {
+    displayStatus("VL53 init fail");
+    while (1) delay(10);
+  }
 
   // 1) Wi‑Fi 자동 재연결 모드
   WiFi.mode(WIFI_STA);
@@ -161,4 +196,30 @@ void loop() {
     }
     ensureWiFiConnected();
   }
+  VL53L0X_RangingMeasurementData_t measure;
+  lox.rangingTest(&measure, false);
+  // 시리얼에 항상 출력해 줍니다.
+  if (measure.RangeStatus == 0) {
+    Serial.printf("거리: %4d mm\n", measure.RangeMilliMeter);
+  } else {
+    Serial.printf("거리측정 오류: 상태=%d\n", measure.RangeStatus);
+  }
+  // 2) 차량이 입차 중이고, 아직 벗어남 감지 전이면 거리 체크
+  if (carEntering && !carLeftZone) {
+    if (measure.RangeStatus == 0 && measure.RangeMilliMeter > TRIGGER_THRESHOLD_MM) {
+      // 구역 벗어남 감지
+      carLeftZone = true;
+      leaveDetectedAt = millis();
+    }
+  }
+  // 3) 벗어남 감지 후 2초 경과 시 문 닫기
+  if (carEntering && carLeftZone && millis() - leaveDetectedAt > 2000) {
+    gateServo.write(SERVO_CLOSED_POS);
+    displayStatus("Gate Close");
+    // 상태 초기화
+    carEntering = false;
+    carLeftZone = false;
+  }
+
+  delay(10);
 }

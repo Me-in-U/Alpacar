@@ -10,7 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from decouple import config  # pip install python-decouple
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,16 +24,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-kxf+#3en!ta!hk#!pu2@ke!96)4kw5ez-r)9rhl(u2*n4ctic!"
+SECRET_KEY = config("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+
+VAPID_PUBLIC_KEY = config("VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = config("VAPID_PRIVATE_KEY")
+VAPID_CLAIMS = {"sub": config("VAPID_CLAIM_SUB")}
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "192.168.8.183",
     "192.168.8.9",
+    "192.168.45.183",
+    "192.168.45.9",
 ]
 
 
@@ -66,7 +77,23 @@ LOGGING = {
     },
 }
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": config("DB_NAME", default="alpaca_car"),
+        "USER": config("DB_USER"),
+        "PASSWORD": config("DB_PASSWORD"),
+        "HOST": config("DB_HOST", default="localhost"),
+        "PORT": config("DB_PORT", default="3306"),
+    }
+}
 # Application definition
 
 INSTALLED_APPS = [
@@ -77,8 +104,70 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "channels",
-    "ocr_app",
+    # Custom 앱
+    "accounts",
+    "streamapp",
+    # allauth 기본
+    # "allauth",
+    # "allauth.account",
+    # "allauth.socialaccount",
+    # 소셜 프로바이더
+    # "allauth.socialaccount.providers.google",
+    # "allauth.socialaccount.providers.kakao",
+    # DRF + JWT
+    "rest_framework",
+    "rest_framework.authtoken",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    # dj-rest-MIDDLEWARE
+    # "dj_rest_auth",
+    # "dj_rest_auth.registration",
+    "corsheaders",
 ]
+# allauth
+SITE_ID = 1
+REST_USE_JWT = True
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_EMAIL_REQUIRED = True
+AUTH_USER_MODEL = "accounts.Member"
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": "<GOOGLE_CLIENT_ID>",
+            "secret": "<GOOGLE_CLIENT_SECRET>",
+            "key": "",
+        }
+    },
+    "kakao": {
+        "APP": {
+            "client_id": "<KAKAO_CLIENT_ID>",
+            "secret": "<KAKAO_CLIENT_SECRET>",
+            "key": "",
+        }
+    },
+}
+
+# dj‑rest‑auth 소셜 설정
+REST_USE_JWT = True
+JWT_AUTH_COOKIE = None  # 쿠키가 아닌 헤더로
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -88,6 +177,13 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # ── allauth용 미들웨어 ──
+    # "allauth.account.middleware.AccountMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:8000",
 ]
 
 ROOT_URLCONF = "djangoApp.urls"
@@ -118,13 +214,6 @@ CHANNEL_LAYERS = {
 }
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
 
 
 # Password validation
@@ -162,7 +251,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
