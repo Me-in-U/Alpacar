@@ -133,7 +133,7 @@ INSTALLED_APPS = [
 SITE_ID = 1
 REST_USE_JWT = True
 # 커스텀 유저 모델 지정
-AUTH_USER_MODEL = "accounts.Member"
+AUTH_USER_MODEL = "accounts.User"
 # Allauth에 username 필드가 없다고 알려주기
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_USERNAME_REQUIRED = False

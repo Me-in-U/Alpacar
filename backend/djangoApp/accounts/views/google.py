@@ -9,12 +9,12 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from decouple import config
 
-from accounts.models import Member
+from accounts.models import User
 from allauth.socialaccount.models import SocialAccount
 
 # ── 환경／상수 ───────────────────────────────────────────────────────────
 BASE_URL = "http://localhost:8000"
-CALLBACK_PATH = "/api/social/google/callback/"
+CALLBACK_PATH = "/api/auth/social/google/callback/"
 CALLBACK_URI = BASE_URL + CALLBACK_PATH
 GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
@@ -85,13 +85,13 @@ def google_callback(request):
     # 트랜잭션 안에서 조회 & 생성 안전하게 처리
     with transaction.atomic():
         try:
-            user = Member.objects.get(email=email)
-        except Member.DoesNotExist:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
             # 닉네임 중복 확인
-            while Member.objects.filter(nickname=nickname).exists():
+            while User.objects.filter(nickname=nickname).exists():
                 suffix += 1
                 nickname = f"{base_nickname}_{suffix}"
-            user = Member(
+            user = User(
                 email=email,
                 name=email_local,
                 nickname=nickname,

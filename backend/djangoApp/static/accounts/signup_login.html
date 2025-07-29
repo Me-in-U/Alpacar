@@ -33,12 +33,12 @@
 			<h2>회원가입(Signup + JWT)</h2>
 			<button onclick="fillSignup()">랜덤 채우기</button>
 			<form onsubmit="onSignup(event)">
-				<input id="su_name" placeholder="Name" />
-				<input id="su_nickname" placeholder="Nickname" />
-				<input id="su_email" placeholder="Email" />
-				<input id="su_pass" type="password" placeholder="Password" />
-				<input id="su_phone" placeholder="Phone" />
-				<input id="su_plate" placeholder="Plate Number" />
+				<input id="su_name" placeholder="이름 (full_name)" />
+				<input id="su_email" placeholder="이메일" />
+				<input id="su_pass" type="password" placeholder="비밀번호" />
+				<input id="su_pass2" type="password" placeholder="비밀번호 확인" />
+				<input id="su_phone" placeholder="전화번호" />
+				<input id="su_nickname" placeholder="닉네임" />
 				<button type="submit">가입</button>
 			</form>
 
@@ -78,14 +78,14 @@
 		async function onSignup(e) {
 			e.preventDefault();
 			const data = {
-				name: su_name.value,
-				nickname: su_nickname.value,
+				full_name: su_name.value,
 				email: su_email.value,
 				password: su_pass.value,
+				password2: su_pass2.value,
 				phone: su_phone.value,
-				plate_number: su_plate.value,
+				nickname: su_nickname.value,
 			};
-			const result = await fetch(`${API}/api/signup/`, {
+			const result = await fetch(`${API}/api/auth/signup/`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(data),
@@ -108,7 +108,7 @@
 			const email = document.getElementById("li_email").value;
 			const password = document.getElementById("li_pass").value;
 
-			const result = await fetch(`${API}/api/login/`, {
+			const result = await fetch(`${API}/api/auth/login/`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email, password }),
@@ -125,11 +125,11 @@
 			}
 		}
 		document.getElementById("btn_google_login").addEventListener("click", () => {
-			window.location.href = `${API}/api/social/google/login/`;
+			window.location.href = `${API}/api/auth/social/google/login/`;
 		});
 
 		document.getElementById("btn_kakao_login").addEventListener("click", async () => {
-			const res = await fetch(`${API}/api/social/kakao/login_url/`);
+			const res = await fetch(`${API}/api/auth/social/kakao/login_url/`);
 			const { url } = await res.json();
 			window.location.href = url;
 		});

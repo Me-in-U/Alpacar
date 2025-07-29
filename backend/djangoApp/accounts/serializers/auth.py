@@ -4,32 +4,32 @@ from django.contrib.auth import authenticate
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from ..models import Member
+from ..models import User
 
 
 class SignupSerializer(serializers.ModelSerializer):
-    """
-    DRF 회원가입 Serializer:
-     - password: write_only 으로 받고
-     - create() 에서 create_user() 호출
-    """
-
-    password = serializers.CharField(write_only=True)
+    full_name = serializers.CharField(label="이름")
+    password = serializers.CharField(write_only=True, label="비밀번호")
+    password2 = serializers.CharField(write_only=True, label="비밀번호 확인")
+    email = serializers.EmailField(label="이메일")
+    nickname = serializers.CharField(label="닉네임")
+    phone = serializers.CharField(label="전화번호")
 
     class Meta:
-        model = Member
-        fields = [
-            "name",  # 실명
-            "nickname",  # 별명
-            "email",  # 로그인 이메일
-            "password",  # 비밀번호 (write_only)
-            "phone",  # 연락처
-            "plate_number",  # 차량 번호판
-        ]
+        model = User
+        fields = ["full_name", "email", "nickname", "phone", "password", "password2"]
+
+    def validate(self, data):
+        if data["password"] != data["password2"]:
+            raise serializers.ValidationError(
+                {"password2": "비밀번호가 일치하지 않습니다."}
+            )
+        return data
 
     def create(self, validated_data):
-        # create_user() 내부에서 set_password() 가 호출됩니다.
-        return Member.objects.create_user(**validated_data)
+        # password2는 create_user에 필요 없으므로 제거
+        validated_data.pop("password2")
+        return User.objects.create_user(**validated_data)
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -45,7 +45,6 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         return super().get_token(user)
 
     def validate(self, attrs):
-        # attrs: {"email": "...", "password": "..."}
         email = attrs.get("email")
         password = attrs.get("password")
         user = authenticate(

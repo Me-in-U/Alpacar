@@ -13,7 +13,7 @@ class UserProfileAPI(APIView):
 
     def get(self, request):
         """
-        GET /api/user/profile/
+        GET /api/users/me/
         → 현재 로그인한 사용자의 프로필과 VAPID public key 반환
         """
         user = request.user
@@ -26,8 +26,8 @@ class UserProfileAPI(APIView):
 
     def put(self, request):
         """
-        PUT /api/user/profile/
-        → name, nickname, phone, plate_number 수정
+        PUT /api/users/me/
+        → full_name, nickname, phone, plate_number 수정
         """
         user = request.user
         serializer = ProfileSerializer(user, data=request.data, partial=True)
