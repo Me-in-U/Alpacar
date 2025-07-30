@@ -37,7 +37,7 @@ urlpatterns = [
     # 계정 관리 앱 URL (회원가입, 로그인, 푸시 설정 등)
     path("", include("accounts.urls")),
     # 차량 관리 앱 URL
-    path("vehicles/", include("vehicles.urls")),
+    path("", include("vehicles.urls")),
     # allauth 콜백
     path("accounts/", include("allauth.urls")),
     # dj‑rest‑auth

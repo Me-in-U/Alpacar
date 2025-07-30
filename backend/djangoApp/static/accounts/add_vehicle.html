@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="UTF-8" />
+		<title>내 차 추가</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				margin: 20px;
+			}
+			label {
+				display: block;
+				margin: 10px 0 5px;
+			}
+			select,
+			input[type="text"],
+			button {
+				padding: 8px;
+				font-size: 14px;
+				width: 300px;
+			}
+			.section {
+				margin-bottom: 20px;
+			}
+			.radio-group label {
+				display: inline-block;
+				margin-right: 15px;
+			}
+			#vehicle-image {
+				display: block;
+				margin-top: 10px;
+				max-width: 300px;
+				height: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<h2>내 차 추가하기</h2>
+
+		<!-- 1. 브랜드 → 모델 → 이미지 -->
+		<div class="section">
+			<label for="brand-select">제조사 선택</label>
+			<select id="brand-select">
+				<option value="">-- 제조사 선택 --</option>
+			</select>
+
+			<label for="model-select">모델 선택</label>
+			<select id="model-select" disabled>
+				<option value="">-- 모델 선택 --</option>
+			</select>
+
+			<img id="vehicle-image" src="" alt="차량 이미지" />
+		</div>
+
+		<!-- 2. 주차 실력 선택 -->
+		<div class="section radio-group">
+			<label>주차 실력을 알려주세요.</label>
+			<label><input type="radio" name="skill" value="80" /> 상급자</label>
+			<label><input type="radio" name="skill" value="60" /> 중급자</label>
+			<label><input type="radio" name="skill" value="30" /> 초급자</label>
+		</div>
+
+		<!-- 3. 번호판 입력 -->
+		<div class="section">
+			<label for="license-input">차량 번호를 입력해주세요.</label>
+			<input type="text" id="license-input" placeholder="예: 12가3456" />
+		</div>
+
+		<!-- 4. 설정 완료 버튼 -->
+		<button id="submit-btn">설정 완료</button>
+
+		<script>
+			const API = "http://localhost:8000";
+			const token = localStorage.getItem("access_token");
+			if (!token) {
+				alert("로그인이 필요합니다.");
+				location.href = "/static/accounts/signup_login.html";
+			}
+			const HEAD = {
+				"Content-Type": "application/json",
+				Authorization: "Bearer " + token,
+			};
+
+			let allModels = [];
+
+			// 1) VehicleModel 목록 불러오기
+			async function loadModels() {
+				const res = await fetch(`${API}/api/vehicle-models/`, { headers: HEAD });
+				const json = await res.json();
+				allModels = json; // [{id, brand, model_name, image_url}, ...]
+				const brands = [...new Set(allModels.map((m) => m.brand))];
+				const brandSelect = document.getElementById("brand-select");
+				brands.forEach((b) => {
+					const opt = document.createElement("option");
+					opt.value = b;
+					opt.textContent = b;
+					brandSelect.appendChild(opt);
+				});
+			}
+			loadModels();
+
+			// 2) 브랜드 선택 시 모델 필터링
+			document.getElementById("brand-select").addEventListener("change", (e) => {
+				const brand = e.target.value;
+				const modelSelect = document.getElementById("model-select");
+				modelSelect.innerHTML = `<option value="">-- 모델 선택 --</option>`;
+				if (!brand) {
+					modelSelect.disabled = true;
+					document.getElementById("vehicle-image").src = "";
+					return;
+				}
+				const filtered = allModels.filter((m) => m.brand === brand);
+				filtered.forEach((m) => {
+					const opt = document.createElement("option");
+					opt.value = m.id;
+					opt.textContent = m.model_name;
+					modelSelect.appendChild(opt);
+				});
+				modelSelect.disabled = false;
+			});
+
+			// 3) 모델 선택 시 이미지 업데이트
+			document.getElementById("model-select").addEventListener("change", (e) => {
+				const modelId = parseInt(e.target.value);
+				const vehicle = allModels.find((m) => m.id === modelId);
+				document.getElementById("vehicle-image").src = vehicle ? vehicle.image_url : "";
+			});
+
+			// 4) 설정 완료
+			document.getElementById("submit-btn").addEventListener("click", async () => {
+				const modelId = document.getElementById("model-select").value;
+				const license = document.getElementById("license-input").value.trim();
+				const skill = document.querySelector('input[name="skill"]:checked')?.value;
+
+				if (!modelId || !license || !skill) {
+					return alert("모든 항목을 입력해주세요.");
+				}
+
+				// 4-1) 차량 등록
+				const vehicleRes = await fetch(`${API}/api/vehicles/`, {
+					method: "POST",
+					headers: HEAD,
+					body: JSON.stringify({
+						model: parseInt(modelId),
+						license_plate: license,
+					}),
+				});
+				if (!vehicleRes.ok) {
+					return alert("차량 등록에 실패했습니다.");
+				}
+
+				const userRes = await fetch(`${API}/api/users/me/`, {
+					method: "PUT",
+					headers: HEAD,
+					body: JSON.stringify({ score: parseInt(skill) }),
+				});
+				if (userRes.ok) {
+					alert("프로필이 저장되었습니다.");
+				} else {
+					alert("프로필 저장에 실패했습니다.");
+				}
+
+				alert("차량이 추가되고 점수가 저장되었습니다!");
+				// 완료 후 프로필 페이지로 이동
+				location.href = "/static/accounts/push_setting.html";
+			});
+		</script>
+	</body>
+</html>

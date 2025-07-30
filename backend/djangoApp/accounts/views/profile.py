@@ -27,7 +27,7 @@ class UserProfileAPI(APIView):
     def put(self, request):
         """
         PUT /api/users/me/
-        → full_name, nickname, phone, plate_number 수정
+        수정
         """
         user = request.user
         serializer = ProfileSerializer(user, data=request.data, partial=True)
