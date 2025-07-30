@@ -77,7 +77,7 @@ export default defineComponent({
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('../assets/background-banner.png');
+  background-image: url('@/assets/background-banner.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -100,7 +100,7 @@ export default defineComponent({
 .logo-image {
   width: 100%;
   height: 100%;
-  background-image: url('../assets/alpaca-logo.png');
+  background-image: url('@/assets/alpaca-logo.png');
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
