@@ -1,58 +1,78 @@
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
+from rest_framework import generics, permissions
 from vehicles.models import Vehicle, VehicleModel
 from vehicles.serializers.vehicles import (
     VehicleCreateSerializer,
     VehicleModelSerializer,
     VehicleSerializer,
 )
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 
 
 class VehicleModelListAPIView(generics.ListAPIView):
+    """
+    GET  /api/vehicle-models/
+      → 제조사·모델명·이미지 목록 조회
+    """
+
     queryset = VehicleModel.objects.all().order_by("brand", "model_name")
     serializer_class = VehicleModelSerializer
     permission_classes = [permissions.IsAuthenticated]
 
 
-class VehicleCreateAPIView(generics.CreateAPIView):
-    queryset = Vehicle.objects.all()
-    serializer_class = VehicleCreateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class VehicleListCreateAPIView(generics.ListCreateAPIView):
+    """
+    GET  /api/vehicles/   → 내 차량 목록 조회
+    POST /api/vehicles/   → 차량 생성
+    """
 
-
-class VehicleListAPIView(generics.ListAPIView):
-    serializer_class = VehicleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Vehicle.objects.filter(user=self.request.user)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return VehicleCreateSerializer
+        return VehicleSerializer
+
+    def perform_create(self, serializer):
+        serializer.save()
 
 
 class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/vehicles/{pk}/   → 단일 차량 조회
-    PUT    /api/vehicles/{pk}/   → 전체 업데이트
-    PATCH  /api/vehicles/{pk}/   → 부분 업데이트
+    PUT    /api/vehicles/{pk}/   → 전체 수정 (model, license_plate)
+    PATCH  /api/vehicles/{pk}/   → 부분 수정
     DELETE /api/vehicles/{pk}/   → 차량 삭제
     """
 
-    serializer_class = VehicleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # 본인 소유 차량만
         return Vehicle.objects.filter(user=self.request.user)
 
     def get_serializer_class(self):
-        # 수정(create) 시에는 model, license_plate 필드만 받기 위해 CreateSerializer 사용
         if self.request.method in ["PUT", "PATCH"]:
             return VehicleCreateSerializer
         return VehicleSerializer
 
-    def perform_update(self, serializer):
-        # partial 업데이트 지원
-        serializer.save()
 
-    def destroy(self, request, *args, **kwargs):
-        # DeleteAPIView의 destroy를 호출
-        return super().destroy(request, *args, **kwargs)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def check_license(request):
+    """
+    GET /api/vehicles/check-license/?license=12가3456
+    → { "exists": true } or { "exists": false }
+    """
+    license_plate = request.query_params.get("license")
+    if not license_plate:
+        return Response(
+            {"detail": "license 파라미터가 필요합니다."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    exists = Vehicle.objects.filter(license_plate=license_plate).exists()
+    return Response({"exists": exists})

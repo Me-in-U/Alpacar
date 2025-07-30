@@ -12,6 +12,7 @@ from ..models import PushSubscription
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def push_setting(request):
+    print("[DEBUG] push_setting called with body:", request.data)
     user = request.user
     if request.method == "GET":
         return Response(
@@ -30,6 +31,7 @@ def push_setting(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def subscribe_push(request):
+    print("[DEBUG] subscribe_push called with body:", request.data)
     data = request.data
     PushSubscription.objects.update_or_create(
         user=request.user,
@@ -42,6 +44,7 @@ def subscribe_push(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def unsubscribe_push(request):
+    print("[DEBUG] unsubscribe_push called with body:", request.data)
     endpoint = request.data.get("endpoint")
     PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
     return Response(status=status.HTTP_204_NO_CONTENT)

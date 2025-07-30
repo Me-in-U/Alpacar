@@ -93,10 +93,9 @@ def google_callback(request):
                 nickname = f"{base_nickname}_{suffix}"
             user = User(
                 email=email,
-                name=email_local,
+                full_name=email_local,
                 nickname=nickname,
                 phone="",
-                plate_number="",
             )
             user.set_unusable_password()
             user.save()

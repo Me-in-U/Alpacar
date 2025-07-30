@@ -69,7 +69,12 @@
 		</div>
 	</body>
 	<script>
-		const API = "http://localhost:8000";
+		// const HOST = window.location.hostname; // 예: "192.168.45.183"
+		// const PORT = "8000";
+		// const API = `http://${HOST}:${PORT}`;
+
+		// 배포 혹은 ngrok 사용 시
+		const API = window.location.origin;
 
 		// 상태 변수
 		let emailChecked = false;
