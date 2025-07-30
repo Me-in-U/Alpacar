@@ -31,9 +31,9 @@ plate_pattern = re.compile(
 @database_sync_to_async
 def get_member_qs(plate):
     # plate_number 기준으로 Member queryset 조회
-    from accounts.models import Member
+    from accounts.models import User
 
-    qs = Member.objects.filter(plate_number=plate)
+    qs = User.objects.filter(plate_number=plate)
     return list(qs), qs.exists()
 
 
