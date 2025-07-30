@@ -10,6 +10,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
 from pywebpush import WebPushException, webpush
 
+
 # ─── 전역 상태 ───────────────────────────────────────────────────────────
 LATEST_TEXT = "번호판 인식 대기중"
 
@@ -29,29 +30,35 @@ plate_pattern = re.compile(
 
 # ─── DB 접근 비동기 래퍼 ─────────────────────────────────────────────────
 @database_sync_to_async
-def get_member_qs(plate):
-    # plate_number 기준으로 Member queryset 조회
-    from accounts.models import User
+def lookup_vehicle_owner(plate):
+    """
+    Vehicle 테이블에서 license_plate=plate 인 차량을 찾고,
+    소유자인 User 객체와 존재 여부를 반환
+    """
+    from vehicles.models import Vehicle
 
-    qs = User.objects.filter(plate_number=plate)
-    return list(qs), qs.exists()
+    try:
+        vehicle = Vehicle.objects.select_related("user").get(license_plate=plate)
+        return vehicle.user, True
+    except Vehicle.DoesNotExist:
+        return None, False
 
 
 @database_sync_to_async
-def get_push_subs(qs):
-    # members 리스트 중 push_enabled=True인 사용자만 필터
+def get_push_subscriptions(user):
+    """
+    user.push_enabled=True 인 경우에만 구독 목록을 반환
+    """
     from accounts.models import PushSubscription
 
-    users = [m for m in qs if m.push_enabled]
-    return list(PushSubscription.objects.filter(user__in=users))
+    if not user.push_enabled:
+        return []
+    return list(PushSubscription.objects.filter(user=user))
 
 
 # ─── 푸시 발송 함수 ─────────────────────────────────────────────────────
 def send_push(subscription, title, body):
     payload = json.dumps({"title": title, "body": body})
-    print(
-        f"[DEBUG][send_push] to={subscription.user_id} endpoint={subscription.endpoint}"
-    )
     try:
         webpush(
             subscription_info={
@@ -62,7 +69,6 @@ def send_push(subscription, title, body):
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims=settings.VAPID_CLAIMS,
         )
-        print(f"[DEBUG][send_push] SUCCESS for {subscription.user_id}")
     except WebPushException as ex:
         print(f"[PUSH ERROR] {ex}", file=sys.stderr)
 
@@ -117,10 +123,8 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
             )
             return
 
-        # DB 조회: 멤버 리스트 & 존재 여부
-        member_list, exists = await get_member_qs(LATEST_TEXT)
-        print(f"[SERVER][PiUploadConsumer] exists={exists}, count={len(member_list)}")
-
+        # DB 조회: 차량→소유자
+        user, exists = await lookup_vehicle_owner(LATEST_TEXT)
         # 화면 갱신 및 푸시 발송
         if exists:
             # 화면에 '입차:번호판' 전송
@@ -128,18 +132,13 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
                 "stream",
                 {"type": "new_frame", "frame": b64_img, "text": f"입차:{LATEST_TEXT}"},
             )
-            # 구독자 조회
-            subs = await get_push_subs(
-                member_list
-            )  # 이제 subs는 list[PushSubscription]
-            print(f"[DEBUG][receive] subs_count={len(subs)}")
-            # 첫 구독자에게만 푸시 발송
+            # 푸시 구독 조회 & 발송
+            subs = await get_push_subscriptions(user)
             if subs:
-                print(f"[DEBUG][receive] send_push 호출 -> user_id={subs[0].user_id}")
                 send_push(
                     subs[0],
                     title="차량 번호판 감지",
-                    body=f"`{LATEST_TEXT}` 차량이 감지되었습니다.",
+                    body=f"`{LATEST_TEXT}` 차량이 입차되었습니다.",
                 )
         else:
             # 등록되지 않은 차량 알림

@@ -64,6 +64,29 @@
 				margin-top: 30px;
 				clear: both;
 			}
+			/* 차량 카드 스타일 업데이트 */
+			.vehicle-card {
+				display: flex;
+				align-items: center;
+				border: 1px solid #ddd; /* 연한 테두리 */
+				border-radius: 8px; /* 모서리 둥글게 */
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 가벼운 그림자 */
+				padding: 12px;
+				margin-top: 15px;
+				background: #fff;
+			}
+			.vehicle-card img {
+				width: 80px; /* 이미지 크기 축소 */
+				height: auto;
+				margin: 0 15px;
+				border-radius: 4px;
+			}
+			.vehicle-info {
+				flex-grow: 1;
+			}
+			.vehicle-actions button {
+				margin-right: 5px;
+			}
 		</style>
 	</head>
 	<body>
@@ -103,8 +126,27 @@
 		<div id="vehicle-list"></div>
 
 		<script>
-			const API = "http://localhost:8000";
+			// const HOST = window.location.hostname; // 예: "192.168.45.183"
+			// const PORT = "8000";
+			// const API = `http://${HOST}:${PORT}`;
+
+			// 배포 혹은 ngrok 사용 시
+			const API = window.location.origin;
+
 			const LOGIN_PAGE = "/static/accounts/signup_login.html";
+
+			let swRegistration; // 전역에 보관
+
+			// ① 페이지 로드 직후 서비스 워커 등록
+			if ("serviceWorker" in navigator) {
+				navigator.serviceWorker
+					.register("/static/service-worker.js")
+					.then((reg) => {
+						console.log("SW registered with scope:", reg.scope);
+						swRegistration = reg;
+					})
+					.catch((err) => console.error("SW registration failed:", err));
+			}
 
 			// element refs
 			const logoutBtn = document.getElementById("logout");
@@ -174,41 +216,72 @@
 			// 푸시 토글
 			pushToggle.addEventListener("change", async (e) => {
 				const on = e.target.checked;
-				// 서비스워커 등록
-				let reg = null;
+				// SW가 설치·활성화될 때까지 대기
+				const reg = await navigator.serviceWorker.ready;
+
+				// 0) 알림 권한 확인
+				if (Notification.permission === "default") {
+					const perm = await Notification.requestPermission();
+					if (perm !== "granted") {
+						alert("푸시 알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.");
+						pushToggle.checked = false;
+						return;
+					}
+				}
+				if (Notification.permission === "denied") {
+					alert("푸시 알림 권한이 거부된 상태입니다. 브라우저 설정에서 권한을 허용해주세요.");
+					pushToggle.checked = false;
+					return;
+				}
+				// 1) 구독/구독해제 API 호출
 				try {
-					reg = await navigator.serviceWorker.register("/static/accounts/service-worker.js");
-				} catch {}
-				if (reg) {
 					if (on) {
 						const sub = await reg.pushManager.subscribe({
 							userVisibleOnly: true,
 							applicationServerKey: urlBase64ToUint8Array(vapid_public_key),
 						});
-						await fetch(`${API}/api/push/subscribe/`, {
+						const res = await fetch(`${API}/api/push/subscribe/`, {
 							method: "POST",
 							headers: HEAD,
 							body: JSON.stringify(sub.toJSON()),
 						});
+						if (!res.ok) throw new Error("subscribe API failed");
 					} else {
 						const sub = await reg.pushManager.getSubscription();
 						if (sub) {
 							await sub.unsubscribe();
-							await fetch(`${API}/api/push/unsubscribe/`, {
+							const res = await fetch(`${API}/api/push/unsubscribe/`, {
 								method: "POST",
 								headers: HEAD,
 								body: JSON.stringify({ endpoint: sub.endpoint }),
 							});
+							if (!res.ok) throw new Error("unsubscribe API failed");
 						}
 					}
+				} catch (err) {
+					console.error(err);
+					printf("[DEBUG] Push toggle error:", err);
+					alert(on ? err : "구독 해제에 실패했습니다.");
+					// UI 롤백
+					pushToggle.checked = !on;
+					return;
 				}
-				// 서버 설정 저장
-				await fetch(`${API}/api/push/setting/`, {
-					method: "POST",
-					headers: HEAD,
-					body: JSON.stringify({ push_on: on }),
-				});
-				alert(`푸시 알림이 ${on ? "활성화" : "비활성화"} 되었습니다.`);
+
+				// ─ 서버 설정 저장 ─
+				try {
+					const res = await fetch(`${API}/api/push/setting/`, {
+						method: "POST",
+						headers: HEAD,
+						body: JSON.stringify({ push_on: on }),
+					});
+					if (!res.ok) throw new Error(`setting API failed: ${res.status}`);
+					alert(`푸시 알림이 ${on ? "활성화" : "비활성화"} 되었습니다.`);
+				} catch (err) {
+					console.error("▶ setting error:", err);
+					alert("푸시 설정 저장에 실패했습니다.");
+					// UI 롤백
+					pushToggle.checked = !on;
+				}
 			});
 
 			// VAPID 키 디코드 헬퍼

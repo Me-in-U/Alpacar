@@ -1,1 +1,5 @@
-from .vehicles import VehicleCreateAPIView, VehicleModelListAPIView
+from .vehicles import (
+    VehicleDetailAPIView,
+    VehicleListCreateAPIView,
+    VehicleModelListAPIView,
+)

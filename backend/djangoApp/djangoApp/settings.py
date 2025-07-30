@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
-
+import ipaddress
 from decouple import config  # pip install python-decouple
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -34,15 +34,17 @@ VAPID_PUBLIC_KEY = config("VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = config("VAPID_PRIVATE_KEY")
 VAPID_CLAIMS = {"sub": config("VAPID_CLAIM_SUB")}
 
+# localhost 및 루프백 포함
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "192.168.8.183",
-    "192.168.8.9",
-    "192.168.45.183",
-    "192.168.45.9",
+    ".ngrok-free.app",
 ]
 
+# 192.168.0.0/16 대역을 모두 추가
+network = ipaddress.ip_network("192.168.0.0/16")
+# hosts() 대신 network itself를 허용하면 네트워크 주소도 함께 허용합니다.
+ALLOWED_HOSTS += [str(ip) for ip in network.hosts()]
 
 LOGGING = {
     "version": 1,
