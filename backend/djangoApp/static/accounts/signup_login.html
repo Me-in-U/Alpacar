@@ -339,7 +339,7 @@
 			if (!name || !email) return alert("이름과 이메일을 모두 입력해주세요.");
 
 			try {
-				const res = await fetch(`${API}/api/password-reset/request/`, {
+				const res = await fetch(`${API}/api/auth/password-reset/request/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ name, email }),
@@ -364,14 +364,22 @@
 			if (!code) return alert("인증번호를 입력해주세요.");
 
 			try {
-				// 우리는 verify 단계 없이 바로 비밀번호 변경 API로 검증하므로,
-				// 이 단계는 단순 UI 전환으로 처리합니다.
-				// 실제로 서버측 검증을 원하면 별도 엔드포인트 구현 필요합니다.
-				alert("인증번호 확인 완료.");
-				newpwSection.style.display = "block";
+				const res = await fetch(`${API}/api/auth/password-reset/verify/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email, code }),
+				});
+				const json = await res.json();
+				if (res.ok) {
+					alert(json.detail); // “인증번호 확인 완료”
+					newpwSection.style.display = "block";
+				} else {
+					// 인증 실패일 때 alert 띄우기
+					alert(json.detail || "인증번호가 일치하지 않습니다.");
+				}
 			} catch (e) {
 				console.error(e);
-				alert("인증 실패: 네트워크 오류");
+				alert("네트워크 오류로 인증에 실패했습니다.");
 			}
 		});
 
@@ -389,7 +397,7 @@
 			if (pw1 !== pw2) return alert("새 비밀번호가 일치하지 않습니다.");
 
 			try {
-				const res = await fetch(`${API}/api/password-reset/confirm/`, {
+				const res = await fetch(`${API}/api/auth/password-reset/confirm/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
