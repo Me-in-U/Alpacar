@@ -1,0 +1,24 @@
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: ./nginx
+    container_name: nginx_test
+    volumes:
+     - /etc/letsencrypt:/etc/letsencrypt:ro
+     - ~/i13e102.p.ssafy.io.conf:/etc/nginx/conf.d/i13e102.p.ssafy.io.conf
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend/alpacar-vue
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    restart: always
