@@ -1,27 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import SignupLogin from '../views/SignupLogin.vue'
-import Login from '../views/Login.vue'
-import Signup from '../views/Signup.vue'
-import ForgotPassword from '../views/ForgotPassword.vue'
-import SocialLoginInfo from '../views/SocialLoginInfo.vue'
+import EntryPage from '../views/user/EntryPage.vue'
+import Login from '../views/user/Login.vue'
+import Signup from '../views/user/Signup.vue'
+import ForgotPassword from '../views/user/ForgotPassword.vue'
+import SocialLoginInfo from '../views/user/SocialLoginInfo.vue'
+import MainPage from '../views/user/MainPage.vue'
 import AdminLogin from '@/views/admin/AdminLogin.vue'
 import AdminMain from '@/views/admin/AdminMain.vue'
 import AdminParkingLogs from '@/views/admin/AdminParkingLogs.vue'
 import AdminParkingReassign from '@/views/admin/AdminParkingReassign.vue'
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView
-    },
-    {
-      path: '/signup-login',
-      name: 'signup-login',
-      component: SignupLogin
+      name: 'entry-page',
+      component: EntryPage
     },
     {
       path: '/login',
@@ -43,7 +39,13 @@ const router = createRouter({
       name: 'social-login-info',
       component: SocialLoginInfo
     },
-     {
+    {
+      path: '/main',
+      name: 'main',
+      component: MainPage
+    },
+
+    {
       path: '/admin-login',
       name: 'admin-login',
       component: AdminLogin
@@ -63,7 +65,6 @@ const router = createRouter({
       name: 'admin-parkingreassign',
       component: AdminParkingReassign
     },
-
   ]
 })
 

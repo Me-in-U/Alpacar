@@ -135,7 +135,7 @@ export default defineComponent({
 .logo-image {
   width: 100%;
   height: 100%;
-  background-image: url('../assets/alpaca-logo.png');
+  background-image: url('@/assets/alpaca-logo.png');
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
@@ -231,7 +231,7 @@ export default defineComponent({
 .google-icon {
   width: 24px;
   height: 24px;
-  background-image: url('../assets/google-login.png');
+  background-image: url('@/assets/google-login.png');
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;

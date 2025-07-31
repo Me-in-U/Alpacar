@@ -16,10 +16,8 @@
               <p class="vehicle-description">내 차종에 맞는 주차 위치를 추천해드립니다.</p>
             </div>
             <div class="vehicle-image" @click="showModal = true">
-              <img src="../assets/addcar.png" alt="차량 이미지" class="car-image" />
-              <button class="add-vehicle-button" @click.stop="showModal = true">
-                <img src="../assets/addcar_plus_btn.png" alt="추가 버튼" class="plus-button-image" />
-              </button>
+              <img src="@/assets/addcar.png" alt="차량 이미지" class="car-image" />
+              <button class="add-vehicle-button" @click.stop="showModal = true" />
             </div>
           </div>
         </div>
@@ -28,7 +26,7 @@
       <!-- Parking Skill Section -->
       <div class="parking-skill-section">
         <h2 class="skill-title">주차실력을 알려주세요</h2>
-        <div class="skill-selection">
+        <div class="skill-selection ">
           <button 
             class="skill-button" 
             :class="{ selected: selectedSkill === 'advanced' }"
@@ -138,6 +136,7 @@ const completeSetup = () => {
   position: absolute;
   left: 26px;
   top: 32px;
+  margin-top: 60px;
 }
 
 .page-title {
@@ -182,7 +181,7 @@ const completeSetup = () => {
 
 .vehicle-title {
   color: #464038;
-  font-size: 27px;
+  font-size: 24px;
   font-family: 'Inter', sans-serif;
   font-weight: 600;
   line-height: 32px;
@@ -190,17 +189,14 @@ const completeSetup = () => {
 }
 
 .vehicle-description {
-  position: absolute;
-  left: 41px;
-  top: 127px;
-  width: 331px;
-  height: 33px;
+  width: 100%;
   color: #A0907F;
-  font-size: 15px;
+  font-size: 14px;
   font-family: 'Inter', sans-serif;
   font-weight: 100;
   line-height: 18px;
-  margin: 0;
+  margin: 8px 0 0 0;
+  white-space: nowrap;
 }
 
 .vehicle-image {
@@ -242,7 +238,9 @@ const completeSetup = () => {
 .parking-skill-section {
   position: absolute;
   left: 26px;
+  right: 26px;
   top: 349px;
+  width: calc(100% - 52px);
 }
 
 .skill-title {
@@ -251,15 +249,12 @@ const completeSetup = () => {
   font-family: 'Inter', sans-serif;
   font-weight: 600;
   line-height: 29px;
-  margin: 0 0 20px 0;
+  margin-bottom: 20px;
 }
 
 .skill-selection {
-  position: absolute;
-  width: 344px;
+  width: 100%;
   height: 150px;
-  left: 22px;
-  top: 50px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -422,17 +417,6 @@ const completeSetup = () => {
   box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
 }
 
-/* Home Indicator */
-.social-login-info-container::after {
-  content: '';
-  position: absolute;
-  width: 134px;
-  height: 5px;
-  left: 153px;
-  top: 938px;
-  background: rgba(51, 51, 51, 0.80);
-  border-radius: 2.50px;
-}
 
 /* Responsive Design */
 @media (max-width: 440px) {
@@ -445,9 +429,14 @@ const completeSetup = () => {
     width: 100%;
   }
   
+  .parking-skill-section {
+    left: 26px;
+    right: 26px;
+    width: calc(100% - 52px);
+  }
+  
   .skill-selection {
-    width: calc(100% - 44px);
-    left: 22px;
+    width: 100%;
   }
   
   .complete-button-container {
