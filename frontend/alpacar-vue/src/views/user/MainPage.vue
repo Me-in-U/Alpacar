@@ -74,15 +74,9 @@
                     <div class="grade-fill" style="width: 50%"></div>
                     <div class="grade-marker" style="left: 50%">
                       <div class="marker-icon">
-                        <img src="@/assets/초급자알파카_아바타.png" alt="Grade Icon" />
+                        <img src="@/assets/alpaka_in_car.png" alt="Alpaka in Car" />
                       </div>
                     </div>
-                  </div>
-                  <div class="grade-labels">
-                    <span class="grade-label">0</span>
-                    <span class="grade-label">50</span>
-                    <span class="grade-label">85</span>
-                    <span class="grade-label">100</span>
                   </div>
                 </div>
               </div>
@@ -429,7 +423,7 @@ const handleTouchEnd = () => {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 25px;
   height: calc(100% - 50px);
   justify-content: center;
 }
@@ -446,30 +440,35 @@ const handleTouchEnd = () => {
 .grade-display {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 15px;
 }
 
 .grade-bar {
   position: relative;
   width: 100%;
-  height: 40px;
-  background: #666666;
+  height: 60px;
+  background-image: url('@/assets/road.png');
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .grade-fill {
   height: 100%;
-  background: #4CAF50;
+  background: transparent;
   transition: width 0.3s ease;
 }
 
 .grade-marker {
   position: absolute;
-  top: -5px;
-  width: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
   height: 30px;
   transition: left 0.3s ease;
+  z-index: 2;
 }
 
 .marker-icon {
@@ -478,10 +477,11 @@ const handleTouchEnd = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .marker-icon img {
-  width: 25px;
+  width: 35px;
   height: 25px;
   object-fit: contain;
 }
@@ -489,7 +489,8 @@ const handleTouchEnd = () => {
 .grade-labels {
   display: flex;
   justify-content: space-between;
-  padding: 0 5px;
+  padding: 5px 5px 0 5px;
+  margin-top: 5px;
 }
 
 .grade-label {
