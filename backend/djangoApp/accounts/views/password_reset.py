@@ -4,6 +4,7 @@ import random
 import string
 
 from django.core.mail import send_mail
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,6 +13,7 @@ from accounts.models import User, VerificationCode
 from accounts.serializers.password_reset import (
     PasswordChangeSerializer,
     PasswordResetRequestSerializer,
+    VerificationCodeSerializer,
 )
 
 
@@ -44,6 +46,22 @@ class PasswordResetRequestAPIView(APIView):
             fail_silently=False,
         )  # send_mail로 메일 전송
         return Response({"detail": "인증번호를 이메일로 전송했습니다."})  # 응답 반환
+
+
+class PasswordResetVerifyAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """
+        POST { email, code } 로 인증번호만 검증
+        """
+        ser = VerificationCodeSerializer(data=request.data)
+        try:
+            ser.is_valid(raise_exception=True)
+        except serializers.ValidationError as e:
+            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        ser.is_valid(raise_exception=True)
+        return Response({"detail": "인증번호 확인 완료"}, status=status.HTTP_200_OK)
 
 
 class PasswordResetConfirmAPIView(APIView):

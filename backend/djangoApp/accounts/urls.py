@@ -17,6 +17,7 @@ from accounts.views.google import google_callback, google_login
 from accounts.views.password_reset import (
     PasswordResetConfirmAPIView,
     PasswordResetRequestAPIView,
+    PasswordResetVerifyAPIView,
 )
 from accounts.views.profile import UserProfileAPI
 from accounts.views.push import push_setting, subscribe_push, unsubscribe_push
@@ -51,15 +52,20 @@ urlpatterns = [
     ),  # GET: ?nickname=… → { exists: bool }
     # ─ 비밀번호 재설정 ─────────────────────────────────────────────────────
     path(
-        "api/password-reset/request/",
+        "api/auth/password-reset/request/",
         PasswordResetRequestAPIView.as_view(),
         name="password-reset-request",
     ),  # POST: 이름+이메일 검증 후 인증번호 발송
     path(
-        "api/password-reset/confirm/",
+        "api/auth/password-reset/verify/",
+        PasswordResetVerifyAPIView.as_view(),
+        name="password-reset-verify",
+    ),  # POST: {email, code} 인증번호만 검증
+    path(
+        "api/auth/password-reset/confirm/",
         PasswordResetConfirmAPIView.as_view(),
         name="password-reset-confirm",
-    ),  # POST: 인증번호 검증 후 비밀번호 변경
+    ),  # POST: {email, code, new_password, new_password2} 비밀번호 변경
     # ─ 내 프로필 조회·수정 ─────────────────────────────────────────────────
     path(
         "api/users/me/",
