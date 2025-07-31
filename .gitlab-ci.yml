@@ -6,6 +6,7 @@ deploy-to-ec2:
   tags:
     - test
   script:
-    - echo "✅ CI/CD 트리거 정상 작동"
+    - docker-compose down || true
     - docker-compose build | tee docker_build.log
-    - docker-compose up -d
+    - docker-compose up -d --force-recreate
+
