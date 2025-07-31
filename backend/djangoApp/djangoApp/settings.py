@@ -41,6 +41,15 @@ ALLOWED_HOSTS = [
     ".ngrok-free.app",
 ]
 
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.naver.com"  # 사용하시는 메일 서비스에 맞게
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config("SMTP_USER")  # 환경변수로 관리 추천
+EMAIL_HOST_PASSWORD = config("SMTP_PASS")
+DEFAULT_FROM_EMAIL = config("SMTP_DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
+
+
 # 192.168.0.0/16 대역을 모두 추가
 network = ipaddress.ip_network("192.168.0.0/16")
 # hosts() 대신 network itself를 허용하면 네트워크 주소도 함께 허용합니다.

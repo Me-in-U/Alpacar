@@ -1,3 +1,4 @@
+# vehicles\urls.py
 from django.urls import path
 
 from vehicles.views.vehicles import (
@@ -8,24 +9,28 @@ from vehicles.views.vehicles import (
 )
 
 urlpatterns = [
-    # 차량 모델 전체 목록
+    # 차량 모델 전체 목록 조회
     path(
         "api/vehicle-models/",
-        VehicleModelListAPIView.as_view(),
+        VehicleModelListAPIView.as_view(),  # GET: 전체 차량 모델 리스트 반환
         name="vehicle-model-list",
     ),
-    # 내 차량 목록 조회 & 차량 생성
+    # 내 차량 목록 조회 및 새 차량 등록
     path(
         "api/vehicles/",
-        VehicleListCreateAPIView.as_view(),
+        VehicleListCreateAPIView.as_view(),  # GET: 내 차량 리스트, POST: 차량 생성
         name="vehicle-list-create",
     ),
     # 단일 차량 조회/수정/삭제
     path(
         "api/vehicles/<int:pk>/",
-        VehicleDetailAPIView.as_view(),
+        VehicleDetailAPIView.as_view(),  # GET/PUT/PATCH/DELETE: 차량 상세 관리
         name="vehicle-detail",
     ),
-    # 차량 번호판 중복 확인
-    path("api/vehicles/check-license/", check_license, name="vehicle-check-license"),
+    # 차량 번호판 중복 확인 endpoint
+    path(
+        "api/vehicles/check-license/",
+        check_license,  # GET: ?license_plate=… → 중복 여부 반환
+        name="vehicle-check-license",
+    ),
 ]
