@@ -67,6 +67,35 @@
 			<!-- Kakao 로그인 -->
 			<button id="btn_kakao_login">Kakao로 로그인</button>
 		</div>
+
+		<h2>비밀번호 찾기</h2>
+		<form id="pw-reset-full-form">
+			<!-- 1) 사용자 확인용 이름 -->
+			<label>이름</label>
+			<input id="pr_name" placeholder="실명" />
+
+			<!-- 2) 인증번호 요청용 이메일 -->
+			<label>이메일</label>
+			<input id="pr_email" placeholder="이메일" />
+
+			<button type="button" id="btn_send_code">인증번호 발송</button>
+
+			<!-- 3) 인증번호 입력 & 확인 -->
+			<div id="code-section" style="display: none; margin-top: 10px">
+				<label>인증번호 입력</label>
+				<input id="pr_code" placeholder="6자리 인증번호" />
+				<button type="button" id="btn_verify_code">인증번호 확인</button>
+			</div>
+
+			<!-- 4) 새 비밀번호 입력 -->
+			<div id="newpw-section" style="display: none; margin-top: 10px">
+				<label>새 비밀번호</label>
+				<input id="pr_newpw1" type="password" placeholder="새 비밀번호" />
+				<label>새 비밀번호 확인</label>
+				<input id="pr_newpw2" type="password" placeholder="새 비밀번호 확인" />
+				<button type="submit" id="btn_change_pw">비밀번호 변경 완료</button>
+			</div>
+		</form>
 	</body>
 	<script>
 		// const HOST = window.location.hostname; // 예: "192.168.45.183"
@@ -287,6 +316,102 @@
 			const res = await fetch(`${API}/api/auth/social/kakao/login_url/`);
 			const { url } = await res.json();
 			window.location.href = url;
+		});
+
+		// 비밀번호 찾기 폼 요소 참조
+		const fullForm = document.getElementById("pw-reset-full-form");
+		const nameInput = document.getElementById("pr_name");
+		const emailInput = document.getElementById("pr_email");
+		const btnSendCode = document.getElementById("btn_send_code");
+
+		const codeSection = document.getElementById("code-section");
+		const codeInput = document.getElementById("pr_code");
+		const btnVerifyCode = document.getElementById("btn_verify_code");
+
+		const newpwSection = document.getElementById("newpw-section");
+		const newpw1 = document.getElementById("pr_newpw1");
+		const newpw2 = document.getElementById("pr_newpw2");
+
+		// 1) 인증번호 발송
+		btnSendCode.addEventListener("click", async () => {
+			const name = nameInput.value.trim();
+			const email = emailInput.value.trim();
+			if (!name || !email) return alert("이름과 이메일을 모두 입력해주세요.");
+
+			try {
+				const res = await fetch(`${API}/api/password-reset/request/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ name, email }),
+				});
+				const json = await res.json();
+				if (res.ok) {
+					alert("인증번호를 이메일로 전송했습니다.");
+					codeSection.style.display = "block";
+				} else {
+					alert("실패: " + (json.detail || JSON.stringify(json)));
+				}
+			} catch (e) {
+				console.error(e);
+				alert("네트워크 오류가 발생했습니다.");
+			}
+		});
+
+		// 2) 인증번호 확인
+		btnVerifyCode.addEventListener("click", async () => {
+			const email = emailInput.value.trim();
+			const code = codeInput.value.trim();
+			if (!code) return alert("인증번호를 입력해주세요.");
+
+			try {
+				// 우리는 verify 단계 없이 바로 비밀번호 변경 API로 검증하므로,
+				// 이 단계는 단순 UI 전환으로 처리합니다.
+				// 실제로 서버측 검증을 원하면 별도 엔드포인트 구현 필요합니다.
+				alert("인증번호 확인 완료.");
+				newpwSection.style.display = "block";
+			} catch (e) {
+				console.error(e);
+				alert("인증 실패: 네트워크 오류");
+			}
+		});
+
+		// 3) 최종 비밀번호 변경
+		fullForm.addEventListener("submit", async (e) => {
+			e.preventDefault();
+			const email = emailInput.value.trim();
+			const code = codeInput.value.trim();
+			const pw1 = newpw1.value;
+			const pw2 = newpw2.value;
+			const name = nameInput.value.trim();
+
+			if (!code) return alert("인증번호를 확인해주세요.");
+			if (!pw1 || !pw2) return alert("새 비밀번호를 모두 입력해주세요.");
+			if (pw1 !== pw2) return alert("새 비밀번호가 일치하지 않습니다.");
+
+			try {
+				const res = await fetch(`${API}/api/password-reset/confirm/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						email,
+						code,
+						new_password: pw1,
+						new_password2: pw2,
+					}),
+				});
+				const json = await res.json();
+				if (res.ok) {
+					alert("비밀번호가 성공적으로 변경되었습니다.");
+					fullForm.reset();
+					codeSection.style.display = "none";
+					newpwSection.style.display = "none";
+				} else {
+					alert("실패: " + (json.detail || JSON.stringify(json)));
+				}
+			} catch (e) {
+				console.error(e);
+				alert("네트워크 오류가 발생했습니다.");
+			}
 		});
 	</script>
 </html>
