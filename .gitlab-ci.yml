@@ -9,4 +9,5 @@ deploy-to-ec2:
     - docker-compose down || true
     - docker-compose build | tee docker_build.log
     - docker-compose up -d --force-recreate
-
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
