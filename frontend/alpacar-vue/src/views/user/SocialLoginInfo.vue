@@ -238,7 +238,9 @@ const completeSetup = () => {
 .parking-skill-section {
   position: absolute;
   left: 26px;
+  right: 26px;
   top: 349px;
+  width: calc(100% - 52px);
 }
 
 .skill-title {
@@ -247,13 +249,12 @@ const completeSetup = () => {
   font-family: 'Inter', sans-serif;
   font-weight: 600;
   line-height: 29px;
+  margin-bottom: 20px;
 }
 
 .skill-selection {
-  position: absolute;
-  width: 157%;
+  width: 100%;
   height: 150px;
-  top: 50px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -428,8 +429,14 @@ const completeSetup = () => {
     width: 100%;
   }
   
+  .parking-skill-section {
+    left: 26px;
+    right: 26px;
+    width: calc(100% - 52px);
+  }
+  
   .skill-selection {
-    width: calc(168%);
+    width: 100%;
   }
   
   .complete-button-container {
