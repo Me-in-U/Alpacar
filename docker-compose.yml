@@ -15,10 +15,10 @@ services:
       - frontend
     restart: always
 
-  frontend:
+  frontend-build:
     build:
       context: ./frontend/alpacar-vue
-    container_name: frontend
-    ports:
-      - "5173:5173"
-    restart: always
+      dockerfile: Dockerfile
+    image: frontend-build
+    # 별도 컨테이너로 띄우지 않고 빌드 용도로만 사용
+    entrypoint: ["true"]
