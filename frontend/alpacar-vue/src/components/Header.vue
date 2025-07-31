@@ -1,0 +1,273 @@
+<template>
+  <div class="header">
+    <div class="logo" @click="goToMain">
+      <img src="@/assets/home_logo.png" alt="Home Logo" class="logo-icon" />
+    </div>
+    <div class="notification" @click="showNotificationModal = true">
+      <img src="@/assets/notification-bell.png" alt="Notification" class="notification-bell" />
+    </div>
+  </div>
+
+  <!-- Notification Modal -->
+  <div v-if="showNotificationModal" class="modal-overlay" @click="showNotificationModal = false">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h2 class="modal-title">알림함</h2>
+        <div class="delete-all" @click="deleteAllNotifications">전체 삭제</div>
+      </div>
+      
+      <div class="notification-list">
+        <!-- 주차 완료 알림 -->
+        <div class="notification-item">
+          <div class="notification-content">
+            <h3 class="notification-title">주차 완료 알림</h3>
+            <p class="notification-text">주차 일시 : 2025-07-20 16:00</p>
+            <p class="notification-text">주차 공간 : A4</p>
+          </div>
+          <div class="delete-button" @click="deleteNotification(1)">삭제</div>
+        </div>
+
+        <!-- 등급 승급 알림 -->
+        <div class="notification-item">
+          <div class="notification-content">
+            <h3 class="notification-title">등급 승급 알림</h3>
+            <p class="notification-text">주차 등급이 초급자 에서 중급자 로 승급되었습니다</p>
+          </div>
+          <div class="delete-button" @click="deleteNotification(2)">삭제</div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="close-button" @click="showNotificationModal = false">
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const showNotificationModal = ref(false)
+
+const goToMain = () => {
+  router.push('/main')
+}
+
+const deleteNotification = (id: number) => {
+  console.log('알림 삭제:', id)
+  // 실제로는 API 호출로 알림을 삭제
+}
+
+const deleteAllNotifications = () => {
+  console.log('전체 알림 삭제')
+  // 실제로는 API 호출로 모든 알림을 삭제
+}
+</script>
+
+<style scoped>
+/* Header */
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: #776B5D;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 10;
+}
+
+.logo {
+  cursor: pointer;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.notification {
+  cursor: pointer;
+}
+
+.notification-bell {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 440px;
+  height: 500px;
+  background-color: #F3EEEA;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  border-bottom: 1px solid #E5E5E5;
+}
+
+.modal-title {
+  color: #000000;
+  font-size: 24px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+}
+
+.delete-all {
+  color: #000000;
+  font-size: 12px;
+  font-weight: 400;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.delete-all:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.notification-list {
+  flex: 1;
+  padding: 20px 30px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.notification-item {
+  background: #EBE3D5;
+  border: 1px solid #B3B3B3;
+  border-radius: 10px;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-title {
+  color: #000000;
+  font-size: 18px;
+  font-weight: 400;
+  font-family: 'Inter', sans-serif;
+  margin: 0 0 5px 0;
+  line-height: 1.2;
+}
+
+.notification-text {
+  color: #000000;
+  font-size: 18px;
+  font-weight: 400;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.delete-button {
+  color: #000000;
+  font-size: 12px;
+  font-weight: 400;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.delete-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.modal-footer {
+  padding: 20px 30px;
+  border-top: 1px solid #E5E5E5;
+  display: flex;
+  justify-content: center;
+}
+
+.close-button {
+  width: 280px;
+  height: 50px;
+  background-color: #776B5D;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.close-button:hover {
+  background-color: #665A4D;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 440px) {
+  .modal-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    margin-top: 20px; /* 상단 여유 공간 추가 */
+  }
+  
+  .modal-header {
+    padding: calc(20px + env(safe-area-inset-top)) 20px 20px 20px;
+    margin-top: 20px; /* 헤더 상단 여유 공간 추가 */
+  }
+  
+  .notification-list,
+  .modal-footer {
+    padding: 20px;
+  }
+}
+
+@media (min-width: 441px) {
+  .modal-content {
+    width: 440px;
+    margin: 0 auto;
+  }
+}
+</style>
