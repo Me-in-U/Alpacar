@@ -16,9 +16,9 @@
               <p class="vehicle-description">내 차종에 맞는 주차 위치를 추천해드립니다.</p>
             </div>
             <div class="vehicle-image" @click="showModal = true">
-              <img src="../assets/addcar.png" alt="차량 이미지" class="car-image" />
+              <img src="@/assets/addcar.png" alt="차량 이미지" class="car-image" />
               <button class="add-vehicle-button" @click.stop="showModal = true">
-                <img src="../assets/addcar_plus_btn.png" alt="추가 버튼" class="plus-button-image" />
+                <!-- <img src="@/assets/addcar_plus_btn.png" alt="추가 버튼" class="plus-button-image" /> -->
               </button>
             </div>
           </div>
