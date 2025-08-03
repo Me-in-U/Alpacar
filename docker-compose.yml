@@ -23,7 +23,7 @@ services:
     container_name: backend_test
     restart: always
     env_file:
-      - .env
+      - ~/.env
     environment:
       - DJANGO_SETTINGS_MODULE=djangoApp.settings
     ports:
@@ -44,7 +44,7 @@ services:
     container_name: mysql_test
     restart: always
     env_file:
-      - .env
+      - ~/.env
     environment:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
