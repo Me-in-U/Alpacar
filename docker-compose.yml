@@ -13,7 +13,23 @@ services:
       - "443:443"
     depends_on:
       - frontend-build
+      - backend
     restart: always
+
+  backend:
+    build:
+      context: ./backend/djangoApp
+      dockerfile: Dockerfile
+    container_name: backend_test
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=djangoApp.settings
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
 
   frontend-build:
     build:
@@ -22,3 +38,22 @@ services:
     image: frontend-build
     # 별도 컨테이너로 띄우지 않고 빌드 용도로만 사용
     entrypoint: ["true"]
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_test
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ~/mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
