@@ -6,7 +6,7 @@
     <div class="nav-item">
       <img src="@/assets/nav_bar_history.png" alt="History" class="nav-icon" />
     </div>
-    <div class="nav-item">
+    <div class="nav-item"  @click="goToMap">
       <img src="@/assets/nav_bar_map.png" alt="Map" class="nav-icon" />
     </div>
     <div class="nav-item">
@@ -22,6 +22,10 @@ const router = useRouter()
 
 const goToMain = () => {
   router.push('/main')
+}
+
+const goToMap = () => {
+  router.push('/parking-recommend')
 }
 </script>
 

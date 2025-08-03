@@ -1,9 +1,11 @@
 <template>
   <div>
-    <AdminNavbar :showLogout="false" />
+    <AdminNavbar :showLogout="false" @test-modal="showModal = true" />
+
+    <AdminAuthRequiredModal v-if="showModal" @close="showModal = false" />
     <div class="container">
       <p class="title">실시간 주차장 확인</p>
-
+      <!-- 백엔드 api 연결 후 수정 예정 -->
       <div class="card">
         <div class="summary-box blue">
           <div class="label">전체 주차 공간</div>
@@ -32,14 +34,24 @@
 </template>
 
 <script lang="ts">
+import { ref } from 'vue'
 import { defineComponent } from "vue";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
+import AdminAuthRequiredModal from '@/views/admin/AdminAuthRequiredModal.vue'
+const showModal = ref(false)
 
 export default defineComponent({
-  name: "AdminMain",
+  name: 'AdminMain',
   components: {
     AdminNavbar,
+    AdminAuthRequiredModal,
   },
+  setup() {
+    const showModal = ref(false);
+    return {
+      showModal
+    };
+  }
 });
 </script>
 

@@ -9,6 +9,8 @@ import AdminLogin from '@/views/admin/AdminLogin.vue'
 import AdminMain from '@/views/admin/AdminMain.vue'
 import AdminParkingLogs from '@/views/admin/AdminParkingLogs.vue'
 import AdminParkingReassign from '@/views/admin/AdminParkingReassign.vue'
+import ParkingRecommend from '@/views/user/ParkingRecommend.vue'
+import ParkingComplete from '@/views/user/ParkingComplete.vue'
 
 
 const router = createRouter({
@@ -64,6 +66,16 @@ const router = createRouter({
       path: '/admin-parkingreassign',
       name: 'admin-parkingreassign',
       component: AdminParkingReassign
+    },
+    {
+      path: '/parking-recommend',
+      name: 'parking-recommend',
+      component: ParkingRecommend
+    },
+    {
+      path: '/parking-complete',
+      name: 'parking-complete',
+      component: ParkingComplete
     },
   ]
 })
