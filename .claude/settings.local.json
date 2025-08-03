@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.figma.com)",
+      "mcp__figma-dev-mode-mcp-server__get_code"
+    ],
+    "deny": []
+  }
+}

@@ -56,7 +56,7 @@
                       <span class="separator">|</span>
                       <span class="value">111 가 1111</span>
                     </div>
-                    <p class='touch-text-description'>카드를 터치하면 화면이 돌아갑니다.</p>
+                    <p class='touch-text-description'>카드를 두번 터치하면 화면이 돌아갑니다.</p>
                   </div>
                 </div>
               </div>
@@ -89,7 +89,7 @@
 
       <!-- Menu Items -->
       <div class="menu-items">
-        <div class="menu-item">
+        <div class="menu-item" @click="goToParkingHistory">
           <div class="menu-icon">
           </div>
           <div class="menu-content">
@@ -126,6 +126,14 @@
 import Header from '@/components/Header.vue'
 import BottomNavigation from '@/components/BottomNavigation.vue'
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+// 주차 히스토리 페이지로 이동
+const goToParkingHistory = () => {
+  router.push('/parking-history')
+}
 
 // 모바일 기기 감지 함수
 const detectMobile = () => {
@@ -986,7 +994,18 @@ onMounted(() => {
 @media (min-width: 441px) {
   .main-page-container {
     width: 440px;
+    height: auto;
+    min-height: 100vh;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .main-content {
+    flex: 1;
+    height: auto;
+    min-height: calc(100vh - 160px);
+    padding-bottom: 20px;
   }
 }
 </style>

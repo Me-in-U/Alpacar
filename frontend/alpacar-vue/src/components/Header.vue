@@ -113,9 +113,10 @@ const deleteAllNotifications = () => {
   height: 100%;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
+  padding-top: 80px; /* 헤더 높이만큼 상단 패딩 */
 }
 
 .modal-content {
@@ -246,21 +247,34 @@ const deleteAllNotifications = () => {
 
 /* Responsive Design */
 @media (max-width: 440px) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding-top: 0; /* 모바일에서는 패딩 제거 */
+  }
+  
   .modal-content {
     width: 100vw;
-    height: 100vh;
+    height: calc(100vh - 160px); /* 헤더(80px) + 하단 네비게이션바(80px) 제외 */
     border-radius: 0;
-    margin-top: 20px; /* 상단 여유 공간 추가 */
+    margin-top: 80px; /* 헤더 높이만큼 상단 마진 */
+    max-height: calc(100vh - 160px);
   }
   
   .modal-header {
-    padding: calc(20px + env(safe-area-inset-top)) 20px 20px 20px;
-    margin-top: 20px; /* 헤더 상단 여유 공간 추가 */
+    padding: 20px;
+    flex-shrink: 0;
   }
   
-  .notification-list,
+  .notification-list {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+  }
+  
   .modal-footer {
     padding: 20px;
+    padding-bottom: 30px; /* 닫기 버튼 하단 여유 공간 추가 */
+    flex-shrink: 0;
   }
 }
 
