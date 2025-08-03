@@ -134,6 +134,8 @@ INSTALLED_APPS = [
     "vehicles",
     "parking",
     "events",
+    # Swagger
+    "drf_yasg",
 ]
 # allauth
 SITE_ID = 1
