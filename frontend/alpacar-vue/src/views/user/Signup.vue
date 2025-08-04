@@ -19,14 +19,33 @@
 				<!-- Name Field -->
 				<div class="field-group">
 					<label class="field-label">이름 *</label>
-					<input type="text" placeholder="이름을 입력하세요" v-model="formData.full_name" class="input-field" />
+					<input 
+						type="text" 
+						placeholder="이름을 입력하세요" 
+						v-model="formData.full_name" 
+						@blur="validateName"
+						@input="handleNameInput"
+						class="input-field" 
+						:class="{ 'error': !nameValid && formData.full_name }"
+						maxlength="18"
+					/>
+					<p class="field-help" :class="{ 'error-text': !nameValid && formData.full_name }">
+						공백 없이 최대 18자까지 입력 가능
+					</p>
 				</div>
 
 				<!-- Email + 인증번호 받기 -->
 				<div class="field-group">
 					<label class="field-label">이메일 *</label>
 					<div class="input-with-button">
-						<input type="email" placeholder="이메일을 입력하세요" v-model="formData.email" class="input-field" />
+						<input 
+							type="email" 
+							placeholder="이메일을 입력하세요" 
+							v-model="formData.email"
+							@input="limitInput($event, 'email', 255)"
+							class="input-field" 
+							maxlength="50"
+						/>
 						<button type="button" class="duplicate-check-button" :disabled="!isValidEmail || emailSent" @click="sendCode">인증번호 받기</button>
 						<span v-if="emailVerified" class="checkmark">✔</span>
 					</div>
@@ -36,7 +55,14 @@
 				<div class="field-group" v-if="emailSent && !emailVerified">
 					<label class="field-label">인증번호 입력</label>
 					<div class="input-with-button">
-						<input type="text" placeholder="인증번호 6자리" v-model="code" class="input-field" />
+						<input 
+							type="text" 
+							placeholder="인증번호 6자리" 
+							v-model="code"
+							@input="limitInput($event, 'code', 6)"
+							class="input-field" 
+							maxlength="6"
+						/>
 						<button type="button" class="duplicate-check-button" :disabled="!code" @click="verifyCode">인증번호 확인</button>
 					</div>
 				</div>
@@ -44,30 +70,66 @@
 				<!-- Password Field -->
 				<div class="field-group">
 					<label class="field-label">비밀번호 *</label>
-					<input type="password" placeholder="비밀번호를 입력하세요" v-model="formData.password" class="input-field" />
-					<p class="field-help">영문, 숫자, 특수문자 조합 8-20자리(미구현상태)</p>
+					<input 
+						type="password" 
+						placeholder="비밀번호를 입력하세요" 
+						v-model="formData.password" 
+						@blur="validatePassword"
+						@input="limitInput($event, 'password', 20)"
+						class="input-field" 
+						:class="{ 'error': !passwordValid && formData.password }"
+						maxlength="20"
+					/>
+					<p class="field-help" :class="{ 'error-text': !passwordValid && formData.password }">
+						영문, 숫자, 특수문자 조합 8-20자리
+					</p>
 				</div>
 
 				<!-- Password Confirm -->
 				<div class="field-group">
 					<label class="field-label">비밀번호 확인 *</label>
-					<input type="password" placeholder="비밀번호를 다시 입력하세요" v-model="formData.passwordConfirm" class="input-field" />
+					<input 
+						type="password" 
+						placeholder="비밀번호를 다시 입력하세요" 
+						v-model="formData.passwordConfirm" 
+						@blur="validatePasswordConfirm"
+						@input="limitInput($event, 'passwordConfirm', 20)"
+						class="input-field" 
+						:class="{ 'error': !passwordConfirmValid && formData.passwordConfirm }"
+						maxlength="20"
+					/>
 				</div>
 
 				<!-- Phone Field -->
 				<div class="field-group">
 					<label class="field-label">전화번호 *</label>
-					<input type="tel" placeholder="전화번호를 입력하세요" v-model="formData.phone" class="input-field" />
+					<input 
+						type="tel" 
+						placeholder="전화번호를 입력하세요" 
+						v-model="formData.phone"
+						@input="handlePhoneInput"
+						class="input-field" 
+						maxlength="11"
+					/>
+					<p class="field-help">최대 11자까지 입력 가능 (숫자만 입력)</p>
 				</div>
 
 				<!-- Nickname + 중복확인 -->
 				<div class="field-group">
 					<label class="field-label">닉네임 *</label>
 					<div class="input-with-button">
-						<input type="text" placeholder="닉네임을 입력하세요" v-model="formData.nickname" class="input-field" />
+						<input 
+							type="text" 
+							placeholder="닉네임을 입력하세요" 
+							v-model="formData.nickname"
+							@input="limitInput($event, 'nickname', 18)"
+							class="input-field" 
+							maxlength="18"
+						/>
 						<button class="duplicate-check-button" @click="checkNickname">중복 확인</button>
 						<span v-if="nickOK" class="checkmark">✔</span>
 					</div>
+					<p class="field-help">최대 18자까지 입력 가능</p>
 				</div>
 
 				<!-- Signup -->
@@ -102,15 +164,178 @@ export default defineComponent({
 		const emailVerified = ref(false);
 		const code = ref("");
 
-		// 이메일 포맷 단순 체크
-		const isValidEmail = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email));
+		// 이메일 포맷 체크 (@ 포함 필수)
+		const isValidEmail = computed(() => {
+			const email = formData.email;
+			return email.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+		});
+
+		// 비밀번호 유효성 검사
+		const checkNewPassword = (password: string) => {
+			if (!password) {
+				return true; // 빈 값은 required 검사에서 막음
+			}
+
+			// 1. 영문자(대소문자), 숫자, 특수문자 조합 8-20자리
+			const validatePattern = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,20}$/;
+			if (!validatePattern.test(password)) {
+				alert('비밀번호는 영문자, 숫자, 특수문자 조합의 8~20자리를 사용해야 합니다.');
+				return false;
+			}
+
+			// 2. 같은 문자 3개 이상 연속 체크 (예: aaa, 111)
+			if (/(\w)\1\1/.test(password)) {
+				alert('같은 문자를 3개 이상 사용할 수 없습니다.');
+				return false;
+			}
+
+			// 3. 연속 문자/숫자 3개 이상 체크 (예: 123, 321, abc, cba)
+			let cnt = 0;
+			let cnt2 = 0;
+			for (let i = 0; i < password.length - 2; i++) {
+				const char1 = password.charAt(i);
+				const char2 = password.charAt(i + 1);
+				const char3 = password.charAt(i + 2);
+
+				// 오름차순 연속 (123, abc)
+				if (char1.charCodeAt(0) - char2.charCodeAt(0) === -1 && 
+					char2.charCodeAt(0) - char3.charCodeAt(0) === -1) {
+					cnt++;
+				}
+				// 내림차순 연속 (321, cba)
+				if (char1.charCodeAt(0) - char2.charCodeAt(0) === 1 && 
+					char2.charCodeAt(0) - char3.charCodeAt(0) === 1) {
+					cnt2++;
+				}
+			}
+
+			if (cnt > 0 || cnt2 > 0) {
+				alert('연속된 문자를 3개 이상 사용하실 수 없습니다.\n(ex: 123, 321, abc, cba 포함 불가)');
+				return false;
+			}
+
+			return true;
+		};
+
+		// 비밀번호 유효성 상태
+		const passwordValid = ref(true);
+		const passwordConfirmValid = ref(true);
+
+		// 이름 유효성 상태
+		const nameValid = ref(true);
+
+		// 비밀번호 유효성 검사 함수 호출
+		const validatePassword = () => {
+			passwordValid.value = checkNewPassword(formData.password);
+		};
+
+		// 비밀번호 확인 유효성 검사
+		const validatePasswordConfirm = () => {
+			// 정규식 검사와 비밀번호 일치 검사
+			const isValidFormat = checkNewPassword(formData.passwordConfirm);
+			const isMatching = formData.password === formData.passwordConfirm;
+			
+			if (!isValidFormat) {
+				passwordConfirmValid.value = false;
+			} else if (!isMatching) {
+				alert('비밀번호가 일치하지 않습니다.');
+				passwordConfirmValid.value = false;
+			} else {
+				passwordConfirmValid.value = true;
+			}
+		};
+
+		// 이름 유효성 검사
+		const validateName = () => {
+			if (formData.full_name.includes(' ')) {
+				alert('이름에는 공백을 포함할 수 없습니다.');
+				nameValid.value = false;
+			} else {
+				nameValid.value = true;
+			}
+		};
+
+		// 이름 입력 시 공백 제거
+		const handleNameInput = () => {
+			formData.full_name = formData.full_name.replace(/\s/g, '');
+		};
+
+		// 전화번호 입력 시 숫자만 허용
+		const handlePhoneInput = (event: Event) => {
+			const target = event.target as HTMLInputElement;
+			const value = target.value;
+			// 숫자가 아닌 문자 제거
+			const numericValue = value.replace(/[^0-9]/g, '');
+			// 최대 11자로 제한
+			if (numericValue.length > 11) {
+				formData.phone = numericValue.substring(0, 11);
+			} else {
+				formData.phone = numericValue;
+			}
+		};
+
+		// 입력 길이 제한 함수
+		const limitInput = (event: Event, field: string, maxLength: number) => {
+			const target = event.target as HTMLInputElement;
+			const value = target.value;
+			
+			if (field === 'full_name') {
+				// 이름은 공백 제거 후 길이 체크
+				const cleanValue = value.replace(/\s/g, '');
+				if (cleanValue.length > maxLength) {
+					formData.full_name = cleanValue.substring(0, maxLength);
+				} else {
+					formData.full_name = cleanValue;
+				}
+			} else {
+				// 다른 필드들은 일반적인 길이 제한
+				if (value.length > maxLength) {
+					target.value = value.substring(0, maxLength);
+					// reactive 객체 업데이트
+					switch (field) {
+						case 'email':
+							formData.email = target.value;
+							break;
+						case 'password':
+							formData.password = target.value;
+							break;
+						case 'passwordConfirm':
+							formData.passwordConfirm = target.value;
+							break;
+						case 'phone':
+							formData.phone = target.value;
+							break;
+						case 'nickname':
+							formData.nickname = target.value;
+							break;
+						case 'code':
+							code.value = target.value;
+							break;
+					}
+				}
+			}
+		};
 
 		// 중복확인 상태
 		const nickOK = ref(false);
 
 		// 인증번호 발송
 		const sendCode = async () => {
-			if (!isValidEmail.value) return alert("유효한 이메일을 입력해주세요.");
+			// 이메일 유효성 검사
+			if (!formData.email) {
+				alert("이메일을 입력해주세요.");
+				return;
+			}
+			
+			if (!formData.email.includes('@')) {
+				alert("이메일 주소에 @가 포함되어야 합니다.");
+				return;
+			}
+			
+			if (!isValidEmail.value) {
+				alert("유효한 이메일 형식을 입력해주세요.");
+				return;
+			}
 
 			// 1) 이메일 중복 확인
 			try {
@@ -188,6 +413,8 @@ export default defineComponent({
 				nickOK.value &&
 				formData.full_name.trim().length > 0 &&
 				formData.password &&
+				passwordValid.value &&
+				passwordConfirmValid.value &&
 				formData.password === formData.passwordConfirm &&
 				formData.phone.trim().length > 0 &&
 				formData.nickname.trim().length > 0
@@ -196,6 +423,10 @@ export default defineComponent({
 
 		// 회원가입 API 호출
 		const handleSignup = async () => {
+			// 비밀번호 유효성 재검사
+			if (!checkNewPassword(formData.password)) {
+				return;
+			}
 			if (formData.password !== formData.passwordConfirm) {
 				return alert("비밀번호가 일치하지 않습니다.");
 			}
@@ -245,6 +476,15 @@ export default defineComponent({
 			checkNickname,
 			canSignup,
 			handleSignup,
+			passwordValid,
+			passwordConfirmValid,
+			nameValid,
+			validatePassword,
+			validatePasswordConfirm,
+			validateName,
+			handleNameInput,
+			handlePhoneInput,
+			limitInput,
 			goBack: () => router.back(),
 		};
 	},
@@ -376,6 +616,11 @@ export default defineComponent({
 	border-color: #776b5d;
 }
 
+.input-field.error {
+	border-color: #cc3333;
+	background-color: #fff5f5;
+}
+
 .input-with-button {
 	display: flex;
 	gap: 8px;
@@ -405,6 +650,10 @@ export default defineComponent({
 	color: #999999;
 	margin: 0;
 	line-height: 14px;
+}
+
+.field-help.error-text {
+	color: #cc3333;
 }
 
 /* Signup Button */
