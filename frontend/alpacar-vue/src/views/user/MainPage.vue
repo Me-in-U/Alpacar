@@ -107,7 +107,7 @@
           </div>
         </div>
 
-        <div class="menu-item">
+        <div class="menu-item" @click="goToUserProfile">
           <div class="menu-icon">
           </div>
           <div class="menu-content">
@@ -133,6 +133,11 @@ const router = useRouter()
 // 주차 히스토리 페이지로 이동
 const goToParkingHistory = () => {
   router.push('/parking-history')
+}
+
+// 사용자 프로필 페이지로 이동
+const goToUserProfile = () => {
+  router.push('/user-profile')
 }
 
 // 모바일 기기 감지 함수
