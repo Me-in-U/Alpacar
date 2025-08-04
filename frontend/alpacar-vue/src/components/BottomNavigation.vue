@@ -22,13 +22,18 @@
         class="nav-icon" 
       />
     </div>
-    <div class="nav-item">
-      <img 
-        :src="getNavIcon('map')" 
-        alt="Map" 
-        class="nav-icon" 
+    <div
+      class="nav-item"
+      :class="{ active: isActivePage('/parking-recommend') }"
+      @click="goToMap"
+    >
+    <img 
+      :src="getNavIcon('map')" 
+      alt="Map" 
+      class="nav-icon" 
       />
     </div>
+    <div>
     <div class="nav-item">
       <img 
         :src="getNavIcon('user')" 
@@ -37,6 +42,7 @@
       />
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -69,7 +75,7 @@ const getNavIcon = (iconType: string) => {
     case 'history':
       return currentPath === '/parking-history' ? navBarHistorySelected : navBarHistory
     case 'map':
-      return navBarMap // 맵 페이지가 구현되면 조건부 적용
+      return currentPath === '/parking-recommend' ? navBarMapSelected : navBarMap // 맵 페이지가 구현되면 조건부 적용
     case 'user':
       return navBarUser // 사용자 페이지가 구현되면 조건부 적용
     default:
@@ -83,6 +89,10 @@ const goToMain = () => {
 
 const goToParkingHistory = () => {
   router.push('/parking-history')
+}
+
+const goToMap = () => {
+  router.push('/parking-recommend')
 }
 </script>
 
