@@ -33,7 +33,6 @@
       class="nav-icon" 
       />
     </div>
-    <div>
     <div 
       class="nav-item" 
       :class="{ active: isActivePage('/user-profile') }"
@@ -45,7 +44,6 @@
         class="nav-icon" 
       />
     </div>
-  </div>
 </div>
 </template>
 
