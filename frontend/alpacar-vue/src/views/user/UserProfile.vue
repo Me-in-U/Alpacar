@@ -203,6 +203,14 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
+// Types
+interface Vehicle {
+  id: number
+  name: string
+  number: string
+  image: string
+}
+
 // User Info
 const userInfo = reactive({
   name: 'User',
@@ -210,7 +218,7 @@ const userInfo = reactive({
 })
 
 // Vehicles
-const vehicles = ref([
+const vehicles = ref<Vehicle[]>([
   { id: 1, name: 'K5', number: '12가3456', image: '@/assets/k5.avif' },
   { id: 2, name: 'EV6', number: '34나5678', image: '@/assets/ev6.avif' },
   { id: 3, name: '스포티지', number: '56다7890', image: '@/assets/sportage.avif' },
@@ -236,8 +244,8 @@ const newPassword = ref('')
 const confirmPassword = ref('')
 
 const vehicleForm = reactive({ name: '', number: '', image: '@/assets/k5.avif' })
-const editingVehicle = ref(null)
-const vehicleToDelete = ref(null)
+const editingVehicle = ref<Vehicle | null>(null)
+const vehicleToDelete = ref<Vehicle | null>(null)
 
 // Methods
 const handleLogout = () => {
@@ -269,7 +277,7 @@ const confirmPasswordChange = () => {
   confirmPassword.value = ''
 }
 
-const editVehicle = vehicle => {
+const editVehicle = (vehicle: Vehicle) => {
   editingVehicle.value = vehicle
   vehicleForm.name = vehicle.name
   vehicleForm.number = vehicle.number
@@ -280,7 +288,7 @@ const editVehicle = vehicle => {
 const saveVehicle = () => {
   if (!vehicleForm.number.trim()) return alert('차량번호를 입력해주세요.')
   if (editingVehicle.value) {
-    const idx = vehicles.value.findIndex(v => v.id === editingVehicle.value.id)
+    const idx = vehicles.value.findIndex(v => v.id === editingVehicle.value!.id)
     if (idx !== -1) vehicles.value[idx].number = vehicleForm.number
     alert('차량 정보가 수정되었습니다.')
   } else {
@@ -297,14 +305,15 @@ const saveVehicle = () => {
   vehicleForm.number = ''
 }
 
-const deleteVehicle = vehicle => {
+const deleteVehicle = (vehicle: Vehicle) => {
   if (vehicles.value.length <= 1) return (showSingleVehicleWarning.value = true)
   vehicleToDelete.value = vehicle
   showDeleteModal.value = true
 }
 
 const confirmDeleteVehicle = () => {
-  const idx = vehicles.value.findIndex(v => v.id === vehicleToDelete.value.id)
+  if (!vehicleToDelete.value) return
+  const idx = vehicles.value.findIndex(v => v.id === vehicleToDelete.value!.id)
   if (idx !== -1) vehicles.value.splice(idx, 1)
   alert('차량이 삭제되었습니다.')
   showDeleteModal.value = false
