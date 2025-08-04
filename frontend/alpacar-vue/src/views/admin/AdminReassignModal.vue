@@ -17,7 +17,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
 import { useRouter } from 'vue-router'
 
 /**
@@ -53,12 +52,12 @@ function goAdminMain() {
   transform: translate(-50%, -50%);
   z-index: 1000;
 
-  width: 60%;
-  max-width: 560px;
-  padding: 40px;
+  width: 40%;
+  max-width: 448px;
+  padding: 30px;
   box-sizing: border-box;
   background-color: #f3eeea;
-  border: 3px solid #000;
+  border: 2px solid #000;
   box-shadow: 0 6px 4px rgba(0, 0, 0, 0.25);
 
   display: flex;
@@ -73,7 +72,7 @@ function goAdminMain() {
 /* 안내문 스타일 */
 .a3-container p {
   margin: 0;
-  font-size: 30px;
+  font-size: 20px;
   line-height: 1.2;
 }
 .seat {
@@ -88,12 +87,16 @@ function goAdminMain() {
 
 /* 버튼 공통 스타일 */
 .btn {
-  min-width: 120px;
-  padding: 12px 24px;
+  display: flex;
+  align-items: center;      /* 수직 가운데 정렬 */
+  justify-content: center;  /* 필요시 가로 가운데 정렬 */
+  min-width: 80px;
+  height: 40px;
+  padding: 0 24px;          /* 세로 패딩 제거, 좌우 패딩만 유지 */
   background-color: #776B5D;
   color: #fff;
   border: none;
-  font-size: 24px;
+  font-size: 16px;
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.2s;

@@ -80,17 +80,17 @@ type Spot = { id: string; status: 'available' | 'occupied' }
 // 샘플 데이터
 const row1 = reactive<Spot[]>([
   { id: 'A5', status: 'available' },
-  { id: 'A4', status: 'occupied' },
+  { id: 'A4', status: 'available' },
   { id: 'A3', status: 'available' },
-  { id: 'A2', status: 'available' },
+  { id: 'A2', status: 'occupied' },
   { id: 'A1', status: 'available' },
 ])
 const row2 = reactive<Spot[]>([
   { id: 'B3', status: 'available' },
-  { id: 'B2', status: 'occupied' },
+  { id: 'B2', status: 'available' },
   { id: 'B1', status: 'available' },
   { id: 'C3', status: 'available' },
-  { id: 'C2', status: 'available' },
+  { id: 'C2', status: 'occupied' },
   { id: 'C1', status: 'available' },
 ])
 
@@ -127,30 +127,37 @@ function onContainerClick() {
   padding: 48px 64px;
   box-sizing: border-box;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .header-row {
   margin-bottom: 16px;
+  align-self: flex-start;
+  width: 100%;
 }
 
 .title {
   font-size: 36px;
   font-weight: 700;
   color: #333333;
+  margin-bottom: 32px;
 }
 
 /* view + side-panel */
 .view-and-legend {
   display: flex;
   align-items: flex-start;
+  justify-content: center;
   gap: 32px;
 }
 
 /* 도면 */
 .view {
   position: relative;
-  width: 800px;
-  height: 708px;
+  width: 512px;
+  height: 452px;
   background-color: #5c5c5c;
   overflow: hidden;
   box-sizing: border-box;
@@ -182,15 +189,19 @@ function onContainerClick() {
 .row-2 .spot:nth-child(3) {
   margin-right: 24px;
 }
+.row-2 {
+  display: flex;
+  align-items: flex-end;   /* ↓ 추가 */
+}
 .row-2 .spot:nth-child(n+4) {
-  height: 175px;
-  margin-top: calc(205px - 175px);
+  height: 112px;
+  /* margin-top: calc(205px - 175px); */
 }
 
 /* 주차칸 */
 .spot {
-  width: 110px;
-  height: 205px;
+  width: 70px;
+  height: 131px;
   border: 3.5px solid #fff;
   box-sizing: border-box;
   display: flex;
@@ -211,7 +222,6 @@ function onContainerClick() {
   flex-direction: column;
   align-items: center;
   justify-content: space-between; /* 위아래 배치 */
-  height: 708px;                  /* view와 동일 높이 */
   gap: 24px;
 }
 
@@ -225,11 +235,11 @@ function onContainerClick() {
 
 /* 변경하기 버튼 */
 .reassign-btn {
-  width: 120px;
-  height: 50px;
+  width: 80px;
+  height: 40px;
   background-color: #776b5d;
   color: #fff;
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 600;
   border: none;
   border-radius: 4px;
