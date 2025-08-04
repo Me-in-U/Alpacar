@@ -13,3 +13,4 @@ social-auth-app-django==5.5.1
 uvicorn==0.35.0
 waitress==3.0.2
 websockets==15.0.1
+drf-yasg==1.21.10
