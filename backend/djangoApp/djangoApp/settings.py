@@ -147,18 +147,20 @@ INSTALLED_APPS = [
     "drf_yasg",
 ]
 SWAGGER_SETTINGS = {
-    "DEFAULT_INFO": "obab.urls.api_info",
     "USE_SESSION_AUTH": False,
     "VALIDATOR_URL": None,
     "SECURITY_DEFINITIONS": {
-        "Access_Token": {
-            "type": "apiKey",  # 타입
-            "name": "Access-Token",  # 이름
-            "in": "header",  # 어디에 추가할 것인지, 헤더이므로 header
-            "description": "Authorization",  # 설명
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "중요! JWT 토큰을 Authorization 헤더에 “Bearer <token>” 형태로 입력하세요.",
         }
     },
+    "SECURITY_REQUIREMENTS": [{"Bearer": []}],
 }
+
+
 # allauth
 SITE_ID = 1
 REST_USE_JWT = True
