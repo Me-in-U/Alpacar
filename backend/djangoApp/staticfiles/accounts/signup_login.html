@@ -342,7 +342,7 @@
 			if (!name || !email) return alert("이름과 이메일을 모두 입력해주세요.");
 
 			try {
-				const res = await fetch(`${API}/api/auth/password-reset/request/`, {
+				const res = await fetch(`${API}/api/auth/email-verify/request/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ name, email }),
@@ -367,7 +367,7 @@
 			if (!code) return alert("인증번호를 입력해주세요.");
 
 			try {
-				const res = await fetch(`${API}/api/auth/password-reset/verify/`, {
+				const res = await fetch(`${API}/api/auth/email-verify/verify/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ email, code }),

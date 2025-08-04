@@ -21,6 +21,10 @@ from accounts.views.password_reset import (
 )
 from accounts.views.profile import UserProfileAPI
 from accounts.views.push import push_setting, subscribe_push, unsubscribe_push
+from accounts.views.email_verify import (
+    SignupEmailVerifyRequestAPIView,
+    SignupEmailVerifyVerifyAPIView,
+)
 
 urlpatterns = [
     # ─ 회원가입 / 로그인 / 토큰갱신 ──────────────────────────────────────────
@@ -50,6 +54,17 @@ urlpatterns = [
         check_nickname,
         name="api-check-nickname",
     ),  # GET: ?nickname=… → { exists: bool }
+    # ─ 회원가입시 이메일 인증 ─────────────────────────────────────────────────────
+    path(
+        "auth/email-verify/request/",
+        SignupEmailVerifyRequestAPIView.as_view(),
+        name="email-verify-request",
+    ),
+    path(
+        "auth/email-verify/verify/",
+        SignupEmailVerifyVerifyAPIView.as_view(),
+        name="email-verify-verify",
+    ),
     # ─ 비밀번호 재설정 ─────────────────────────────────────────────────────
     path(
         "auth/password-reset/request/",

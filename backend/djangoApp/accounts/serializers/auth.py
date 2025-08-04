@@ -3,7 +3,7 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
+from rest_framework.exceptions import AuthenticationFailed
 from ..models import User
 
 
@@ -73,10 +73,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         )
         if not user:
             # 인증 실패 시 에러 반환
-            raise serializers.ValidationError(
-                {"detail": "이메일 또는 비밀번호가 올바르지 않습니다."},
-                code="authorization",
-            )
+            raise AuthenticationFailed("이메일 또는 비밀번호가 올바르지 않습니다.")
         # 부모 클래스의 validate 호출로 JWT 생성
         data = super().validate({"email": email, "password": password})
         return data  # 토큰 데이터 반환
