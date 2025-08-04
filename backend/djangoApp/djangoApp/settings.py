@@ -33,6 +33,7 @@ DEBUG = True
 VAPID_PUBLIC_KEY = config("VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = config("VAPID_PRIVATE_KEY")
 VAPID_CLAIMS = {"sub": config("VAPID_CLAIM_SUB")}
+DJANGO_ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", default="")
 
 # localhost 및 루프백 포함
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".ngrok-free.app", "i13e102.p.ssafy.io"]

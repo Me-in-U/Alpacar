@@ -98,7 +98,7 @@
           </div>
         </div>
 
-        <div class="menu-item">
+        <div class="menu-item" @click="goToParkingRecommend">
           <div class="menu-icon">
           </div>
           <div class="menu-content">
@@ -133,6 +133,9 @@ const router = useRouter()
 // 주차 히스토리 페이지로 이동
 const goToParkingHistory = () => {
   router.push('/parking-history')
+}
+const goToParkingRecommend = () => {
+  router.push('/parking-recommend')
 }
 
 // 모바일 기기 감지 함수
