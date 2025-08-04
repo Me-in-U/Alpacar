@@ -24,6 +24,7 @@ from django.views.generic import RedirectView
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -77,8 +78,3 @@ urlpatterns = [
     ),
     path("api/", include(api_patterns)),
 ]
-# DEBUG=True 환경에서 STATICFILES_DIRS 를 /static/ URL로 서빙
-if settings.DEBUG:
-    urlpatterns += static(
-        settings.STATIC_URL, document_root=settings.BASE_DIR / "static"
-    )
