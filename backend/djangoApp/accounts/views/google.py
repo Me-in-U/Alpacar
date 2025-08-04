@@ -125,17 +125,10 @@ def google_callback(request):
 
     # 4) JWT 토큰 발급 및 HTML 반환
     tokens = issue_tokens(user)
-    html = f"""
-    <!DOCTYPE html>
-    <html><head><meta charset="utf-8"></head><body>
-      <script>
-        localStorage.setItem('access_token', '{tokens["access"]}');
-        localStorage.setItem('refresh_token', '{tokens["refresh"]}');
-        window.location.href = '/static/accounts/push_setting.html';
-      </script>
-    </body></html>
-    """
-    return HttpResponse(html, content_type="text/html")
+    FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:3000")
+    return redirect(
+        f"{FRONTEND_BASE_URL}/auth/social/google/callback?access={tokens['access']}&refresh={tokens['refresh']}"
+    )
 
 
 # dj-rest-auth 소셜 로그인 엔드포인트

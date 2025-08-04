@@ -92,9 +92,10 @@ export default defineComponent({
 			}
 		};
 
+		// Login.vue (setup 안쪽)
 		const handleGoogleLogin = () => {
-			// 구글 로그인 로직 구현
-			console.log("구글 로그인 시도");
+			// 1) Google OAuth 시작 endpoint 로 이동
+			//    여기는 "google_login" 뷰로 redirect 해 주는 URL 입니다.
 			window.location.href = `${API_BASE}/auth/social/google/login/`;
 		};
 
