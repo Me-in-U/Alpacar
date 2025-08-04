@@ -93,7 +93,7 @@
 
         <!-- Signup Button -->
         <button class="signup-button" @click="handleSignup">
-          <router-link to="/main" class="link">
+          <router-link to="/social-login-info" class="link">
             <span class="button-text">회원가입</span>
           </router-link>
         </button>

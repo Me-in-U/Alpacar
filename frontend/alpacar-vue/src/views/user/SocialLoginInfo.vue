@@ -110,7 +110,7 @@ const completeSetup = () => {
   formData.parkingSkill = selectedSkill.value
   console.log('설정 완료:', formData)
   // 설정 완료 후 다음 페이지로 이동
-  router.push('/dashboard')
+  router.push('/main')
 }
 </script>
 
