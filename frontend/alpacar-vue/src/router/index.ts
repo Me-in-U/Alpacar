@@ -12,6 +12,8 @@ import AdminParkingReassign from '@/views/admin/AdminParkingReassign.vue'
 import ParkingRecommend from '@/views/user/ParkingRecommend.vue'
 import ParkingComplete from '@/views/user/ParkingComplete.vue'
 import ParkingHistory from '@/views/user/ParkingHistory.vue'
+import ModalTest from '@/views/user/ModalTest.vue'
+import AdminErrorModalTest from '@/views/admin/AdminErrorModalTest.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -81,6 +83,17 @@ const router = createRouter({
       name: 'parking-complete',
       component: ParkingComplete
     },
+    // 모달 스타일 확인용 테스트 컴포넌트
+    {
+      path: '/modal-test',
+      name: 'modal-test',
+      component: ModalTest
+    },
+    {
+      path: '/admin-error-test',
+      name: 'admin-error-test',
+      component: AdminErrorModalTest
+    },   
   ]
 })
 
