@@ -1,41 +1,45 @@
 import base64
 import json
-import time, requests, cv2, numpy as np
-import easyocr
-from ultralytics import YOLO
-from picamera2 import Picamera2
-from libcamera import controls
-from PIL import Image, ImageDraw, ImageFont
-from requests import RequestException
 import re
 import time
-from websocket import create_connection, WebSocketException
+
+import cv2
+import easyocr
+import numpy as np
+import requests
+from libcamera import controls
+from picamera2 import Picamera2
+from PIL import Image, ImageDraw, ImageFont
+from ultralytics import YOLO
+from websocket import create_connection
 
 # ─── 백엔드 서버 주소 설정 ─────────────────────────────────────────────────────────
-WS_URL = 'ws://192.168.45.183:8000/ws/upload/'
+WS_URL = "ws://192.168.45.183:8000/ws/upload/"
 
 # ─── HTTP 세션 재사용 ────────────────────────────────────────────────────────
-sess = requests.Session() # 세션 재사용
+sess = requests.Session()  # 세션 재사용
 
 # ─── 모델 · OCR 설정 ───────────────────────────────────────────────────
-model  = YOLO("weights/best.pt") # 번호판 탐지용 YOLO 모델 로드
-reader = easyocr.Reader(['ko'], gpu=False) # OCR 엔진 (한글만) 비GPU 모드
-FONT_PATH = "NanumGothic-Regular.ttf" # PIL 한글 폰트 파일 경로
-font      = ImageFont.truetype(FONT_PATH, size=48) # PIL 텍스트용 폰트
+model = YOLO("weights/best.pt")  # 번호판 탐지용 YOLO 모델 로드
+reader = easyocr.Reader(["ko"], gpu=False)  # OCR 엔진 (한글만) 비GPU 모드
+FONT_PATH = "NanumGothic-Regular.ttf"  # PIL 한글 폰트 파일 경로
+font = ImageFont.truetype(FONT_PATH, size=48)  # PIL 텍스트용 폰트
 
 # ─── Picamera2 설정 ────────────────────────────────────────────────────
 picam2 = Picamera2()
 config = picam2.create_preview_configuration(
-    main = {"size": (4608,2592), "format": "RGB888"}, # 원본 해상도 캡처
-    lores= {"size": (2304,1296), "format": "RGB888"},# OCR용 저해상도
+    main={"size": (4608, 2592), "format": "RGB888"},  # 원본 해상도 캡처
+    lores={"size": (2304, 1296), "format": "RGB888"},  # OCR용 저해상도
 )
 picam2.configure(config)
 picam2.start()
-picam2.set_controls({
-    "AfMode":       controls.AfModeEnum.Manual, # 수동 초점
-    "LensPosition": 20.0,
-    "FrameRate":    10.0 # 초당 10프레임
-})
+picam2.set_controls(
+    {
+        "AfMode": controls.AfModeEnum.Manual,  # 수동 초점
+        "LensPosition": 20.0,
+        "FrameRate": 10.0,  # 초당 10프레임
+    }
+)
 
 # ─── 번호판 정규식 패턴 정의 ────────────────────────────────────────────────
 KOREAN = (
@@ -50,27 +54,21 @@ plate_pattern = re.compile(
     rf"[1-9]\d{{3}}$"  # 1000-9999
 )
 
-# ─── WebSocket 연결 ──────────────────────────────────────────────────────
-try:
-    ws = create_connection(WS_URL)
-    print("WebSocket 연결 성공")
-except WebSocketException as e:
-    print("WebSocket 연결 실패:", e)
-    exit(1)
 
 # ─── 유틸 함수 ────────────────────────────────────────────────────────────
 def zoom_flip(frame, zoom=2.0):
     h, w = frame.shape[:2]
-    cw, ch = int(w/zoom), int(h/zoom)
-    x1, y1 = (w-cw)//2, (h-ch)//2
-    crop = frame[y1:y1+ch, x1:x1+cw]
+    cw, ch = int(w / zoom), int(h / zoom)
+    x1, y1 = (w - cw) // 2, (h - ch) // 2
+    crop = frame[y1 : y1 + ch, x1 : x1 + cw]
     return cv2.flip(crop, -1)
+
 
 # ─── YOLO로 번호판 위치 검출 ───────────────────────────────────────────────
 def detect_plate_pos(frame, conf_threshold=0.5) -> None | tuple[int, int, int, int]:
     results = model.predict(frame, conf=conf_threshold, verbose=False)[0].boxes
-    boxes   = results.xyxy.cpu().numpy()  # shape (N,4)
-    scores  = results.conf.cpu().numpy()  # shape (N,)
+    boxes = results.xyxy.cpu().numpy()  # shape (N,4)
+    scores = results.conf.cpu().numpy()  # shape (N,)
 
     # 검출 결과가 없으면 None 리턴
     if scores.size == 0:
@@ -84,25 +82,26 @@ def detect_plate_pos(frame, conf_threshold=0.5) -> None | tuple[int, int, int, i
     x1, y1, x2, y2 = boxes[best_i]
     return int(x1), int(y1), int(x2), int(y2)
 
+
 # ─── OCR 및 어노테이트 함수 ────────────────────────────────────────────────
 def ocr_and_annotate():
     global text
-    original_frame = picam2.capture_array("lores") # 저해상도 캡처
-    zoomed_frame = zoom_flip(original_frame) # 중앙 크롭 & 뒤집기
+    original_frame = picam2.capture_array("lores")  # 저해상도 캡처
+    zoomed_frame = zoom_flip(original_frame)  # 중앙 크롭 & 뒤집기
     text = "번호판 인식 대기중"
-    
+
     # 번호판 영역 탐지
     start = time.perf_counter()
     plate_coords = detect_plate_pos(zoomed_frame)
     elapsed = time.perf_counter() - start
     print(f"[Detect] {elapsed*1000:.1f} ms", end=", ")
-    
+
     # PIL 이미지로 변환 및 어노테이션 준비
     pillow = Image.fromarray(cv2.cvtColor(zoomed_frame, cv2.COLOR_BGR2RGB))
 
     if plate_coords:
         x1, y1, x2, y2 = plate_coords
-        plate_image = zoomed_frame[y1:y2, x1:x2] # ROI 추출
+        plate_image = zoomed_frame[y1:y2, x1:x2]  # ROI 추출
         h, w = plate_image.shape[:2]
         print(f"[PLATE] {w}x{h}", end=", ")
 
@@ -111,14 +110,14 @@ def ocr_and_annotate():
         target_h = int(h * (target_w / w))
         small = cv2.resize(
             plate_image,
-            (target_w, target_h),       # (width, height)
-            interpolation=cv2.INTER_LINEAR
+            (target_w, target_h),  # (width, height)
+            interpolation=cv2.INTER_LINEAR,
         )
-        
+
         # 전처리
         gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
         blur = cv2.medianBlur(gray, 3)
-        
+
         # OCR 수행
         start = time.perf_counter()
         ocr_result = reader.readtext(blur, detail=1, paragraph=False)
@@ -130,7 +129,7 @@ def ocr_and_annotate():
         text = "".join([t for (_b, t, p) in ocr_result if p > 0.5]).replace(" ", "")
         is_valid_plate = bool(plate_pattern.match(text))
         text = text if is_valid_plate else "유효하지 않은 번호판"
-        
+
         # 박스/텍스트 색 결정
         color = "lime" if is_valid_plate else "red"
         draw = ImageDraw.Draw(pillow)
@@ -143,38 +142,52 @@ def ocr_and_annotate():
     annotated_np = cv2.cvtColor(np.array(pillow), cv2.COLOR_RGB2BGR)
     return annotated_np, text
 
+
 # ─── WebSocket 전송 함수 ────────────────────────────────────────────────
-def send_with_retry(ws, msg, url, max_retries=3, backoff=2):
+def send_with_retry(ws, msg, url, max_retries=3, backoff=3):
     payload = json.dumps(msg)
-    for attempt in range(1, max_retries+1):
+    while True:
         try:
             ws.send(payload)
             return ws
         except Exception as e:
-            print(f"[WS send 실패] 시도 {attempt}/{max_retries}: {e}")
+            print(f"[WS send 오류] {e}. {backoff}초 후 재시도...")
+            # 연결 닫고
             try:
                 ws.close()
             except:
                 pass
             time.sleep(backoff)
+            # 재연결
             try:
                 ws = create_connection(url)
                 print("[WS] 재연결 성공")
             except Exception as e2:
-                print(f"[WS] 재연결 실패: {e2}")
-    raise ConnectionError("WebSocket 전송/재연결 모두 실패")
+                print(f"[WS] 재연결 실패: {e2}. {backoff}초 후 재시도...")
+            time.sleep(backoff)
+
 
 # ─── 메인 루프: 캡처 → OCR → WebSocket 전송 ─────────────────────────────────
 try:
+    # ─── WebSocket 연결 ──────────────────────────────────────────────────────
+    while True:
+        try:
+            ws = create_connection(WS_URL)
+            print("WebSocket 연결 성공")
+            break
+        except Exception as e:  # errno.ENETUNREACH, errno.EHOSTUNREACH 등
+            print(f"WebSocket 연결 오류: {e}. 3초 후 재시도...")
+        time.sleep(3)
+
     while True:
         # 타이머 시작
         start = time.perf_counter()
-        
+
         # 캡처 & 어노테이트
         out, text = ocr_and_annotate()
 
         # JPEG → base64
-        ok, buf = cv2.imencode('.jpg', out, [cv2.IMWRITE_JPEG_QUALITY,30])
+        ok, buf = cv2.imencode(".jpg", out, [cv2.IMWRITE_JPEG_QUALITY, 30])
         if not ok:
             continue
         b64 = base64.b64encode(buf.tobytes()).decode()
@@ -184,13 +197,13 @@ try:
         try:
             ws = send_with_retry(ws, msg, WS_URL)
         except ConnectionError as err:
-            print(err)
+            print(f"[전송 중 오류] {err}. 3초 후 루프 재시작...")
+            time.sleep(3)
             continue  # 다음 루프에서 다시 시도
-        
+
         # 타이머 종료
         elapsed = time.perf_counter() - start
         print(f"\n[LOOP] {elapsed*1000:.1f} ms\n")
-
 except KeyboardInterrupt:
     # Ctrl+C 입력 시 자원 정리
     print("종료 중: 세션과 카메라 정리합니다.")
