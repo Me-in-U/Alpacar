@@ -33,12 +33,15 @@ DEBUG = True
 VAPID_PUBLIC_KEY = config("VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = config("VAPID_PRIVATE_KEY")
 VAPID_CLAIMS = {"sub": config("VAPID_CLAIM_SUB")}
+DJANGO_ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", default="")
 
 # localhost 및 루프백 포함
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     ".ngrok-free.app",
+    # DJANGO_ALLOWED_HOSTS 환경 변수에서 ALLOWED_HOSTS를 가져옵니다.
+    DJANGO_ALLOWED_HOSTS
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -143,6 +146,8 @@ INSTALLED_APPS = [
     "vehicles",
     "parking",
     "events",
+    # Swagger
+    "drf_yasg",
 ]
 # allauth
 SITE_ID = 1
