@@ -125,7 +125,7 @@ def google_callback(request):
 
     # 4) JWT 토큰 발급 및 HTML 반환
     tokens = issue_tokens(user)
-    FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:3000")
+    FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:5173")
     return redirect(
         f"{FRONTEND_BASE_URL}/auth/social/google/callback?access={tokens['access']}&refresh={tokens['refresh']}"
     )

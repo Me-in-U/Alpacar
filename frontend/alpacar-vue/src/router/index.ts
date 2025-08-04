@@ -15,7 +15,7 @@ import ParkingComplete from "@/views/user/ParkingComplete.vue";
 import ParkingHistory from "@/views/user/ParkingHistory.vue";
 import ModalTest from "@/views/user/ModalTest.vue";
 import AdminErrorModalTest from "@/views/admin/AdminErrorModalTest.vue";
-import SocialLoginCallback from "@/views/user/SocialLoginCallback.vue";
+import GoogleCallback from "@/views/user/GoogleCallback.vue";
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
 	routes: [
@@ -101,9 +101,9 @@ const router = createRouter({
 			component: AdminErrorModalTest,
 		},
 		{
-			path: "/social-login-callback",
-			name: "social-login-callback",
-			component: SocialLoginCallback,
+			path: "/auth/social/google/callback",
+			name: "GoogleCallback",
+			component: GoogleCallback,
 		},
 	],
 });

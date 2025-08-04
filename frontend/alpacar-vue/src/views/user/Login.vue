@@ -52,7 +52,8 @@
 <script lang="ts">
 import { defineComponent, ref } from "vue";
 import { useRouter } from "vue-router";
-import { API_BASE } from "@/utils/api";
+import { BACKEND_BASE_URL } from "@/utils/api";
+import { useUserStore } from "@/stores/user";
 
 export default defineComponent({
 	name: "Login",
@@ -67,36 +68,17 @@ export default defineComponent({
 			}
 
 			try {
-				const res = await fetch(`${API_BASE}/auth/login/`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						email: email.value,
-						password: password.value,
-					}),
-				});
-				const data = await res.json();
-				if (!res.ok) {
-					return alert("로그인 실패: " + data.detail);
-				}
-
-				// 성공 시 토큰 저장
-				localStorage.setItem("access_token", data.access);
-				localStorage.setItem("refresh_token", data.refresh);
-
-				// 로그인 이후 메인 페이지로 이동
+				const userStore = useUserStore();
+				await userStore.login(email.value, password.value);
 				router.push("/main");
-			} catch (err) {
-				console.error(err);
-				alert("네트워크 오류가 발생했습니다.");
+			} catch (err: any) {
+				alert("로그인 실패: " + err.message);
 			}
 		};
 
 		// Login.vue (setup 안쪽)
 		const handleGoogleLogin = () => {
-			// 1) Google OAuth 시작 endpoint 로 이동
-			//    여기는 "google_login" 뷰로 redirect 해 주는 URL 입니다.
-			window.location.href = `${API_BASE}/auth/social/google/login/`;
+			window.location.href = `${BACKEND_BASE_URL}/auth/social/google/login/`;
 		};
 
 		const handleKakaoLogin = () => {
