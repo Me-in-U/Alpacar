@@ -4,7 +4,6 @@
     <div class="nav-bar">
       <button class="back-button" @click="goBack">←</button>
       <h1 class="nav-title">회원가입</h1>
-      <button class="complete-button" @click="handleComplete">완료</button>
     </div>
 
     <!-- Main Content -->
@@ -92,48 +91,11 @@
           </div>
         </div>
 
-        <!-- Parking Skill Selection -->
-        <div class="field-group">
-          <label class="field-label">주차 실력 선택 *</label>
-          <div class="skill-selection">
-            <button 
-              class="skill-button"
-              :class="{ 'selected': formData.parkingSkill === 'expert' }"
-              @click="formData.parkingSkill = 'expert'"
-            >
-              상급자 (좁은 공간도 가능)
-            </button>
-            <button 
-              class="skill-button"
-              :class="{ 'selected': formData.parkingSkill === 'intermediate' }"
-              @click="formData.parkingSkill = 'intermediate'"
-            >
-              중급자 (보통 크기 공간)
-            </button>
-            <button 
-              class="skill-button"
-              :class="{ 'selected': formData.parkingSkill === 'beginner' }"
-              @click="formData.parkingSkill = 'beginner'"
-            >
-              초급자 (넓은 공간 필요)
-            </button>
-          </div>
-        </div>
-
-        <!-- Car Number Field -->
-        <div class="field-group">
-          <label class="field-label">차량 번호 *</label>
-          <input 
-            type="text" 
-            placeholder="차량번호를 입력하세요" 
-            v-model="formData.carNumber"
-            class="input-field"
-          />
-        </div>
-
         <!-- Signup Button -->
         <button class="signup-button" @click="handleSignup">
-          <span class="button-text">회원가입</span>
+          <router-link to="/social-login-info" class="link">
+            <span class="button-text">회원가입</span>
+          </router-link>
         </button>
       </div>
     </div>
@@ -156,8 +118,6 @@ export default defineComponent({
       passwordConfirm: "",
       phone: "",
       nickname: "",
-      parkingSkill: "",
-      carNumber: ""
     });
 
     const goBack = () => {
@@ -226,16 +186,6 @@ export default defineComponent({
   font-weight: 600;
   color: #333333;
   margin: 0;
-}
-
-.complete-button {
-  background: none;
-  border: none;
-  font-size: 16px;
-  font-weight: 600;
-  color: #0080ff;
-  cursor: pointer;
-  padding: 8px;
 }
 
 /* Main Content */
@@ -350,43 +300,6 @@ export default defineComponent({
   line-height: 14px;
 }
 
-/* Skill Selection */
-.skill-selection {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  border: 1px solid #f3eeea;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.skill-button {
-  width: 100%;
-  height: 50px;
-  border: none;
-  background-color: #ebe3d5;
-  color: #4d4d4d;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: left;
-  padding: 0 15px;
-}
-
-.skill-button.selected {
-  background-color: #776b5d;
-  color: #f5f5f5;
-}
-
-.skill-button:hover {
-  background-color: #d4c8b8;
-}
-
-.skill-button.selected:hover {
-  background-color: #665a4d;
-}
-
 /* Signup Button */
 .signup-button {
   width: 100%;
@@ -415,6 +328,15 @@ export default defineComponent({
   font-size: 16px;
   line-height: 19px;
   letter-spacing: 0;
+}
+
+.link {
+  color: #808080;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 16.94px;
+  transition: color 0.3s ease;
 }
 
 /* Responsive Design */
