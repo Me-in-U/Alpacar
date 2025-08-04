@@ -2,7 +2,9 @@
   <div class="container">
     <!-- 안내문 -->
     <div class="a3-container">
-      <p><b class="seat">A3</b> 자리를 선택하셨습니다.</p>
+      <p>
+        <b class="seat">{{ seatId }}</b> 자리를 선택하셨습니다.
+      </p>
       <p>해당 자리로 재배치하시겠습니까?</p>
     </div>
 
@@ -15,9 +17,19 @@
 </template>
 
 <script setup lang="ts">
-import { defineEmits } from 'vue'
+import { defineProps, defineEmits } from 'vue'
 import { useRouter } from 'vue-router'
 
+/**
+ * 부모로부터 전달받을 prop 정의
+ */
+const props = defineProps<{
+  seatId: string
+}>()
+
+/**
+ * close 이벤트를 부모에게 emit
+ */
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
