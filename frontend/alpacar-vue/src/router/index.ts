@@ -5,6 +5,7 @@ import Signup from '@/views/user/Signup.vue'
 import ForgotPassword from '@/views/user/ForgotPassword.vue'
 import SocialLoginInfo from '@/views/user/SocialLoginInfo.vue'
 import MainPage from '@/views/user/MainPage.vue'
+import UserProfile from '@/views/user/UserProfile.vue'
 import AdminLogin from '@/views/admin/AdminLogin.vue'
 import AdminMain from '@/views/admin/AdminMain.vue'
 import AdminParkingLogs from '@/views/admin/AdminParkingLogs.vue'
@@ -52,6 +53,11 @@ const router = createRouter({
       path: '/parking-history',
       name: 'parking-history',
       component: ParkingHistory
+    },
+    {
+      path: '/user-profile',
+      name: 'user-profile',
+      component: UserProfile
     },
     {
       path: '/admin-login',
