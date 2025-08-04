@@ -36,13 +36,7 @@ VAPID_CLAIMS = {"sub": config("VAPID_CLAIM_SUB")}
 DJANGO_ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", default="")
 
 # localhost 및 루프백 포함
-ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    ".ngrok-free.app",
-    # DJANGO_ALLOWED_HOSTS 환경 변수에서 ALLOWED_HOSTS를 가져옵니다.
-    DJANGO_ALLOWED_HOSTS
-]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".ngrok-free.app", "i13e102.p.ssafy.io"]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.naver.com"  # 사용하시는 메일 서비스에 맞게
@@ -146,9 +140,21 @@ INSTALLED_APPS = [
     "vehicles",
     "parking",
     "events",
-    # Swagger
     "drf_yasg",
 ]
+SWAGGER_SETTINGS = {
+    "DEFAULT_INFO": "obab.urls.api_info",
+    "USE_SESSION_AUTH": False,
+    "VALIDATOR_URL": None,
+    "SECURITY_DEFINITIONS": {
+        "Access_Token": {
+            "type": "apiKey",  # 타입
+            "name": "Access-Token",  # 이름
+            "in": "header",  # 어디에 추가할 것인지, 헤더이므로 header
+            "description": "Authorization",  # 설명
+        }
+    },
+}
 # allauth
 SITE_ID = 1
 REST_USE_JWT = True

@@ -21,6 +21,6 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         # API에 노출할 필드 목록
-        fields = ["email", "name", "nickname", "phone", "push_on", "score"]
+        fields = ["email", "name", "nickname", "phone", "push_on", "score", "is_staff"]
         # email은 사용자가 수정할 수 없도록 읽기 전용
-        read_only_fields = ["email"]
+        read_only_fields = ["email", "is_staff"]

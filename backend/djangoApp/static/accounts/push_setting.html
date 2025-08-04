@@ -118,6 +118,8 @@
 				푸시 받기
 			</label>
 		</div>
+		<!-- (add) 관리자 대시보드 버튼 영역 -->
+		<div id="admin-dashboard-btn" style="margin-top: 20px"></div>
 		<!-- 차량 추가 페이지로 이동하는 링크 -->
 		<div style="margin-top: 20px">
 			<a href="add_vehicle.html" style="text-decoration: none; font-weight: bold; color: #1976d2"> ➤ 내 차를 추가해주세요 </a>
@@ -190,6 +192,20 @@
 				phoneInput.value = j.phone;
 				pushToggle.checked = j.push_on;
 				vapid_public_key = j.vapid_public_key;
+
+				// (add) 관리자라면 대시보드 버튼 보여주기
+				if (j.is_staff) {
+					const div = document.getElementById("admin-dashboard-btn");
+					div.innerHTML = `
+					<button onclick="location.href='${API}/static/streamapp/dashboard.html'"
+							style="padding:8px 12px; background:#1976d2; color:#fff; border:none; border-radius:4px;">
+						관리자 대시보드
+					</button>
+					<button onclick="location.href='${API}/api/swagger/'"
+							style="padding:8px 12px; background:#1976d2; color:#fff; border:none; border-radius:4px;">
+						Swagger 문서
+					</button>`;
+				}
 			}
 			loadProfile();
 
@@ -305,16 +321,16 @@
 					const card = document.createElement("div");
 					card.className = "vehicle-card";
 					card.innerHTML = `
-          <div class="vehicle-info">
-            <div><strong>번호판:</strong> ${v.license_plate}</div>
-            <div><strong>모델:</strong> ${v.model.brand} ${v.model.model_name}</div>
-          </div>
-          <img src="${v.model.image_url}" alt="차량 이미지" />
-          <div class="vehicle-actions">
-            <button onclick="editVehicle(${v.id})">수정</button>
-            <button onclick="deleteVehicle(${v.id})">삭제</button>
-          </div>
-        `;
+			       <div class="vehicle-info">
+			         <div><strong>번호판:</strong> ${v.license_plate}</div>
+			         <div><strong>모델:</strong> ${v.model.brand} ${v.model.model_name}</div>
+			       </div>
+			       <img src="${v.model.image_url}" alt="차량 이미지" />
+			       <div class="vehicle-actions">
+			         <button onclick="editVehicle(${v.id})">수정</button>
+			         <button onclick="deleteVehicle(${v.id})">삭제</button>
+			       </div>
+			     `;
 					container.appendChild(card);
 				});
 			}

@@ -135,6 +135,9 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         return super().delete(request, *args, **kwargs)
 
     def get_queryset(self):
+        # Swagger가 스키마 생성용으로 호출할 때는 빈 쿼리셋 반환
+        if getattr(self, "swagger_fake_view", False):
+            return Vehicle.objects.none()
         return Vehicle.objects.filter(user=self.request.user)
 
     def get_serializer_class(self):
