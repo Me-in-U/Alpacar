@@ -8,6 +8,7 @@ services:
     volumes:
      - /etc/letsencrypt:/etc/letsencrypt:ro
      - ~/i13e102.p.ssafy.io.conf:/etc/nginx/conf.d/i13e102.p.ssafy.io.conf
+     - static_volume:/usr/share/nginx/html/staticfiles
     ports:
       - "80:80"
       - "443:443"
@@ -30,6 +31,8 @@ services:
       - "8000:8000"
     depends_on:
       - mysql
+    volumes:
+      - static_volume:/app/staticfiles
 
   frontend-build:
     build:
@@ -57,3 +60,4 @@ services:
 
 volumes:
   mysql_data:
+  static_volume:
