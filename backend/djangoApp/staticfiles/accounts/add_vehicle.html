@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="UTF-8" />
+		<title>내 차 추가</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				margin: 20px;
+			}
+			label {
+				display: block;
+				margin: 10px 0 5px;
+			}
+			select,
+			input[type="text"],
+			button {
+				padding: 8px;
+				font-size: 14px;
+				width: 300px;
+			}
+			.section {
+				margin-bottom: 20px;
+			}
+			.radio-group label {
+				display: inline-block;
+				margin-right: 15px;
+			}
+			#vehicle-image {
+				display: block;
+				margin-top: 10px;
+				max-width: 300px;
+				height: auto;
+			}
+			small {
+				color: red;
+				display: none;
+			}
+			button:disabled {
+				background: #ccc;
+				cursor: not-allowed;
+			}
+		</style>
+	</head>
+	<body>
+		<h2>내 차 추가하기</h2>
+
+		<div class="section">
+			<label for="brand-select">제조사 선택</label>
+			<select id="brand-select">
+				<option value="">-- 제조사 선택 --</option>
+			</select>
+
+			<label for="model-select">모델 선택</label>
+			<select id="model-select" disabled>
+				<option value="">-- 모델 선택 --</option>
+			</select>
+
+			<img id="vehicle-image" src="" alt="차량 이미지" />
+		</div>
+
+		<div class="section radio-group">
+			<label>주차 실력을 알려주세요.</label>
+			<label><input type="radio" name="skill" value="80" /> 상급자</label>
+			<label><input type="radio" name="skill" value="60" /> 중급자</label>
+			<label><input type="radio" name="skill" value="30" /> 초급자</label>
+		</div>
+
+		<!-- 번호판 입력 부분 -->
+		<div class="section">
+			<label for="license-input">차량 번호를 입력해주세요.</label>
+			<div style="display: flex; align-items: center">
+				<input type="text" id="license-input" placeholder="예: 12가3456" />
+				<button type="button" id="btn_check_license" style="margin-left: 8px">중복체크</button>
+				<span id="ok_license" style="display: none; color: #4caf50; margin-left: 5px">✔</span>
+			</div>
+			<small id="license-error"> 번호판 형식이 올바르지 않습니다 (예: 01가1234, 100마5678). </small>
+		</div>
+
+		<button id="submit-btn" disabled>설정 완료</button>
+
+		<script>
+			// const HOST = window.location.hostname; // 예: "192.168.45.183"
+			// const PORT = "8000";
+			// const API = `http://${HOST}:${PORT}`;
+
+			// 배포 혹은 ngrok 사용 시
+			const API = window.location.origin;
+
+			const token = localStorage.getItem("access_token");
+			if (!token) {
+				alert("로그인이 필요합니다.");
+				location.href = "/static/accounts/signup_login.html";
+			}
+			const HEAD = {
+				"Content-Type": "application/json",
+				Authorization: "Bearer " + token,
+			};
+
+			// 번호판 정규식 (JS용)
+			const KOREAN = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배";
+			const plateRegex = new RegExp(`^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})[` + KOREAN + `][1-9]\\d{3}$`);
+
+			// 요소 참조
+			let allModels = [];
+			const brandSelect = document.getElementById("brand-select");
+			const modelSelect = document.getElementById("model-select");
+			const vehicleImage = document.getElementById("vehicle-image");
+			const skillInputs = document.querySelectorAll('input[name="skill"]');
+			const licenseInput = document.getElementById("license-input");
+			const licenseError = document.getElementById("license-error");
+			const btnCheckLicense = document.getElementById("btn_check_license");
+			const okLicenseMark = document.getElementById("ok_license");
+			const submitBtn = document.getElementById("submit-btn");
+
+			let licenseChecked = false;
+
+			// 1) VehicleModel 목록 불러오기
+			async function loadModels() {
+				const res = await fetch(`${API}/api/vehicle-models/`, { headers: HEAD });
+				allModels = await res.json();
+				const brands = [...new Set(allModels.map((m) => m.brand))];
+				brands.forEach((brand) => {
+					const opt = document.createElement("option");
+					opt.value = brand;
+					opt.textContent = brand;
+					brandSelect.appendChild(opt);
+				});
+			}
+			loadModels();
+
+			// 2) 브랜드 선택 시 모델 필터링
+			brandSelect.addEventListener("change", () => {
+				const brand = brandSelect.value;
+				modelSelect.innerHTML = `<option value="">-- 모델 선택 --</option>`;
+				vehicleImage.src = "";
+				modelSelect.disabled = !brand;
+				if (brand) {
+					allModels
+						.filter((m) => m.brand === brand)
+						.forEach((m) => {
+							const opt = document.createElement("option");
+							opt.value = m.id;
+							opt.textContent = m.model_name;
+							modelSelect.appendChild(opt);
+						});
+				}
+				updateButtonState();
+			});
+
+			// 3) 모델 선택 시 이미지 업데이트
+			modelSelect.addEventListener("change", () => {
+				const vehicle = allModels.find((m) => m.id === +modelSelect.value);
+				vehicleImage.src = vehicle ? vehicle.image_url : "";
+				updateButtonState();
+			});
+
+			// 4) 스킬, 번호판 입력 이벤트
+			skillInputs.forEach((i) => i.addEventListener("change", updateButtonState));
+			licenseInput.addEventListener("input", () => {
+				licenseChecked = false;
+				okLicenseMark.style.display = "none";
+				updateButtonState();
+			});
+
+			// 5) 번호판 중복체크
+			btnCheckLicense.addEventListener("click", async () => {
+				const plate = licenseInput.value.trim();
+				if (!plateRegex.test(plate)) {
+					alert("먼저 올바른 번호판 형식으로 입력해주세요.");
+					licenseChecked = false;
+					okLicenseMark.style.display = "none";
+					updateButtonState();
+					return;
+				}
+				const res = await fetch(`${API}/api/vehicles/check-license/?license=${encodeURIComponent(plate)}`, { headers: HEAD });
+				if (!res.ok) {
+					alert("중복체크 API 호출 실패");
+					return;
+				}
+				const { exists } = await res.json();
+				if (exists) {
+					alert("이미 등록된 번호판입니다.");
+					licenseChecked = false;
+					okLicenseMark.style.display = "none";
+				} else {
+					alert("사용 가능한 번호판입니다!");
+					licenseChecked = true;
+					okLicenseMark.style.display = "inline";
+				}
+				updateButtonState();
+			});
+
+			// 6) 버튼 활성화 로직
+			function updateButtonState() {
+				const hasModel = !!modelSelect.value;
+				const hasSkill = !![...skillInputs].find((i) => i.checked);
+				const plate = licenseInput.value.trim();
+				const plateValid = plateRegex.test(plate);
+
+				licenseError.style.display = plate && !plateValid ? "block" : "none";
+				submitBtn.disabled = !(hasModel && hasSkill && plateValid && licenseChecked);
+			}
+
+			document.addEventListener("DOMContentLoaded", updateButtonState);
+
+			// 7) 설정 완료 클릭
+			submitBtn.addEventListener("click", async () => {
+				const modelId = +modelSelect.value;
+				const license = licenseInput.value.trim();
+				const skill = [...skillInputs].find((i) => i.checked).value;
+
+				// 차량 등록
+				const vRes = await fetch(`${API}/api/vehicles/`, {
+					method: "POST",
+					headers: HEAD,
+					body: JSON.stringify({ model: modelId, license_plate: license }),
+				});
+				if (!vRes.ok) {
+					const err = await vRes.json();
+					return alert("차량 등록 실패: " + JSON.stringify(err));
+				}
+
+				// 점수 업데이트
+				const uRes = await fetch(`${API}/api/users/me/`, {
+					method: "PUT",
+					headers: HEAD,
+					body: JSON.stringify({ score: +skill }),
+				});
+				if (!uRes.ok) {
+					const err = await uRes.json();
+					return alert("점수 업데이트 실패: " + JSON.stringify(err));
+				}
+
+				alert("차량이 추가되고 점수가 저장되었습니다!");
+				location.href = "/static/accounts/push_setting.html";
+			});
+		</script>
+	</body>
+</html>

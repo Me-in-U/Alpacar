@@ -1,5 +1,6 @@
 <template>
   <div>
+    <div class="page-wrapper">
     <AdminNavbar :showLogout="false" />
     <div class="container">
       <p class="title">주차 이벤트 로그</p>
@@ -9,6 +10,7 @@
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script lang="ts">
@@ -24,10 +26,17 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;           /* 화면 전체 높이 */
+  background-color: #f3eeea;   /* 페이지 배경색 */
+}
+
 .container {
   background-color: #f3eeea;
   min-height: calc(100vh - 64px); /* 네비게이션바 높이를 제외한 높이 */
-  padding: 16px 64px;
+  padding: 48px 64px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

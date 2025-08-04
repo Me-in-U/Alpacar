@@ -38,7 +38,9 @@ async def debug_scope(scope, receive, send):
             # "websocket": SessionMiddlewareStack(
             #     URLRouter(ocr_app.routing.websocket_urlpatterns)
             # ),
-            "websocket": URLRouter(streamapp.routing.websocket_urlpatterns),
+            "websocket": AuthMiddlewareStack(
+                URLRouter(streamapp.routing.websocket_urlpatterns)
+            ),
         }
     )
     await app(scope, receive, send)

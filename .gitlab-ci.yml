@@ -1,0 +1,13 @@
+stages:
+  - deploy
+
+deploy-to-ec2:
+  stage: deploy
+  tags:
+    - test
+  script:
+    - docker-compose down || true
+    - docker-compose build | tee docker_build.log
+    - docker-compose up -d --force-recreate
+  # rules:
+  #   - if: '$CI_COMMIT_BRANCH == "develop"'

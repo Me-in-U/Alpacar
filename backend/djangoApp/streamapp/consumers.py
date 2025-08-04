@@ -161,6 +161,15 @@ class StreamConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
+        user = self.scope["user"]
+        print(f"[SERVER][StreamConsumer] connect {user}")
+        # 로그인된 is_staff 사용자만 허용
+        if not (user.is_authenticated and user.is_staff):
+            # 권한 없으면 연결 거부
+            print("[SERVER][StreamConsumer] Unauthorized access attempt")
+            await self.close(code=4001)
+            return
+        print("[SERVER][StreamConsumer] Authorized access attempt")
         # 'stream' 그룹에 가입
         print(f"[SERVER][StreamConsumer] connect: {self.channel_name}")
         await self.channel_layer.group_add("stream", self.channel_name)  # 그룹 가입
