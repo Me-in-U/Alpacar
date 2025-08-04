@@ -78,3 +78,4 @@ urlpatterns = [
     ),
     path("api/", include(api_patterns)),
 ]
+urlpatterns += staticfiles_urlpatterns()
