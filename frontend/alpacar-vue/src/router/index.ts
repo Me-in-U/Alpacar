@@ -16,6 +16,7 @@ import ParkingHistory from "@/views/user/ParkingHistory.vue";
 import ModalTest from "@/views/user/ModalTest.vue";
 import AdminErrorModalTest from "@/views/admin/AdminErrorModalTest.vue";
 import GoogleCallback from "@/views/user/GoogleCallback.vue";
+import MainWithHolo from "@/views/user/MainWithHolo.vue";
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
 	routes: [
@@ -104,6 +105,12 @@ const router = createRouter({
 			path: "/auth/social/google/callback",
 			name: "GoogleCallback",
 			component: GoogleCallback,
+		},
+		//3d 모델 테스트용
+		{
+			path: "/holo",
+			name: "holo",
+			component: MainWithHolo,
 		},
 	],
 });
