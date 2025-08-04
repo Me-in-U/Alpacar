@@ -67,10 +67,10 @@ function onComplete() {
 
 /* 콘텐츠 영역: 헤더/네비 제외하고 스크롤 가능 */
 .main-content {
-  flex: 1;
+  position: relative;
+  padding-top: 80px;
+  height: calc(100% - 160px);
   overflow-y: auto;
-  padding: 64px 20px 0; /* Header 높이 64px */
-  box-sizing: border-box;
 }
 
 /* 제목 + 정보박스 */

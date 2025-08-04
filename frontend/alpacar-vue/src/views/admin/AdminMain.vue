@@ -1,5 +1,6 @@
 <template>
   <div>
+    <div class="page-wrapper">
     <AdminNavbar :showLogout="false" @test-modal="showModal = true" />
 
     <AdminAuthRequiredModal v-if="showModal" @close="showModal = false" />
@@ -31,6 +32,7 @@
       <p class="subtitle">실시간 주차 현황</p>
     </div>
   </div>
+</div>
 </template>
 
 <script lang="ts">
@@ -56,10 +58,17 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;           /* 화면 전체 높이 */
+  background-color: #f3eeea;   /* 페이지 배경색 */
+}
+
 .container {
   background-color: #f3eeea;
   min-height: calc(100vh - 64px); /* 네비게이션바 높이 감안 */
-  padding: 16px 64px;
+  padding: 48px 64px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

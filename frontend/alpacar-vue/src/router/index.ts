@@ -1,17 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import EntryPage from '../views/user/EntryPage.vue'
-import Login from '../views/user/Login.vue'
-import Signup from '../views/user/Signup.vue'
-import ForgotPassword from '../views/user/ForgotPassword.vue'
-import SocialLoginInfo from '../views/user/SocialLoginInfo.vue'
-import MainPage from '../views/user/MainPage.vue'
+import EntryPage from '@/views/user/EntryPage.vue'
+import Login from '@/views/user/Login.vue'
+import Signup from '@/views/user/Signup.vue'
+import ForgotPassword from '@/views/user/ForgotPassword.vue'
+import SocialLoginInfo from '@/views/user/SocialLoginInfo.vue'
+import MainPage from '@/views/user/MainPage.vue'
 import AdminLogin from '@/views/admin/AdminLogin.vue'
 import AdminMain from '@/views/admin/AdminMain.vue'
 import AdminParkingLogs from '@/views/admin/AdminParkingLogs.vue'
 import AdminParkingReassign from '@/views/admin/AdminParkingReassign.vue'
 import ParkingRecommend from '@/views/user/ParkingRecommend.vue'
 import ParkingComplete from '@/views/user/ParkingComplete.vue'
-
+import ParkingHistory from '@/views/user/ParkingHistory.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -46,7 +46,11 @@ const router = createRouter({
       name: 'main',
       component: MainPage
     },
-
+    {
+      path: '/parking-history',
+      name: 'parking-history',
+      component: ParkingHistory
+    },
     {
       path: '/admin-login',
       name: 'admin-login',

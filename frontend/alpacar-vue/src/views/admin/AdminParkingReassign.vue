@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="page-wrapper">
     <AdminNavbar :showLogout="false" />
     <div class="container">
       <div class="header-row">
@@ -27,9 +27,16 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;           /* 화면 전체 높이 */
+  background-color: #f3eeea;   /* 페이지 배경색 */
+}
+
 .container {
   background-color: #f3eeea;
-  padding: 16px 64px;
+  padding: 48px 64px;
   box-sizing: border-box;
   min-height: calc(100vh - 64px);
   display: flex;
