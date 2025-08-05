@@ -52,7 +52,8 @@
 <script lang="ts">
 import { defineComponent, ref } from "vue";
 import { useRouter } from "vue-router";
-import { API_BASE } from "@/utils/api";
+import { BACKEND_BASE_URL } from "@/utils/api";
+import { useUserStore } from "@/stores/user";
 
 export default defineComponent({
 	name: "Login",
@@ -67,39 +68,22 @@ export default defineComponent({
 			}
 
 			try {
-				const res = await fetch(`${API_BASE}/auth/login/`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						email: email.value,
-						password: password.value,
-					}),
-				});
-				const data = await res.json();
-				if (!res.ok) {
-					return alert("로그인 실패: " + data.detail);
-				}
-
-				// 성공 시 토큰 저장
-				localStorage.setItem("access_token", data.access);
-				localStorage.setItem("refresh_token", data.refresh);
-
-				// 로그인 이후 메인 페이지로 이동
+				const userStore = useUserStore();
+				// 기본 login 함수 사용 (api.ts에서 fallback URL 처리)
+				await userStore.login(email.value, password.value);
 				router.push("/main");
-			} catch (err) {
-				console.error(err);
-				alert("네트워크 오류가 발생했습니다.");
+			} catch (err: any) {
+				console.error("로그인 실패:", err);
+				alert("로그인 실패: " + err.message);
 			}
 		};
 
 		const handleGoogleLogin = () => {
-			// 구글 로그인 로직 구현
-			console.log("구글 로그인 시도");
-			window.location.href = `${API_BASE}/auth/social/google/login/`;
+			const backendUrl = BACKEND_BASE_URL || "https://i13e102.p.ssafy.io/api";
+			window.location.href = `${backendUrl}/auth/social/google/login/`;
 		};
 
 		const handleKakaoLogin = () => {
-			// 카카오 로그인 로직 구현
 			console.log("카카오 로그인 시도");
 			router.push("/social-login-info");
 		};

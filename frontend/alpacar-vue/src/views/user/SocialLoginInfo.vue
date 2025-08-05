@@ -71,6 +71,8 @@
             type="text" 
             class="modal-input" 
             placeholder="예: 12가3456"
+            @input="handleVehicleNumberInput"
+            maxlength="8"
           />
         </div>
         <div class="modal-footer">
@@ -86,6 +88,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { BACKEND_BASE_URL } from '@/utils/api'
 
 const router = useRouter()
 const showModal = ref(false)
@@ -97,20 +100,127 @@ const formData = reactive({
   parkingSkill: 'advanced'
 })
 
-const addVehicle = () => {
-  if (vehicleNumber.value.trim()) {
-    // 차량 번호 저장 로직
-    console.log('차량 번호:', vehicleNumber.value)
-    showModal.value = false
-    vehicleNumber.value = ''
+// 차량번호 입력 시 숫자와 한글만 허용
+const handleVehicleNumberInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  // 숫자와 한글만 허용 (공백, 특수문자 제거)
+  const cleanValue = value.replace(/[^0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, '')
+  // 최대 8자로 제한
+  if (cleanValue.length > 8) {
+    vehicleNumber.value = cleanValue.substring(0, 8)
+  } else {
+    vehicleNumber.value = cleanValue
   }
 }
 
-const completeSetup = () => {
+const addVehicle = async () => {
+  if (vehicleNumber.value.trim()) {
+    try {
+      // 토큰 가져오기 (localStorage 또는 sessionStorage에서)
+      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+      
+      if (!token) {
+        alert('로그인이 필요합니다.')
+        router.push('/login')
+        return
+      }
+
+      const response = await fetch(`${BACKEND_BASE_URL}/user/vehicle/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          license_plate: vehicleNumber.value.trim()
+        })
+      })
+
+      if (response.ok) {
+        formData.vehicleNumber = vehicleNumber.value.trim()
+        console.log('차량 번호 저장 성공:', vehicleNumber.value)
+        alert('차량 번호가 성공적으로 등록되었습니다!')
+        showModal.value = false
+        vehicleNumber.value = ''
+      } else {
+        // 응답이 JSON인지 확인
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json()
+          alert('차량 번호 저장 실패: ' + (errorData.detail || errorData.message || '서버 오류'))
+        } else {
+          // HTML 응답인 경우 (보통 404, 401 등의 에러)
+          console.error('API 응답이 HTML입니다. 상태 코드:', response.status)
+          if (response.status === 404) {
+            alert('API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.')
+          } else if (response.status === 401) {
+            alert('인증이 만료되었습니다. 다시 로그인해주세요.')
+            router.push('/login')
+          } else {
+            alert('차량 번호 저장에 실패했습니다. (오류 코드: ' + response.status + ')')
+          }
+        }
+      }
+    } catch (error) {
+      console.error('차량 번호 저장 중 오류:', error)
+      alert('차량 번호 저장 중 오류가 발생했습니다.')
+    }
+  }
+}
+
+const completeSetup = async () => {
   formData.parkingSkill = selectedSkill.value
-  console.log('설정 완료:', formData)
-  // 설정 완료 후 다음 페이지로 이동
-  router.push('/main')
+  
+  try {
+    // 토큰 가져오기
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+    
+    if (!token) {
+      alert('로그인이 필요합니다.')
+      router.push('/login')
+      return
+    }
+
+    // 주차실력 업데이트 API 호출
+    const response = await fetch(`${BACKEND_BASE_URL}/user/parking-skill/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        parking_skill: selectedSkill.value
+      })
+    })
+
+    if (response.ok) {
+      console.log('주차실력 저장 성공:', selectedSkill.value)
+      alert('차량 정보 설정이 완료되었습니다!')
+      router.push('/main')
+    } else {
+      // 응답이 JSON인지 확인
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json()
+        alert('주차실력 저장 실패: ' + (errorData.detail || errorData.message || '서버 오류'))
+      } else {
+        // HTML 응답인 경우 (보통 404, 401 등의 에러)
+        console.error('API 응답이 HTML입니다. 상태 코드:', response.status)
+        if (response.status === 404) {
+          alert('API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.')
+        } else if (response.status === 401) {
+          alert('인증이 만료되었습니다. 다시 로그인해주세요.')
+          router.push('/login')
+        } else {
+          alert('주차실력 저장에 실패했습니다. (오류 코드: ' + response.status + ')')
+        }
+      }
+    }
+  } catch (error) {
+    console.error('주차실력 저장 중 오류:', error)
+    alert('주차실력 저장 중 오류가 발생했습니다.')
+  }
 }
 </script>
 
