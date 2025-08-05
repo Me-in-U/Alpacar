@@ -42,32 +42,126 @@ export const useUserStore = defineStore("user", {
 			localStorage.removeItem("access_token");
 			localStorage.removeItem("refresh_token");
 		},
-		async fetchMe(accessToken: string) {
-			const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
+		async fetchMe(accessToken: string, baseUrl?: string) {
+			const apiUrl = baseUrl || BACKEND_BASE_URL;
+			
+			const res = await fetch(`${apiUrl}/users/me/`, {
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${accessToken}`,
 				},
 			});
-			if (!res.ok) throw new Error("프로필 조회 실패");
-			const profile: User = await res.json();
+			
+			if (!res.ok) {
+				throw new Error(`프로필 조회 실패 (${res.status})`);
+			}
+			
+			// 응답이 JSON인지 확인
+			const contentType = res.headers.get('content-type');
+			let profile: User;
+			
+			try {
+				if (contentType && contentType.includes('application/json')) {
+					const responseText = await res.text();
+					if (responseText.trim()) {
+						profile = JSON.parse(responseText);
+					} else {
+						throw new Error('서버에서 빈 응답을 반환했습니다.');
+					}
+				} else {
+					throw new Error('서버에서 JSON이 아닌 응답을 반환했습니다.');
+				}
+			} catch (parseError) {
+				console.error('프로필 JSON 파싱 오류:', parseError);
+				throw new Error('프로필 정보를 처리할 수 없습니다.');
+			}
+			
 			this.setUser(profile);
 			return profile;
 		},
 		async login(email: string, password: string) {
 			const res = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Accept": "application/json"
+				},
 				body: JSON.stringify({ email, password }),
 			});
+
+			if (!res.ok) {
+				let errorMessage = `로그인 실패 (${res.status})`;
+				try {
+					const errorData = await res.json();
+					errorMessage = errorData.detail || errorData.message || errorMessage;
+				} catch {
+					// JSON 파싱 실패 시 기본 에러 메시지 사용
+				}
+				throw new Error(errorMessage);
+			}
+
 			const data = await res.json();
-			if (!res.ok) throw new Error(data.detail || "로그인 실패");
+
+			// 토큰 확인
+			if (!data.access || !data.refresh) {
+				throw new Error('서버에서 올바른 인증 토큰을 받지 못했습니다.');
+			}
 
 			localStorage.setItem("access_token", data.access);
 			localStorage.setItem("refresh_token", data.refresh);
 
 			await this.fetchMe(data.access);
 			return this.me;
+		},
+
+		// 동적 URL을 사용하는 로그인 함수 (모바일 호환성 개선)
+		async loginWithUrl(email: string, password: string, backendUrl: string) {
+			const loginUrl = `${backendUrl}/auth/login/`;
+			
+			try {
+				const res = await fetch(loginUrl, {
+					method: "POST",
+					headers: { 
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					body: JSON.stringify({ email, password }),
+					mode: 'cors',
+					credentials: 'omit',
+					cache: 'no-cache'
+				});
+
+				if (!res.ok) {
+					let errorMessage = `로그인 실패 (${res.status})`;
+					try {
+						const errorData = await res.json();
+						errorMessage = errorData.detail || errorData.message || errorMessage;
+					} catch {
+						// JSON 파싱 실패 시 기본 에러 메시지 사용
+					}
+					throw new Error(errorMessage);
+				}
+
+				const data = await res.json();
+
+				// 토큰 확인
+				if (!data.access || !data.refresh) {
+					throw new Error('서버에서 올바른 인증 토큰을 받지 못했습니다.');
+				}
+
+				localStorage.setItem("access_token", data.access);
+				localStorage.setItem("refresh_token", data.refresh);
+
+				await this.fetchMe(data.access, backendUrl);
+				return this.me;
+			} catch (error: any) {
+				// Mixed Content나 네트워크 오류에 대한 사용자 친화적 메시지
+				if (error.message.includes('Mixed Content') || 
+					error.message.includes('Failed to fetch')) {
+					throw new Error('네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.');
+				}
+				throw error;
+			}
 		},
 
 		async togglePush(on: boolean) {
