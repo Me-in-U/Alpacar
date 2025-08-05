@@ -69,8 +69,8 @@ export default defineComponent({
 
 			try {
 				const userStore = useUserStore();
-				// 환경변수에 따라 자동으로 올바른 URL 사용 (배포환경 HTTPS, 로컬환경 HTTP)
-				await userStore.loginWithUrl(email.value, password.value, BACKEND_BASE_URL);
+				// 기본 login 함수 사용 (api.ts에서 fallback URL 처리)
+				await userStore.login(email.value, password.value);
 				router.push("/main");
 			} catch (err: any) {
 				console.error("로그인 실패:", err);
@@ -79,7 +79,8 @@ export default defineComponent({
 		};
 
 		const handleGoogleLogin = () => {
-			window.location.href = `${BACKEND_BASE_URL}/auth/social/google/login/`;
+			const backendUrl = BACKEND_BASE_URL || "https://i13e102.p.ssafy.io/api";
+			window.location.href = `${backendUrl}/auth/social/google/login/`;
 		};
 
 		const handleKakaoLogin = () => {
