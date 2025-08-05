@@ -54,6 +54,51 @@ export const useUserStore = defineStore("user", {
 			this.setUser(profile);
 			return profile;
 		},
+		async updateProfile(data: Partial<Pick<User, "nickname">>) {
+			const token = localStorage.getItem("access_token");
+			if (!token) throw new Error("로그인이 필요합니다.");
+			const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify(data),
+			});
+			if (!res.ok) {
+				const err = await res.json();
+				throw new Error(err.detail || "프로필 업데이트 실패");
+			}
+			const updated: User = await res.json();
+			this.me = { ...this.me!, ...updated };
+			return this.me;
+		},
+		async changePassword(currentPassword: string, newPassword: string) {
+			const token = localStorage.getItem("access_token");
+			if (!token) throw new Error("로그인이 필요합니다.");
+
+			const res = await fetch(`${BACKEND_BASE_URL}/auth/password-change/`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					current_password: currentPassword,
+					new_password: newPassword,
+					new_password2: newPassword, // 필요 시 confirm 필드
+				}),
+			});
+
+			if (!res.ok) {
+				// 에러 바디 전체 읽어서, detail 또는 field errors를 합친 메시지로
+				const errBody = await res.json();
+				// detail 필드 우선, 없으면 각 필드 메시지를 모아서
+				const message = errBody.detail || Object.values(errBody).flat().join(", ");
+				throw new Error(message || "비밀번호 변경 실패");
+			}
+			return await res.json();
+		},
 		async login(email: string, password: string) {
 			const res = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
 				method: "POST",
