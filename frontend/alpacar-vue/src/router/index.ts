@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 // 라우터 메타 타입 정의
-declare module 'vue-router' {
+declare module "vue-router" {
 	interface RouteMeta {
 		requiresAuth?: boolean;
 	}
@@ -16,6 +16,7 @@ import UserProfile from "@/views/user/UserProfile.vue";
 import AdminLogin from "@/views/admin/AdminLogin.vue";
 import AdminMain from "@/views/admin/AdminMain.vue";
 import AdminParkingLogs from "@/views/admin/AdminParkingLogs.vue";
+import AdminPlateOcr from "@/views/admin/AdminPlateOcr.vue";
 import AdminParkingReassign from "@/views/admin/AdminParkingReassign.vue";
 import ParkingRecommend from "@/views/user/ParkingRecommend.vue";
 import ParkingComplete from "@/views/user/ParkingComplete.vue";
@@ -27,11 +28,11 @@ import MainWithHolo from "@/views/user/MainWithHolo.vue";
 
 // 로그인 상태 확인 함수
 function isAuthenticated(): boolean {
-	const token = localStorage.getItem('access_token');
+	const token = localStorage.getItem("access_token");
 	if (!token) {
 		return false;
 	}
-	
+
 	// 토큰이 있으면 일단 인증된 것으로 간주
 	// 실제 API 호출 시 토큰 유효성은 각 컴포넌트에서 처리
 	return true;
@@ -68,19 +69,19 @@ const router = createRouter({
 			path: "/main",
 			name: "main",
 			component: MainPage,
-			meta: { requiresAuth: true }
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/parking-history",
 			name: "parking-history",
 			component: ParkingHistory,
-			meta: { requiresAuth: true }
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/user-profile",
 			name: "user-profile",
 			component: UserProfile,
-			meta: { requiresAuth: true }
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/admin-login",
@@ -106,13 +107,19 @@ const router = createRouter({
 			path: "/parking-recommend",
 			name: "parking-recommend",
 			component: ParkingRecommend,
-			meta: { requiresAuth: true }
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/parking-complete",
 			name: "parking-complete",
 			component: ParkingComplete,
-			meta: { requiresAuth: true }
+			meta: { requiresAuth: true },
+		},
+		{
+			path: "/admin-plate-ocr",
+			name: "admin-plate-ocr",
+			component: AdminPlateOcr,
+			meta: { requiresAuth: true },
 		},
 		// 모달 스타일 확인용 테스트 컴포넌트
 		{
@@ -142,22 +149,22 @@ const router = createRouter({
 // 네비게이션 가드 추가
 router.beforeEach((to, from, next) => {
 	const isLoggedIn = isAuthenticated();
-	
+
 	// 인증이 필요한 페이지인지 확인
 	if (to.meta.requiresAuth) {
 		if (!isLoggedIn) {
 			// 로그인되지 않은 경우 로그인 페이지로 리다이렉트
-			console.log('로그인이 필요한 페이지입니다. 로그인 페이지로 이동합니다.');
-			next('/login');
+			console.log("로그인이 필요한 페이지입니다. 로그인 페이지로 이동합니다.");
+			next("/login");
 		} else {
 			// 로그인된 경우 계속 진행
 			next();
 		}
 	} else {
 		// 이미 로그인된 사용자가 로그인 관련 페이지에 접근하려는 경우
-		if (isLoggedIn && (to.name === 'login' || to.name === 'signup' || to.name === 'entry-page')) {
-			console.log('이미 로그인된 사용자입니다. 메인 페이지로 이동합니다.');
-			next('/main');
+		if (isLoggedIn && (to.name === "login" || to.name === "signup" || to.name === "entry-page")) {
+			console.log("이미 로그인된 사용자입니다. 메인 페이지로 이동합니다.");
+			next("/main");
 		} else {
 			// 인증이 필요하지 않은 페이지는 그대로 진행
 			next();
