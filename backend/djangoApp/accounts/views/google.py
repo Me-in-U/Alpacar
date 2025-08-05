@@ -19,7 +19,7 @@ from django.shortcuts import redirect
 
 
 BASE_URL = config("BACKEND_BASE_URL")
-CALLBACK_PATH = "/auth/social/google/callback/"  # 구글 콜백 엔드포인트
+CALLBACK_PATH = "/api/auth/social/google/callback/"  # 구글 콜백 엔드포인트
 REDIRECT_URL = f"{BASE_URL}{CALLBACK_PATH}"  # 전체 콜백 URI
 GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"  # 구글 인증 URL
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"  # 토큰 발급 URL
@@ -45,6 +45,8 @@ def google_login(request):
     구글 OAuth 동의 화면으로 리다이렉트
     """
     client_id = config("GOOGLE_CLIENT_ID")  # .env에서 클라이언트 ID 가져오기
+    # 현재 요청을 기준으로 절대 URI 생성
+    print(f"[★DEBUG] Google Login Redirect to: {REDIRECT_URL}")
     params = {
         "client_id": client_id,
         "response_type": "code",
@@ -71,12 +73,14 @@ def google_callback(request):
         return JsonResponse({"error": "missing code"}, status=400)
 
     # authorization code로 access_token 요청
+    redirect_uri = request.build_absolute_uri(CALLBACK_PATH)
+    print(f"[★DEBUG] Google Callback with code: {code}, redirect_uri: {redirect_uri}")
     data = {
         "client_id": config("GOOGLE_CLIENT_ID"),
         "client_secret": config("GOOGLE_CLIENT_SECRET"),
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": REDIRECT_URL,
+        "redirect_uri": redirect_uri,
     }
     token_res = requests.post(GOOGLE_TOKEN_URI, data=data)  # 토큰 교환 요청
     token_json = token_res.json()
