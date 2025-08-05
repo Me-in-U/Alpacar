@@ -20,7 +20,6 @@ from decouple import config  # pip install python-decouple
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static"]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
@@ -40,7 +39,12 @@ VAPID_CLAIMS = {"sub": config("VAPID_CLAIM_SUB")}
 DJANGO_ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", default="")
 
 # localhost 및 루프백 포함
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".ngrok-free.app", "i13e102.p.ssafy.io"]
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    ".ngrok-free.app",
+    "i13e102.p.ssafy.io",
+]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.naver.com"  # 사용하시는 메일 서비스에 맞게
@@ -227,6 +231,7 @@ SIMPLE_JWT = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -236,12 +241,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # ── allauth용 미들웨어 ──
     "allauth.account.middleware.AccountMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
 ]
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8000",
+    "https://i13e102.p.ssafy.io",
 ]
 
 ROOT_URLCONF = "djangoApp.urls"

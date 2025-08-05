@@ -14,6 +14,7 @@ from accounts.views.auth import (
     check_nickname,
 )
 from accounts.views.google import google_callback, google_login
+from accounts.views.password_change import PasswordChangeAPI
 from accounts.views.password_reset import (
     PasswordResetConfirmAPIView,
     PasswordResetRequestAPIView,
@@ -64,6 +65,12 @@ urlpatterns = [
         "auth/email-verify/verify/",
         SignupEmailVerifyVerifyAPIView.as_view(),
         name="email-verify-verify",
+    ),
+    # ── 비밀번호 변경 ───────────────────────────
+    path(
+        "auth/password-change/",
+        PasswordChangeAPI.as_view(),
+        name="api-password-change",
     ),
     # ─ 비밀번호 재설정 ─────────────────────────────────────────────────────
     path(
