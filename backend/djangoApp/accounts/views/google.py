@@ -11,11 +11,16 @@ from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
+from urllib.parse import urlparse, urlencode
+from django.shortcuts import redirect
+
 
 # ── 환경／상수 ───────────────────────────────────────────────────────────
-BASE_URL = "http://localhost:8000"  # API 서버 기본 URL
-CALLBACK_PATH = "/api/auth/social/google/callback/"  # 구글 콜백 엔드포인트
-CALLBACK_URI = BASE_URL + CALLBACK_PATH  # 전체 콜백 URI
+
+
+BASE_URL = config("BACKEND_BASE_URL", default="http://localhost:8000/api")
+CALLBACK_PATH = "/auth/social/google/callback/"  # 구글 콜백 엔드포인트
+REDIRECT_URL = f"{BASE_URL}{CALLBACK_PATH}"  # 전체 콜백 URI
 GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"  # 구글 인증 URL
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"  # 토큰 발급 URL
 GOOGLE_USERINFO_URI = (
@@ -43,7 +48,7 @@ def google_login(request):
     params = {
         "client_id": client_id,
         "response_type": "code",
-        "redirect_uri": CALLBACK_URI,
+        "redirect_uri": REDIRECT_URL,
         "scope": GOOGLE_SCOPE,
         "access_type": "online",
         "prompt": "consent",  # 사용자 동의 화면 강제 표시
@@ -71,7 +76,7 @@ def google_callback(request):
         "client_secret": config("GOOGLE_CLIENT_SECRET"),
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": CALLBACK_URI,
+        "redirect_uri": REDIRECT_URL,
     }
     token_res = requests.post(GOOGLE_TOKEN_URI, data=data)  # 토큰 교환 요청
     token_json = token_res.json()
@@ -140,4 +145,4 @@ from dj_rest_auth.registration.views import SocialLoginView
 class GoogleLogin(SocialLoginView):
     adapter_class = google_views.GoogleOAuth2Adapter  # 구글 OAuth2 어댑터
     client_class = OAuth2Client  # OAuth2 클라이언트 라이브러리
-    callback_url = CALLBACK_URI  # 콜백 URL 설정
+    callback_url = REDIRECT_URL  # 콜백 URL 설정
