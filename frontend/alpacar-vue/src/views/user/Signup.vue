@@ -30,7 +30,7 @@
 						maxlength="18"
 					/>
 					<p class="field-help" :class="{ 'error-text': !nameValid && formData.full_name }">
-						공백 없이 최대 18자까지 입력 가능
+						한글, 영문자만 입력 가능 (최대 18자)
 					</p>
 				</div>
 
@@ -122,14 +122,14 @@
 							type="text" 
 							placeholder="닉네임을 입력하세요" 
 							v-model="formData.nickname"
-							@input="limitInput($event, 'nickname', 18)"
+							@input="handleNicknameInput"
 							class="input-field" 
 							maxlength="18"
 						/>
 						<button class="duplicate-check-button" @click="checkNickname">중복 확인</button>
 						<span v-if="nickOK" class="checkmark">✔</span>
 					</div>
-					<p class="field-help">최대 18자까지 입력 가능</p>
+					<p class="field-help">한글, 영문자, 숫자만 입력 가능 (최대 18자)</p>
 				</div>
 
 				<!-- Signup -->
@@ -255,9 +255,26 @@ export default defineComponent({
 			}
 		};
 
-		// 이름 입력 시 공백 제거
+		// 이름 입력 시 공백과 특수문자 제거
 		const handleNameInput = () => {
-			formData.full_name = formData.full_name.replace(/\s/g, '');
+			// 한글, 영문자만 허용 (특수문자 및 공백 제거)
+			formData.full_name = formData.full_name.replace(/[^ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z]/g, '');
+		};
+
+		// 닉네임 입력 시 특수문자 실시간 차단
+		const handleNicknameInput = (event: Event) => {
+			const target = event.target as HTMLInputElement;
+			const value = target.value;
+			// 한글, 영문자, 숫자만 허용 (특수문자 제거)
+			const cleanValue = value.replace(/[^ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9]/g, '');
+			// 최대 18자로 제한
+			if (cleanValue.length > 18) {
+				formData.nickname = cleanValue.substring(0, 18);
+			} else {
+				formData.nickname = cleanValue;
+			}
+			// 중복확인 상태 초기화
+			nickOK.value = false;
 		};
 
 		// 전화번호 입력 시 숫자만 허용
@@ -280,8 +297,8 @@ export default defineComponent({
 			const value = target.value;
 			
 			if (field === 'full_name') {
-				// 이름은 공백 제거 후 길이 체크
-				const cleanValue = value.replace(/\s/g, '');
+				// 이름은 특수문자와 공백 제거 후 길이 체크 (한글, 영문자만 허용)
+				const cleanValue = value.replace(/[^ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z]/g, '');
 				if (cleanValue.length > maxLength) {
 					formData.full_name = cleanValue.substring(0, maxLength);
 				} else {
@@ -421,6 +438,46 @@ export default defineComponent({
 			);
 		});
 
+		// 자동 로그인 처리 함수
+		const performAutoLogin = async () => {
+			try {
+				const loginRes = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						email: formData.email,
+						password: formData.password,
+					}),
+				});
+				
+				const loginData = await loginRes.json();
+				
+				if (loginRes.ok && loginData.access) {
+					// 토큰 저장
+					localStorage.setItem('access_token', loginData.access);
+					if (loginData.refresh) {
+						localStorage.setItem('refresh_token', loginData.refresh);
+					}
+					
+					// 사용자 정보 저장 (있는 경우)
+					if (loginData.user) {
+						localStorage.setItem('user', JSON.stringify(loginData.user));
+					}
+					
+					console.log('자동 로그인 성공');
+					router.push("/social-login-info");
+				} else {
+					console.error('자동 로그인 실패:', loginData);
+					alert('회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.');
+					router.push("/login");
+				}
+			} catch (error) {
+				console.error('자동 로그인 중 오류:', error);
+				alert('회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.');
+				router.push("/login");
+			}
+		};
+
 		// 회원가입 API 호출
 		const handleSignup = async () => {
 			// 비밀번호 유효성 재검사
@@ -448,7 +505,9 @@ export default defineComponent({
 					// 성공 시 backend의 message 또는 detail 중 있는 걸 쓰고
 					const msg = data.message || data.detail || "회원가입 성공!";
 					alert(msg);
-					router.push("/login");
+					
+					// 회원가입 성공 후 자동 로그인 처리
+					await performAutoLogin();
 				} else {
 					// 에러 키들을 합쳐서 보여주기
 					if (data.detail) {
@@ -475,6 +534,7 @@ export default defineComponent({
 			nickOK,
 			checkNickname,
 			canSignup,
+			performAutoLogin,
 			handleSignup,
 			passwordValid,
 			passwordConfirmValid,
@@ -483,6 +543,7 @@ export default defineComponent({
 			validatePasswordConfirm,
 			validateName,
 			handleNameInput,
+			handleNicknameInput,
 			handlePhoneInput,
 			limitInput,
 			goBack: () => router.back(),
