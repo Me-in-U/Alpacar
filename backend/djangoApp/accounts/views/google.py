@@ -18,7 +18,7 @@ from django.shortcuts import redirect
 # ── 환경／상수 ───────────────────────────────────────────────────────────
 
 
-BASE_URL = config("BACKEND_BASE_URL", default="http://localhost:8000/api")
+BASE_URL = config("BACKEND_BASE_URL")
 CALLBACK_PATH = "/auth/social/google/callback/"  # 구글 콜백 엔드포인트
 REDIRECT_URL = f"{BASE_URL}{CALLBACK_PATH}"  # 전체 콜백 URI
 GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"  # 구글 인증 URL
@@ -130,7 +130,7 @@ def google_callback(request):
 
     # 4) JWT 토큰 발급 및 HTML 반환
     tokens = issue_tokens(user)
-    FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:5173")
+    FRONTEND_BASE_URL = config("FRONTEND_BASE_URL")
     return redirect(
         f"{FRONTEND_BASE_URL}/auth/social/google/callback?access={tokens['access']}&refresh={tokens['refresh']}"
     )
