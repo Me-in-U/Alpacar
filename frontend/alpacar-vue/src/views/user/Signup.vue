@@ -201,9 +201,9 @@ export default defineComponent({
 					body: JSON.stringify({ email: formData.email }),
 				});
 				emailSent.value = true;
-				alert("인증번호 발송");
+				alert("인증번호를 발송했습니다.");
 			} catch {
-				alert("발송 실패");
+				alert("인증번호 발송 실패");
 			}
 		};
 
@@ -217,7 +217,7 @@ export default defineComponent({
 				});
 				if (!res.ok) throw await res.json();
 				emailVerified.value = true;
-				alert("인증 완료");
+				alert("이메일 인증이 완료되었습니다.");
 			} catch (err: any) {
 				alert(err.detail || "인증 실패");
 			}
@@ -234,7 +234,46 @@ export default defineComponent({
 				alert("중복확인 실패");
 			}
 		};
+		// 자동 로그인 처리 함수
+		const performAutoLogin = async () => {
+			try {
+				const loginRes = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						email: formData.email,
+						password: formData.password,
+					}),
+				});
 
+				const loginData = await loginRes.json();
+
+				if (loginRes.ok && loginData.access) {
+					// 토큰 저장
+					localStorage.setItem("access_token", loginData.access);
+					if (loginData.refresh) {
+						localStorage.setItem("refresh_token", loginData.refresh);
+					}
+
+					// 사용자 정보 저장 (있는 경우)
+					if (loginData.user) {
+						localStorage.setItem("user", JSON.stringify(loginData.user));
+					}
+
+					console.log("자동 로그인 성공");
+					router.push("/social-login-info");
+				} else {
+					console.error("자동 로그인 실패:", loginData);
+					alert("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
+					router.push("/login");
+				}
+			} catch (error) {
+				console.error("자동 로그인 중 오류:", error);
+				alert("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
+				router.push("/login");
+				alert("중복확인 실패");
+			}
+		};
 		// 회원가입 요청
 		const handleSignup = async () => {
 			try {
@@ -251,12 +290,25 @@ export default defineComponent({
 					}),
 				});
 				const data = await res.json();
-				if (!res.ok) throw data;
-				alert(data.detail || "회원가입 성공");
-				router.push("/login");
-			} catch (err: any) {
-				const msgs = err.detail ? err.detail : Object.values(err).flat().join("\n");
-				alert("실패:\n" + msgs);
+				if (res.ok) {
+					// 성공 시 backend의 message 또는 detail 중 있는 걸 쓰고
+					const msg = data.message || data.detail || "회원가입 성공!";
+					alert(msg);
+
+					// 회원가입 성공 후 자동 로그인 처리
+					await performAutoLogin();
+				} else {
+					// 에러 키들을 합쳐서 보여주기
+					if (data.detail) {
+						alert("회원가입 실패: " + data.detail);
+					} else {
+						// field별 에러 메시지를 모두 문자열로 합치기
+						const msgs = Object.values(data).flat().join("\n");
+						alert("회원가입 실패:\n" + msgs);
+					}
+				}
+			} catch {
+				alert("회원가입 요청 중 네트워크 오류가 발생했습니다.");
 			}
 		};
 
