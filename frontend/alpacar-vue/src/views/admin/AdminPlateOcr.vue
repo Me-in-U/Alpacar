@@ -38,7 +38,7 @@ export default defineComponent({
 		let ws: WebSocket | null = null;
 
 		onMounted(() => {
-			ws = new WebSocket("ws://i13e102.p.ssafy.io/ws/stream/");
+			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/stream/");
 			ws.onopen = () => {
 				console.log("[WS] 연결 성공");
 			};
