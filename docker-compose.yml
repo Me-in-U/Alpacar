@@ -39,6 +39,8 @@ services:
       context: ./frontend/alpacar-vue
       dockerfile: Dockerfile
     image: frontend-build
+    env_file:
+      - ~/.env
     # 별도 컨테이너로 띄우지 않고 빌드 용도로만 사용
     entrypoint: ["true"]
 
