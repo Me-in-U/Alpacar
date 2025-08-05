@@ -251,24 +251,44 @@ const handleLogout = () => {
 };
 
 const updateNickname = async () => {
-	if (!newNickname.value.trim()) return alert("닉네임을 입력해주세요.");
-	userStore.me!.nickname = newNickname.value.trim();
-	showNicknameModal.value = false;
-	newNickname.value = "";
-	alert("닉네임이 변경되었습니다.");
+	const nick = newNickname.value.trim();
+	if (!nick) return alert("닉네임을 입력해주세요.");
+
+	try {
+		await userStore.updateProfile({ nickname: nick });
+		alert("닉네임이 변경되었습니다.");
+		showNicknameModal.value = false;
+		newNickname.value = "";
+	} catch (err: any) {
+		console.error("닉네임 변경 실패:", err);
+		alert("변경 실패: " + err.message);
+	}
 };
 
-const confirmPasswordChange = () => {
-	if (currentPassword.value && newPassword.value && confirmPassword.value) {
-		if (newPassword.value === confirmPassword.value) {
-			console.log("비밀번호 변경:", { current: currentPassword.value, new: newPassword.value });
-			alert("비밀번호가 변경되었습니다.");
-		} else alert("새 비밀번호가 일치하지 않습니다.");
-	} else alert("모든 비밀번호 필드를 입력해주세요.");
-	showPasswordConfirmModal.value = false;
-	currentPassword.value = "";
-	newPassword.value = "";
-	confirmPassword.value = "";
+const confirmPasswordChange = async () => {
+	const cur = currentPassword.value;
+	const neu = newPassword.value;
+	const cf = confirmPassword.value;
+
+	if (!cur || !neu || !cf) {
+		return alert("모든 비밀번호 필드를 입력해주세요.");
+	}
+	if (neu !== cf) {
+		return alert("새 비밀번호가 일치하지 않습니다.");
+	}
+
+	try {
+		await userStore.changePassword(cur, neu);
+		alert("비밀번호가 성공적으로 변경되었습니다.");
+	} catch (err: any) {
+		console.error("비밀번호 변경 실패:", err);
+		alert("변경 실패: " + err.message);
+	} finally {
+		showPasswordConfirmModal.value = false;
+		currentPassword.value = "";
+		newPassword.value = "";
+		confirmPassword.value = "";
+	}
 };
 
 const removeVehicle = async (id: number) => {
