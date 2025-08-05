@@ -69,20 +69,20 @@ export default defineComponent({
 
 			try {
 				const userStore = useUserStore();
-				await userStore.login(email.value, password.value);
+				// 환경변수에 따라 자동으로 올바른 URL 사용 (배포환경 HTTPS, 로컬환경 HTTP)
+				await userStore.loginWithUrl(email.value, password.value, BACKEND_BASE_URL);
 				router.push("/main");
 			} catch (err: any) {
+				console.error("로그인 실패:", err);
 				alert("로그인 실패: " + err.message);
 			}
 		};
 
-		// Login.vue (setup 안쪽)
 		const handleGoogleLogin = () => {
 			window.location.href = `${BACKEND_BASE_URL}/auth/social/google/login/`;
 		};
 
 		const handleKakaoLogin = () => {
-			// 카카오 로그인 로직 구현
 			console.log("카카오 로그인 시도");
 			router.push("/social-login-info");
 		};
