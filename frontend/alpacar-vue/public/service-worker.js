@@ -9,10 +9,23 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-	// 예: 네트워크 우선, 실패 시 캐시
-	event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+	event.respondWith(
+		(async () => {
+			try {
+				if (event.request.url.includes("/api/")) {
+					return await fetch(event.request);
+				}
+				const cached = await caches.match(event.request);
+				return cached || (await fetch(event.request));
+			} catch (err) {
+				console.error("SW fetch error:", err);
+				// 네트워크·캐시 모두 실패 시 빈 Response 리턴
+				return new Response(null, { status: 504, statusText: "SW_GATEWAY_TIMEOUT" });
+			}
+		})()
+	);
 });
-// static/service-worker.js
+
 self.addEventListener("push", (event) => {
 	let data = {};
 	if (event.data) {
