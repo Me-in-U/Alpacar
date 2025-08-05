@@ -142,9 +142,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, ref, computed, watch } from "vue";
+import { defineComponent, reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import { API_BASE } from "@/utils/api";
+import { BACKEND_BASE_URL } from "@/utils/api";
 
 export default defineComponent({
 	name: "Signup",
@@ -339,7 +339,7 @@ export default defineComponent({
 
 			// 1) 이메일 중복 확인
 			try {
-				const dupRes = await fetch(`${API_BASE}/auth/check-email/?email=${encodeURIComponent(formData.email)}`);
+				const dupRes = await fetch(`${BACKEND_BASE_URL}/auth/check-email/?email=${encodeURIComponent(formData.email)}`);
 				const dupJson = await dupRes.json();
 				if (!dupRes.ok || dupJson.exists) {
 					alert("이미 사용 중인 이메일입니다.");
@@ -352,7 +352,7 @@ export default defineComponent({
 
 			// 2) 중복 없으면 인증번호 발송
 			try {
-				const res = await fetch(`${API_BASE}/auth/email-verify/request/`, {
+				const res = await fetch(`${BACKEND_BASE_URL}/auth/email-verify/request/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ email: formData.email }),
@@ -369,7 +369,7 @@ export default defineComponent({
 		const verifyCode = async () => {
 			if (!code.value) return;
 			try {
-				const res = await fetch(`${API_BASE}/auth/email-verify/verify/`, {
+				const res = await fetch(`${BACKEND_BASE_URL}/auth/email-verify/verify/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ email: formData.email, code: code.value }),
@@ -392,7 +392,7 @@ export default defineComponent({
 				return alert("닉네임을 입력해주세요.");
 			}
 			try {
-				const res = await fetch(`${API_BASE}/auth/check-nickname/?nickname=${encodeURIComponent(formData.nickname)}`);
+				const res = await fetch(`${BACKEND_BASE_URL}/auth/check-nickname/?nickname=${encodeURIComponent(formData.nickname)}`);
 				const json = await res.json();
 				console.log("Nickname check response:", json);
 				if (res.ok && !json.exists) {
@@ -431,7 +431,7 @@ export default defineComponent({
 				return alert("비밀번호가 일치하지 않습니다.");
 			}
 			try {
-				const res = await fetch(`${API_BASE}/auth/signup/`, {
+				const res = await fetch(`${BACKEND_BASE_URL}/auth/signup/`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
