@@ -50,9 +50,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "djangoApp.settings")
 application = ProtocolTypeRouter(
     {
         "http": get_asgi_application(),
-        "websocket": AuthMiddlewareStack(
-            URLRouter(streamapp.routing.websocket_urlpatterns)
-        ),
+        "websocket": URLRouter(streamapp.routing.websocket_urlpatterns),
         # "websocket": AllowedHostsOriginValidator(  # 호스트 검증 추가
         #     AuthMiddlewareStack(URLRouter(streamapp.routing.websocket_urlpatterns))
         # ),
