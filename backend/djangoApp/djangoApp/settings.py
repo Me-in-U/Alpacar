@@ -45,6 +45,9 @@ ALLOWED_HOSTS = [
     ".ngrok-free.app",
     "i13e102.p.ssafy.io",
 ]
+CSRF_TRUSTED_ORIGINS = [
+    "https://i13e102.p.ssafy.io",
+]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.naver.com"  # 사용하시는 메일 서비스에 맞게
@@ -247,7 +250,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://i13e102.p.ssafy.io",
     "http://192.168.137.1:5173",
-
 ]
 
 ROOT_URLCONF = "djangoApp.urls"
