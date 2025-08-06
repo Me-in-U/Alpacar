@@ -100,7 +100,7 @@
 			<div class="vehicle-list">
 				<div v-for="vehicle in displayedVehicles" :key="vehicle.id" class="vehicle-card">
 					<img 
-						:src="vehicle.model?.image_url || defaultCarImage" 
+						:src="getVehicleImageUrl(vehicle.model?.image_url)" 
 						alt="차량 이미지" 
 						class="vehicle-card__image" 
 						@error="(e) => (e.target as HTMLImageElement).src = defaultCarImage"
@@ -499,6 +499,24 @@ const verificationTarget = ref<'phone' | 'password'>('phone');
 
 const vehicleForm = ref<{ number: string }>({ number: "" });
 
+// 이미지 URL 처리 함수 - 로컬 개발환경에서 포트 문제 해결
+const getVehicleImageUrl = (imageUrl: string | undefined) => {
+	if (!imageUrl) return defaultCarImage;
+	
+	// 절대 URL인 경우 (http:// 또는 https://로 시작) 그대로 사용
+	if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+		return imageUrl;
+	}
+	
+	// 상대 URL인 경우 백엔드 베이스 URL과 결합
+	// imageUrl이 /로 시작하지 않으면 /를 추가
+	const cleanImageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+	
+	// BACKEND_BASE_URL이 /api로 끝나는 경우 제거하고 이미지 URL 추가
+	const backendUrl = BACKEND_BASE_URL.replace(/\/api$/, '');
+	return `${backendUrl}${cleanImageUrl}`;
+};
+
 // Methods
 // Logout
 const handleLogout = () => {
@@ -831,8 +849,8 @@ const removeVehicle = async (id: number) => {
 	object-fit: contain;
 	border-radius: 5px;
 	margin-right: 12px;
+	background-color: transparent;
 	flex-shrink: 0;
-	background-color: #f5f5f5;
 	padding: 2px;
 }
 .vehicle-card__info {

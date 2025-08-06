@@ -92,6 +92,7 @@ const router = createRouter({
 			path: "/social-login-info",
 			name: "social-login-info",
 			component: SocialLoginInfo,
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/main",
@@ -201,6 +202,10 @@ router.beforeEach(async (to, from, next) => {
 				// 차량 등록이 안 되어 있고 social-login-info 페이지가 아닌 경우
 				console.log("차량 등록이 필요합니다. 차량 등록 페이지로 이동합니다.");
 				next("/social-login-info");
+			} else if (hasVehicle && to.name === "social-login-info") {
+				// 차량 등록이 되어 있는데 social-login-info 페이지에 접근하려는 경우
+				console.log("이미 차량이 등록되어 있습니다. 메인 페이지로 이동합니다.");
+				next("/main");
 			} else {
 				// 차량 등록이 되어 있거나 social-login-info 페이지인 경우 계속 진행
 				next();
