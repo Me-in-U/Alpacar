@@ -53,4 +53,4 @@ EXPOSE 8000
 
 
 # 실행 명령어
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "djangoApp.wsgi:application"]
+CMD ["uvicorn", "djangoApp.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug", "--access-log"]
