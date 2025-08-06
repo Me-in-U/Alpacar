@@ -13,12 +13,41 @@
 
 			<!-- User Info Display -->
 			<div class="user-info">
-				<div class="user-info__label">이메일</div>
-				<div class="user-info__value">{{ userInfo?.email }}</div>
-				<div class="user-info__label">이름</div>
-				<div class="user-info__value">{{ userInfo?.name }}</div>
-				<div class="user-info__label">전화번호</div>
-				<div class="user-info__value">{{ userInfo?.phone }}</div>
+				<div class="user-info__header">
+					<div class="user-info__title">내 정보</div>
+				</div>
+				
+				<div class="user-info__item">
+					<div class="user-info__icon-wrapper">
+						<div class="user-info__icon user-info__icon--email"></div>
+					</div>
+					<div class="user-info__content">
+						<div class="user-info__label">이메일</div>
+						<div class="user-info__value">{{ userInfo?.email || '-' }}</div>
+					</div>
+				</div>
+				<div class="user-info__divider"></div>
+				
+				<div class="user-info__item">
+					<div class="user-info__icon-wrapper">
+						<div class="user-info__icon user-info__icon--name"></div>
+					</div>
+					<div class="user-info__content">
+						<div class="user-info__label">이름</div>
+						<div class="user-info__value">{{ userInfo?.name || '-' }}</div>
+					</div>
+				</div>
+				<div class="user-info__divider"></div>
+				
+				<div class="user-info__item">
+					<div class="user-info__icon-wrapper">
+						<div class="user-info__icon user-info__icon--phone"></div>
+					</div>
+					<div class="user-info__content">
+						<div class="user-info__label">전화번호</div>
+						<div class="user-info__value">{{ formatPhoneNumber(userInfo?.phone) || '-' }}</div>
+					</div>
+				</div>
 			</div>
 
 			<!-- Nickname Section -->
@@ -801,6 +830,20 @@ const removeVehicle = async (id: number) => {
 		alert('차량 삭제 중 오류가 발생했습니다.');
 	}
 };
+
+// 전화번호 포맷팅 함수 (01012341234 → 010-1234-1234)
+const formatPhoneNumber = (phone: string | undefined | null) => {
+	if (!phone) return null;
+	
+	// 숫자만 추출
+	const digits = phone.replace(/\D/g, '');
+	
+	// 11자리 숫자가 아니면 원본 반환
+	if (digits.length !== 11) return phone;
+	
+	// 010-1234-1234 형태로 포맷팅
+	return digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+};
 </script>
 
 <style scoped>
@@ -840,17 +883,128 @@ const removeVehicle = async (id: number) => {
 
 /* User Info */
 .user-info {
-	background: #ebe3d5;
+	background: #ffffff;
+	border-radius: 16px;
+	overflow: hidden;
+	margin-bottom: 30px;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+	border: 1px solid rgba(119, 107, 93, 0.1);
+	position: relative;
+}
+
+.user-info::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: linear-gradient(90deg, #776B5D, #8B7D6B, #776B5D);
+	border-radius: 16px 16px 0 0;
+}
+
+.user-info__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 20px 20px 16px 20px;
+	background: linear-gradient(135deg, #f8f7f5 0%, #f5f4f2 100%);
+	border-bottom: 1px solid rgba(119, 107, 93, 0.08);
+}
+
+.user-info__title {
+	font-size: 18px;
+	font-weight: 600;
+	color: #333333;
+	letter-spacing: -0.5px;
+}
+
+.user-info__item {
+	display: flex;
+	align-items: center;
+	padding: 18px 20px;
+	min-height: 64px;
+	transition: background-color 0.2s ease;
+}
+
+.user-info__item:hover {
+	background-color: rgba(119, 107, 93, 0.02);
+}
+
+.user-info__icon-wrapper {
+	margin-right: 16px;
+	flex-shrink: 0;
+}
+
+.user-info__icon {
+	width: 40px;
+	height: 40px;
 	border-radius: 10px;
-	padding: 10px;
-	margin-bottom: 20px;
+	position: relative;
+	transition: transform 0.2s ease;
 }
+
+.user-info__icon::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 20px;
+	height: 20px;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: contain;
+}
+
+.user-info__icon--email {
+	background: linear-gradient(135deg, #4285F4, #34A853);
+}
+
+.user-info__icon--email::before {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
+}
+
+.user-info__icon--name {
+	background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+}
+
+.user-info__icon--name::before {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+}
+
+.user-info__icon--phone {
+	background: linear-gradient(135deg, #00BCD4, #2196F3);
+}
+
+.user-info__icon--phone::before {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
+}
+
+.user-info__content {
+	flex: 1;
+	min-width: 0;
+}
+
 .user-info__label {
-	font-size: 16px;
-	margin-bottom: 4px;
+	font-size: 14px;
+	font-weight: 500;
+	color: #776B5D;
+	margin-bottom: 2px;
+	text-transform: capitalize;
 }
+
 .user-info__value {
 	font-size: 16px;
+	font-weight: 600;
+	color: #333333;
+	word-break: break-all;
+}
+
+.user-info__divider {
+	height: 1px;
+	background: linear-gradient(90deg, transparent, rgba(119, 107, 93, 0.1), transparent);
+	margin: 0 20px 0 76px;
 }
 
 /* Section Titles */
@@ -937,12 +1091,12 @@ const removeVehicle = async (id: number) => {
 	background: #fff;
 	border: 1px solid #ccc;
 	border-radius: 10px;
-	padding: 0 14px;
+	padding-right: 14px;
 	margin-bottom: 15px;
 }
 .vehicle-card__image {
-	width: 120px;
-	height: 100px;
+	width: 45%;
+	height: 100%;
 	object-fit: contain;
 	border-radius: 5px;
 	margin-right: 12px;
@@ -951,7 +1105,7 @@ const removeVehicle = async (id: number) => {
 	padding: 2px;
 }
 .vehicle-card__info {
-	font-size: 18px;
+	font-size: 17px;
 	white-space: normal;
 	flex: 1;
 	min-width: 0;
@@ -1135,6 +1289,45 @@ const removeVehicle = async (id: number) => {
 	.user-profile__content {
 		padding-left: 15px;
 		padding-right: 15px;
+	}
+	
+	.user-info__header {
+		padding: 16px 16px 12px 16px;
+	}
+	
+	.user-info__title {
+		font-size: 16px;
+	}
+	
+	.user-info__item {
+		padding: 14px 16px;
+		min-height: 56px;
+	}
+	
+	.user-info__icon-wrapper {
+		margin-right: 12px;
+	}
+	
+	.user-info__icon {
+		width: 36px;
+		height: 36px;
+	}
+	
+	.user-info__icon::before {
+		width: 18px;
+		height: 18px;
+	}
+	
+	.user-info__label {
+		font-size: 13px;
+	}
+	
+	.user-info__value {
+		font-size: 15px;
+	}
+	
+	.user-info__divider {
+		margin: 0 16px 0 64px;
 	}
 }
 
