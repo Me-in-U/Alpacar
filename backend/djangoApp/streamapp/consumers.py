@@ -7,7 +7,11 @@ import sys
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
+from django.utils import timezone
 from pywebpush import WebPushException, webpush
+
+from events.models import VehicleEvent
+from vehicles.models import Vehicle
 
 # ─── 전역 상태 ───────────────────────────────────────────────────────────
 LATEST_TEXT = "번호판 인식 대기중"
@@ -148,6 +152,34 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
                     "frame": b64_img,
                     "text": "등록되지 않은 차량입니다",
                 },
+            )
+
+        # ─── DB에 이벤트 기록 (입차 또는 예외) ────────────────────────────
+        # 1) 이벤트 타입 결정
+        event_type = "Entrance" if exists else "Exception"
+
+        # 2) Vehicle 인스턴스 조회 (미등록 시 None)
+        vehicle = None
+        if exists:
+            vehicle = await database_sync_to_async(Vehicle.objects.get)(
+                license_plate=LATEST_TEXT
+            )
+
+        # 3) 최근 이벤트 조회
+        last_event = None
+        if exists:
+            last_event = await database_sync_to_async(
+                lambda v: VehicleEvent.objects.filter(vehicle=v)
+                .order_by("-timestamp")
+                .first()
+            )(vehicle)
+
+        # 4) 최근 기록이 없거나 출차 상태일 때만 기록
+        if last_event is None or last_event.event_type == "Exit":
+            await database_sync_to_async(VehicleEvent.objects.create)(
+                vehicle=vehicle,
+                event_type=event_type,
+                timestamp=timezone.now(),
             )
 
         # 처리된 번호판 기록
