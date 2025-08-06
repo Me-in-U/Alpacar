@@ -59,8 +59,8 @@ export default defineComponent({
 
 		onMounted(() => {
 			// 백엔드 WebSocket URL
-			// ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
-			ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
+			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
+			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
 
 			ws.onopen = () => {
 				console.log("WS 연결 성공: 주차 로그 수신 대기");
