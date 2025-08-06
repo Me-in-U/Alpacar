@@ -37,6 +37,33 @@ function isAuthenticated(): boolean {
 	// 실제 API 호출 시 토큰 유효성은 각 컴포넌트에서 처리
 	return true;
 }
+
+// 차량 등록 여부 확인 함수
+async function hasVehicleRegistered(): Promise<boolean> {
+	const token = localStorage.getItem("access_token");
+	if (!token) {
+		return false;
+	}
+
+	try {
+		const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL || 'http://localhost:8000'}/user/vehicle/check/`, {
+			method: 'GET',
+			headers: {
+				'Authorization': `Bearer ${token}`,
+				'Content-Type': 'application/json'
+			}
+		});
+
+		if (response.ok) {
+			const data = await response.json();
+			return data.has_vehicle || false;
+		}
+		return false;
+	} catch (error) {
+		console.error('차량 등록 여부 확인 중 오류:', error);
+		return false;
+	}
+}
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
 	routes: [
@@ -147,7 +174,7 @@ const router = createRouter({
 });
 
 // 네비게이션 가드 추가
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
 	const isLoggedIn = isAuthenticated();
 
 	// 인증이 필요한 페이지인지 확인
@@ -157,8 +184,17 @@ router.beforeEach((to, from, next) => {
 			console.log("로그인이 필요한 페이지입니다. 로그인 페이지로 이동합니다.");
 			next("/login");
 		} else {
-			// 로그인된 경우 계속 진행
-			next();
+			// 로그인된 경우 차량 등록 여부 확인
+			const hasVehicle = await hasVehicleRegistered();
+			
+			if (!hasVehicle && to.name !== "social-login-info") {
+				// 차량 등록이 안 되어 있고 social-login-info 페이지가 아닌 경우
+				console.log("차량 등록이 필요합니다. 차량 등록 페이지로 이동합니다.");
+				next("/social-login-info");
+			} else {
+				// 차량 등록이 되어 있거나 social-login-info 페이지인 경우 계속 진행
+				next();
+			}
 		}
 	} else {
 		// 이미 로그인된 사용자가 로그인 관련 페이지에 접근하려는 경우
