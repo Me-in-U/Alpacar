@@ -31,23 +31,36 @@
 			<!-- Phone Number Section -->
 			<div class="section-title">전화번호 변경</div>
 			<div class="section-subtitle">새 전화번호 입력</div>
-			<div class="input-field input-field--phone">
-				<input 
-					v-model="phoneDisplay" 
-					@input="handlePhoneInput" 
-					@keypress="preventInvalidPhoneChars"
-					type="tel" 
-					placeholder="ex) 010-1234-5678" 
-					class="input-field__input"
-					maxlength="13"
-					autocomplete="nope"
-					autocorrect="off"
-					autocapitalize="off"
-					spellcheck="false"
-					name="new-phone-number"
-					inputmode="numeric"
-				/>
-			</div>
+			<form autocomplete="off" @submit.prevent>
+				<!-- Hidden inputs to trick browser autofill -->
+				<input type="text" style="display:none" />
+				<input type="password" style="display:none" />
+				<input type="email" style="display:none" />
+				
+				<div class="input-field input-field--phone">
+					<input 
+						:id="'phone-' + uniqueId"
+						v-model="phoneDisplay" 
+						@input="handlePhoneInput" 
+						@keypress="preventInvalidPhoneChars"
+						@focus="onPhoneFocus"
+						type="text" 
+						:placeholder="phonePlaceholder" 
+						class="input-field__input"
+						maxlength="13"
+						autocomplete="off"
+						autocorrect="off"
+						autocapitalize="off"
+						spellcheck="false"
+						:name="'phone-field-' + uniqueId"
+						inputmode="numeric"
+						data-form-type="other"
+						data-lpignore="true"
+						readonly
+						onfocus="this.removeAttribute('readonly');"
+					/>
+				</div>
+			</form>
 			<div v-if="newPhoneNumber && !isPhoneValid" class="error-message">
 				올바른 전화번호 형식으로 입력해주세요 (숫자 11자리)
 			</div>
@@ -341,6 +354,16 @@ onMounted(async () => {
 	} else {
 		router.push("/login");
 	}
+	
+	// 자동완성 방지를 위한 추가 설정
+	// 컴포넌트 마운트 후 짧은 지연 시간 후 readonly 제거
+	setTimeout(() => {
+		const phoneInput = document.querySelector(`#phone-${uniqueId.value}`) as HTMLInputElement;
+		if (phoneInput) {
+			phoneInput.removeAttribute('readonly');
+			phoneInput.setAttribute('autocomplete', 'off');
+		}
+	}, 100);
 });
 // 전화번호 입력 핸들러 (숫자만 허용, 3-4-4 포맷)
 const handlePhoneInput = (e: Event) => {
@@ -363,6 +386,19 @@ const preventInvalidPhoneChars = (e: KeyboardEvent) => {
 	if (!/[0-9]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
 		e.preventDefault();
 	}
+};
+
+// 전화번호 입력란 포커스 시 readonly 속성 제거 및 자동완성 방지
+const onPhoneFocus = (e: FocusEvent) => {
+	const target = e.target as HTMLInputElement;
+	// readonly 속성 제거
+	if (target.hasAttribute('readonly')) {
+		target.removeAttribute('readonly');
+	}
+	// 자동완성 재설정
+	target.setAttribute('autocomplete', 'off');
+	// 유니크 ID 재생성으로 브라우저 캐시 무효화
+	uniqueId.value = Date.now();
 };
 
 // 닉네임 입력 핸들러 (특수문자 방지)
@@ -496,6 +532,10 @@ const newPassword = ref("");
 const confirmPassword = ref("");
 const newPhoneNumber = ref("");
 const phoneDisplay = ref("");
+
+// 자동완성 방지를 위한 유니크 ID와 placeholder
+const uniqueId = ref(Date.now());
+const phonePlaceholder = ref("ex) 010-1234-5678");
 
 // 이메일 인증 관련
 const verificationCode = ref("");
