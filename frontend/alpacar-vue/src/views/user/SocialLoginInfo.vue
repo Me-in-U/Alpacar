@@ -86,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { BACKEND_BASE_URL } from '@/utils/api'
 
@@ -238,6 +238,35 @@ const completeSetup = async () => {
     alert('주차실력 저장 중 오류가 발생했습니다.')
   }
 }
+
+// 컴포넌트 마운트 시 로그인 상태 확인
+onMounted(async () => {
+  const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+  if (!token) {
+    alert('로그인이 필요합니다.')
+    router.push('/login')
+    return
+  }
+  
+  // 이미 차량 정보가 등록되어 있는 유저는 메인 페이지로 리다이렉트
+  try {
+    const response = await fetch(`${BACKEND_BASE_URL}/user/me/`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (response.ok) {
+      const userData = await response.json()
+      // 차량 정보가 이미 있으면 메인으로 리다이렉트
+      if (userData.vehicles && userData.vehicles.length > 0) {
+        router.push('/main')
+      }
+    }
+  } catch (error) {
+    console.error('유저 정보 확인 중 오류:', error)
+  }
+})
 </script>
 
 <style scoped>
