@@ -1,0 +1,134 @@
+[
+  {
+    "model": "parking.parkingspace",
+    "pk": 1,
+    "fields": {
+      "zone": "A",
+      "slot_number": 1,
+      "size_class": "midsize",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 2,
+    "fields": {
+      "zone": "A",
+      "slot_number": 2,
+      "size_class": "midsize",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 3,
+    "fields": {
+      "zone": "A",
+      "slot_number": 3,
+      "size_class": "compact",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 4,
+    "fields": {
+      "zone": "A",
+      "slot_number": 4,
+      "size_class": "suv",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 5,
+    "fields": {
+      "zone": "A",
+      "slot_number": 5,
+      "size_class": "midsize",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 6,
+    "fields": {
+      "zone": "B",
+      "slot_number": 1,
+      "size_class": "compact",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 7,
+    "fields": {
+      "zone": "B",
+      "slot_number": 2,
+      "size_class": "midsize",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 8,
+    "fields": {
+      "zone": "B",
+      "slot_number": 3,
+      "size_class": "suv",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 9,
+    "fields": {
+      "zone": "C",
+      "slot_number": 1,
+      "size_class": "compact",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 10,
+    "fields": {
+      "zone": "C",
+      "slot_number": 2,
+      "size_class": "midsize",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "parking.parkingspace",
+    "pk": 11,
+    "fields": {
+      "zone": "C",
+      "slot_number": 3,
+      "size_class": "suv",
+      "is_occupied": false,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

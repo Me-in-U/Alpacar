@@ -196,16 +196,35 @@ const skillIcon = computed(() => {
 })
 
 // 주차 히스토리 페이지로 이동
-const goToParkingHistory = () => {
-  router.push('/parking-history')
+const goToParkingHistory = async () => {
+  console.log('Navigating to parking history from main...')
+  try {
+    await router.push('/parking-history')
+    console.log('Navigation to parking history completed')
+  } catch (error) {
+    console.error('Navigation error:', error)
+  }
 }
-const goToParkingRecommend = () => {
-  router.push('/parking-recommend')
+
+const goToParkingRecommend = async () => {
+  console.log('Navigating to parking recommend from main...')
+  try {
+    await router.push('/parking-recommend')
+    console.log('Navigation to parking recommend completed')
+  } catch (error) {
+    console.error('Navigation error:', error)
+  }
 }
 
 // 사용자 프로필 페이지로 이동
-const goToUserProfile = () => {
-  router.push('/user-profile')
+const goToUserProfile = async () => {
+  console.log('Navigating to user profile from main...')
+  try {
+    await router.push('/user-profile')
+    console.log('Navigation to user profile completed')
+  } catch (error) {
+    console.error('Navigation error:', error)
+  }
 }
 
 // 모바일 기기 감지 함수
@@ -968,6 +987,11 @@ onMounted(async () => {
 .menu-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.menu-item:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .menu-icon {

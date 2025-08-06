@@ -174,8 +174,8 @@ export default {
 
     prepareChartData() {
       // props에서 데이터가 넘어왔는지 확인
-      if (this.data && this.data.labels && this.data.scores) {
-        console.log('Using props data')
+      if (this.data && this.data.labels && this.data.scores && this.data.scores.length > 0) {
+        console.log('Using props data:', this.data)
         return {
           labels: this.data.labels,
           scores: this.data.scores,
@@ -183,12 +183,12 @@ export default {
         }
       }
 
-      // 기본 테스트 데이터 사용
-      console.log('Using fallback data')
+      // 실제 데이터가 없을 때는 빈 데이터 반환 (목업 데이터 제거)
+      console.log('No data available - using empty data')
       return {
-        labels: ['07-11', '07-12', '07-13', '07-14', '07-15', '07-16', '07-17', '07-18', '07-19'],
-        scores: [65, 77, 82, 74, 88, 79, 68, 91, 72],
-        fullDateTimes: ['2025-07-11 12:00', '2025-07-12 16:45', '2025-07-13 13:10', '2025-07-14 15:30', '2025-07-15 10:20', '2025-07-16 14:00', '2025-07-17 11:45', '2025-07-18 14:15', '2025-07-19 09:30']
+        labels: [],
+        scores: [],
+        fullDateTimes: []
       }
     }
   },
