@@ -36,10 +36,12 @@
 					v-model="phoneDisplay" 
 					@input="handlePhoneInput" 
 					@keypress="preventInvalidPhoneChars"
-					type="text" 
+					type="tel" 
 					placeholder="ex) 010-1234-5678" 
 					class="input-field__input"
-					maxlength="13" 
+					maxlength="13"
+					autocomplete="off"
+					name="new-phone"
 				/>
 			</div>
 			<div v-if="newPhoneNumber && !isPhoneValid" class="error-message">
