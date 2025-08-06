@@ -7,6 +7,7 @@ It exposes the ASGI callable as a module-level variable named ``application``.
 For more information on this file, see
 https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
+import logging
 import os
 
 from channels.auth import AuthMiddlewareStack
@@ -16,12 +17,9 @@ from django.core.asgi import get_asgi_application
 
 import streamapp.routing
 
-import logging
-
 logger = logging.getLogger("channels")
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "djangoApp.settings")
-django_asgi_app = get_asgi_application()
 
 
 # async def debug_scope(scope, receive, send):
@@ -51,7 +49,7 @@ django_asgi_app = get_asgi_application()
 # HTTP 요청은 Django가, WebSocket 요청은 Channels가 처리
 application = ProtocolTypeRouter(
     {
-        "http": django_asgi_app,
+        "http": get_asgi_application(),
         "websocket": AllowedHostsOriginValidator(  # 호스트 검증 추가
             AuthMiddlewareStack(URLRouter(streamapp.routing.websocket_urlpatterns))
         ),
