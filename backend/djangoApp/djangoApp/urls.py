@@ -50,6 +50,8 @@ api_patterns = [
     path("dj-rest-auth/registration/", include("dj_rest_auth.registration.urls")),
     # 차량 관리
     path("", include("vehicles.urls")),
+    # 주차 관리
+    path("", include("parking.urls")),
     # 스트리밍 앱 (Pi 업로드, 대시보드)
     path("", include("streamapp.urls")),
     # Swagger / OpenAPI
