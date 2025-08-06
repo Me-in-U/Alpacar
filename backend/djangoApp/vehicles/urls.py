@@ -6,6 +6,8 @@ from vehicles.views.vehicles import (
     VehicleListCreateAPIView,
     VehicleModelListAPIView,
     check_license,
+    check_vehicle_registration,
+    create_simple_vehicle,
 )
 
 urlpatterns = [
@@ -32,5 +34,17 @@ urlpatterns = [
         "vehicles/check-license/",
         check_license,  # GET: ?license_plate=… → 중복 여부 반환
         name="vehicle-check-license",
+    ),
+    # 사용자 차량 등록 여부 확인 endpoint
+    path(
+        "user/vehicle/check/",
+        check_vehicle_registration,  # GET: 사용자 차량 등록 여부 확인
+        name="user-vehicle-check",
+    ),
+    # 간단한 차량 등록 endpoint
+    path(
+        "user/vehicle/",
+        create_simple_vehicle,  # POST: license_plate로 간단한 차량 등록
+        name="user-vehicle-create",
     ),
 ]

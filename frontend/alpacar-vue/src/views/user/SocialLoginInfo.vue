@@ -172,6 +172,12 @@ const addVehicle = async () => {
 const completeSetup = async () => {
   formData.parkingSkill = selectedSkill.value
   
+  // 차량이 등록되지 않은 경우 경고
+  if (!formData.vehicleNumber) {
+    alert('차량 번호를 먼저 등록해주세요.')
+    return
+  }
+  
   try {
     // 토큰 가져오기
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
@@ -182,7 +188,16 @@ const completeSetup = async () => {
       return
     }
 
-    // 주차실력 업데이트 API 호출
+    // 주차 실력별 점수 매핑
+    const scoreMap = {
+      'beginner': 30,    // 초급자
+      'intermediate': 65, // 중급자
+      'advanced': 86      // 상급자
+    }
+
+    const userScore = scoreMap[selectedSkill.value] || 30
+
+    // 주차실력과 점수 업데이트 API 호출
     const response = await fetch(`${BACKEND_BASE_URL}/user/parking-skill/`, {
       method: 'POST',
       headers: {
@@ -190,13 +205,14 @@ const completeSetup = async () => {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        parking_skill: selectedSkill.value
+        parking_skill: selectedSkill.value,
+        score: userScore
       })
     })
 
     if (response.ok) {
-      console.log('주차실력 저장 성공:', selectedSkill.value)
-      alert('차량 정보 설정이 완료되었습니다!')
+      console.log('주차실력 저장 성공:', selectedSkill.value, '점수:', userScore)
+      alert(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`)
       router.push('/main')
     } else {
       // 응답이 JSON인지 확인
