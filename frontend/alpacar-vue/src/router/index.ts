@@ -25,6 +25,7 @@ import ModalTest from "@/views/user/ModalTest.vue";
 import AdminErrorModalTest from "@/views/admin/AdminErrorModalTest.vue";
 import GoogleCallback from "@/views/user/GoogleCallback.vue";
 import MainWithHolo from "@/views/user/MainWithHolo.vue";
+import { BACKEND_BASE_URL } from "@/utils/api";
 
 // 로그인 상태 확인 함수
 function isAuthenticated(): boolean {
@@ -46,7 +47,7 @@ async function hasVehicleRegistered(): Promise<boolean> {
 	}
 
 	try {
-		const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:8000"}/vehicles/check/`, {
+		const response = await fetch(`${BACKEND_BASE_URL}}/vehicles/check/`, {
 			method: "GET",
 			headers: {
 				Authorization: `Bearer ${token}`,
