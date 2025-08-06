@@ -40,8 +40,12 @@
 					placeholder="ex) 010-1234-5678" 
 					class="input-field__input"
 					maxlength="13"
-					autocomplete="off"
-					name="new-phone"
+					autocomplete="new-password"
+					autocorrect="off"
+					autocapitalize="off"
+					spellcheck="false"
+					name="new-phone-number"
+					inputmode="numeric"
 				/>
 			</div>
 			<div v-if="newPhoneNumber && !isPhoneValid" class="error-message">
