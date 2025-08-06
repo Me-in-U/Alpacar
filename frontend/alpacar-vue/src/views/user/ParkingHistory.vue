@@ -7,11 +7,29 @@
     <div class="main-content">
       <h1 class="page-title">내 주차기록 확인하기</h1>
       
+      <!-- Loading State -->
+      <div v-if="isLoading" class="loading-container">
+        <p class="loading-text">데이터를 불러오는 중...</p>
+      </div>
+      
+      <!-- Error State -->
+      <div v-else-if="error" class="error-container">
+        <p class="error-text">{{ error }}</p>
+        <button @click="loadParkingData" class="retry-btn">다시 시도</button>
+      </div>
+      
       <!-- Parking History Section -->
-      <section class="history-section">
+      <section v-else class="history-section">
         <h2 class="section-title">주차 이력</h2>
         
+        <!-- Empty State -->
+        <div v-if="allRecords.length === 0" class="empty-state">
+          <p class="empty-text">아직 주차 이력이 없습니다.</p>
+        </div>
+        
+        <!-- Records List -->
         <div 
+          v-else
           v-for="record in displayedRecords" 
           :key="record.id" 
           class="history-item"
@@ -45,11 +63,16 @@
       </section>
 
       <!-- Parking Score History Chart Section -->
-      <section class="chart-section">
+      <section v-if="!isLoading && !error" class="chart-section">
         <h2 class="section-title">주차점수 히스토리</h2>
         
+        <!-- Empty State for Chart -->
+        <div v-if="!chartData || (chartData.scores && chartData.scores.length === 0)" class="empty-state">
+          <p class="empty-text">아직 주차 점수 이력이 없습니다.</p>
+        </div>
+        
         <!-- Chart Component -->
-        <ParkingScoreChart :data="chartData" />
+        <ParkingScoreChart v-else :data="chartData" />
       </section>
     </div>
 
@@ -60,28 +83,64 @@
 
 <script setup>
 import { computed, ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import Header from '@/components/Header.vue'
 import BottomNavigation from '@/components/BottomNavigation.vue'
 import ParkingScoreChart from '@/components/ParkingScoreChart.vue'
-import { mockParkingRecords, getChartData } from '@/data/mockData.js'
+import parkingAPI from '@/api/parking'
+
+const router = useRouter()
 
 // 더보기 상태 관리
 const showAllRecords = ref(false)
 
-// 테스트 데이터 가져오기
-const allRecords = mockParkingRecords
+// 데이터 상태 관리
+const allRecords = ref([])
+const isLoading = ref(true)
+const error = ref(null)
+
+// 표시할 레코드
 const displayedRecords = computed(() => {
-  return showAllRecords.value ? allRecords : allRecords.slice(0, 3)
+  return showAllRecords.value ? allRecords.value : allRecords.value.slice(0, 3)
 })
 
 // 차트 데이터를 reactive로 관리
 const chartData = ref(null)
 
+// 데이터 로드 함수
+const loadParkingData = async () => {
+  try {
+    isLoading.value = true
+    error.value = null
+    
+    // 주차 이력 데이터 가져오기
+    const historyResponse = await parkingAPI.getParkingHistory()
+    allRecords.value = historyResponse.data
+    
+    // 차트 데이터 가져오기
+    const chartResponse = await parkingAPI.getChartData()
+    chartData.value = chartResponse.data
+    
+    console.log('Parking data loaded:', {
+      history: allRecords.value,
+      chartData: chartData.value
+    })
+  } catch (err) {
+    console.error('Failed to load parking data:', err)
+    error.value = err.message || '데이터를 불러오는데 실패했습니다.'
+    
+    // 401 에러인 경우 로그인 페이지로 이동
+    if (err.response?.status === 401) {
+      localStorage.removeItem('access_token')
+      router.push('/login')
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
 onMounted(() => {
-  // 컴포넌트가 마운트된 후 차트 데이터 설정
-  const data = getChartData()
-  chartData.value = data
-  console.log('ParkingHistory - Chart data loaded:', data)
+  loadParkingData()
 })
 </script>
 
@@ -184,6 +243,48 @@ onMounted(() => {
 
 .chart-section {
   margin-bottom: 30px;
+}
+
+/* Loading, Error, Empty States */
+.loading-container,
+.error-container,
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.loading-text,
+.error-text,
+.empty-text {
+  color: #666666;
+  font-size: 16px;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.error-text {
+  color: #d32f2f;
+  margin-bottom: 20px;
+}
+
+.retry-btn {
+  background: #776B5D;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.retry-btn:hover {
+  background: #665A4D;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(119, 107, 93, 0.3);
 }
 
 /* Responsive Design */
