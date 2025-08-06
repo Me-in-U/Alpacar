@@ -62,12 +62,23 @@
 
 			<div class="section-subtitle">새 비밀번호 입력</div>
 			<div class="input-field input-field--password">
-				<input v-model="newPassword" type="password" placeholder="새 비밀번호를 입력하세요" class="input-field__input" />
+				<input v-model="newPassword" type="password" placeholder="새 비밀번호를 입력하세요" class="input-field__input" maxlength="20" />
 			</div>
+			<ul v-if="newPassword && !isPasswordValid" class="password-rules">
+				<li :class="passwordLengthValid ? 'valid' : 'invalid'">8~20자</li>
+				<li :class="passwordLetterValid ? 'valid' : 'invalid'">문자 포함</li>
+				<li :class="passwordNumberValid ? 'valid' : 'invalid'">숫자 포함</li>
+				<li :class="passwordSpecialValid ? 'valid' : 'invalid'">특수문자 포함</li>
+				<li :class="passwordNoTripleValid ? 'valid' : 'invalid'">동일문자 3연속 불가</li>
+				<li :class="passwordNoSeqValid ? 'valid' : 'invalid'">연속문자 3연속 불가</li>
+			</ul>
 
 			<div class="section-subtitle">새 비밀번호 확인</div>
 			<div class="input-field input-field--password">
-				<input v-model="confirmPassword" type="password" placeholder="새 비밀번호를 다시 입력하세요" class="input-field__input" />
+				<input v-model="confirmPassword" type="password" placeholder="새 비밀번호를 다시 입력하세요" class="input-field__input" maxlength="20" />
+			</div>
+			<div v-if="confirmPassword && !isPasswordConfirmValid" class="error-message">
+				비밀번호가 일치하지 않습니다
 			</div>
 
 			<!-- Change Password Button -->
@@ -88,10 +99,15 @@
 			<!-- Vehicle List -->
 			<div class="vehicle-list">
 				<div v-for="vehicle in displayedVehicles" :key="vehicle.id" class="vehicle-card">
-					<img :src="vehicle.model.image_url" alt="차량 이미지" class="vehicle-card__image" />
+					<img 
+						:src="vehicle.model?.image_url || defaultCarImage" 
+						alt="차량 이미지" 
+						class="vehicle-card__image" 
+						@error="(e) => (e.target as HTMLImageElement).src = defaultCarImage"
+					/>
 					<div class="vehicle-card__info">
 						<div><strong>번호판:</strong> {{ vehicle.license_plate }}</div>
-						<div><strong>모델:</strong> {{ vehicle.model.brand }} {{ vehicle.model.model_name }}</div>
+						<div><strong>모델:</strong> {{ vehicle.model?.brand || '알파카' }} {{ vehicle.model?.model_name || '차량' }}</div>
 					</div>
 					<div class="vehicle-card__actions">
 						<div class="vehicle-card__delete" @click="removeVehicle(vehicle.id)">삭제</div>
@@ -256,6 +272,7 @@ import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import defaultCarImage from "@/assets/alpaka_in_car.png";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -281,6 +298,28 @@ const isNicknameValid = computed(() => {
 	const lengthValid = newNickname.value.length >= 2 && newNickname.value.length <= 18;
 	return noSpecialChars && lengthValid;
 });
+
+// 비밀번호 유효성 검사 (8-20자, 문자/숫자/특수문자 포함, 동일문자 3연속 불가, 연속문자 3연속 불가)
+const passwordLengthValid = computed(() => newPassword.value.length >= 8 && newPassword.value.length <= 20);
+const passwordLetterValid = computed(() => /[a-zA-Z]/.test(newPassword.value));
+const passwordNumberValid = computed(() => /\d/.test(newPassword.value));
+const passwordSpecialValid = computed(() => /[$@!%*#?&/]/.test(newPassword.value));
+const passwordNoTripleValid = computed(() => !/(\w)\1\1/.test(newPassword.value));
+const passwordNoSeqValid = computed(() => {
+	for (let i = 0; i < newPassword.value.length - 2; i++) {
+		const a = newPassword.value.charCodeAt(i),
+			b = newPassword.value.charCodeAt(i + 1),
+			c = newPassword.value.charCodeAt(i + 2);
+		if ((b === a + 1 && c === b + 1) || (b === a - 1 && c === b - 1)) {
+			return false;
+		}
+	}
+	return true;
+});
+const isPasswordValid = computed(() => 
+	[passwordLengthValid, passwordLetterValid, passwordNumberValid, passwordSpecialValid, passwordNoTripleValid, passwordNoSeqValid].every((v) => v.value)
+);
+const isPasswordConfirmValid = computed(() => confirmPassword.value === newPassword.value && confirmPassword.value.length > 0);
 
 // 마운트 시 프로필·차량 목록 함께 불러오기
 onMounted(async () => {
@@ -363,7 +402,7 @@ const checkVehicleDuplicate = async () => {
 	
 	try {
 		const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-		const response = await fetch(`${BACKEND_BASE_URL}/vehicle/check-license?license_plate=${encodeURIComponent(vehicleNumber.value)}`, {
+		const response = await fetch(`${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`, {
 			method: 'GET',
 			headers: {
 				'Authorization': `Bearer ${token}`,
@@ -372,28 +411,21 @@ const checkVehicleDuplicate = async () => {
 		});
 		
 		if (!response.ok) {
-			// API 오류 처리
-			if (response.status === 404) {
-				// 404는 차량이 없다는 의미일 수 있음
-				vehicleChecked.value = true;
-				isDuplicate.value = false;
-				alert("사용 가능한 차량번호입니다.");
-				return;
-			}
 			throw new Error(`API 오류: ${response.status}`);
 		}
 		
 		const data = await response.json();
 		vehicleChecked.value = true;
-		// API 응답 구조에 따라 처리
-		isDuplicate.value = data.exists || data.is_exists || false;
+		// API 응답 구조: { exists: boolean }
+		// exists가 true면 이미 존재 = 중복
+		isDuplicate.value = data.exists === true;
 		alert(isDuplicate.value ? "이미 등록된 차량번호입니다." : "사용 가능한 차량번호입니다.");
 	} catch (error) {
 		console.error('중복체크 오류:', error);
-		// 오류가 발생해도 사용 가능하다고 처리 (백엔드 API가 없을 수 있음)
-		vehicleChecked.value = true;
+		alert('차량번호 중복체크 중 오류가 발생했습니다.');
+		// 에러시에는 체크 상태를 유지하지 않음
+		vehicleChecked.value = false;
 		isDuplicate.value = false;
-		alert("사용 가능한 차량번호입니다.");
 	}
 };
 
@@ -406,14 +438,15 @@ const addSimpleVehicle = async () => {
 	
 	try {
 		const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-		const response = await fetch(`${BACKEND_BASE_URL}/vehicle/`, {
+		const response = await fetch(`${BACKEND_BASE_URL}/vehicles/`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				'Authorization': `Bearer ${token}`
 			},
 			body: JSON.stringify({
-				license_plate: vehicleNumber.value
+				license_plate: vehicleNumber.value,
+				model: 1  // Default model ID (backend will assign actual model)
 			})
 		});
 		
@@ -552,21 +585,38 @@ const executePhoneChange = async () => {
 		return;
 	}
 	
+	if (!newPhoneNumber.value || !isPhoneValid.value) {
+		alert("올바른 전화번호를 입력해주세요.");
+		return;
+	}
+	
 	try {
 		const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-		const response = await fetch(`${BACKEND_BASE_URL}/user/profile/`, {
-			method: 'PATCH',
+		// Using /users/me/ endpoint with PUT method like updateProfile in store
+		const response = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
+			method: 'PUT',
 			headers: {
 				'Content-Type': 'application/json',
 				'Authorization': `Bearer ${token}`
 			},
-			body: JSON.stringify({ phone: newPhoneNumber.value })
+			body: JSON.stringify({ 
+				phone: newPhoneNumber.value,
+				// Include current values to avoid overwriting
+				nickname: userInfo.value?.nickname,
+				name: userInfo.value?.name
+			})
 		});
 		
 		if (response.ok) {
 			alert("전화번호가 성공적으로 변경되었습니다.");
+			// Reset states
 			showEmailVerificationModal.value = false;
 			newPhoneNumber.value = "";
+			phoneDisplay.value = "";
+			emailSent.value = false;
+			emailVerified.value = false;
+			verificationCode.value = "";
+			// Refresh user data
 			await userStore.fetchMe(token!);
 		} else {
 			const errorData = await response.json();
@@ -777,14 +827,19 @@ const removeVehicle = async (id: number) => {
 }
 .vehicle-card__image {
 	width: 60px;
-	height: 40px;
+	height: 50px;
 	object-fit: contain;
 	border-radius: 5px;
 	margin-right: 12px;
+	flex-shrink: 0;
+	background-color: #f5f5f5;
+	padding: 2px;
 }
 .vehicle-card__info {
 	font-size: 14px;
 	white-space: normal;
+	flex: 1;
+	min-width: 0;
 }
 .vehicle-card__actions {
 	display: flex;
@@ -924,6 +979,35 @@ const removeVehicle = async (id: number) => {
 
 .modal__button--success {
 	background: #4caf50;
+}
+
+/* Password validation rules */
+.password-rules {
+	list-style: none;
+	padding: 0;
+	margin: 5px 0 15px 0;
+	font-size: 12px;
+}
+
+.password-rules li {
+	padding: 2px 0;
+	color: #999;
+}
+
+.password-rules li.valid {
+	color: #4caf50;
+}
+
+.password-rules li.valid::before {
+	content: "✓ ";
+}
+
+.password-rules li.invalid {
+	color: #f44336;
+}
+
+.password-rules li.invalid::before {
+	content: "✗ ";
 }
 
 /* ── Responsive (데스크톱 vs 모바일) ── */
