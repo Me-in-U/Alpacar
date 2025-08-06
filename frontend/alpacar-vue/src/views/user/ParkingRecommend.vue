@@ -174,6 +174,7 @@ const row2 = reactive<Spot[]>([
   font-weight: 700;
   color: #333;
   margin: 0 0 8px;
+  padding-top: 24px;
 }
 .info-box {
   width: 60%;

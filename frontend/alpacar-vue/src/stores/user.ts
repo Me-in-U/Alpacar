@@ -159,6 +159,18 @@ export const useUserStore = defineStore("user", {
 			return this.me;
 		},
 
+		async adminLogin(email: string, password: string) {
+			// 일반 로그인 시도
+			await this.login(email, password);
+			// 관리자인지 체크
+			if (!this.me?.is_staff) {
+				// 권한 없으면 초기화 후 에러
+				this.clearUser();
+				throw new Error("관리자 권한이 없습니다.");
+			}
+			return this.me;
+		},
+
 		// 동적 URL을 사용하는 로그인 함수 (모바일 호환성 개선)
 		async loginWithUrl(email: string, password: string, backendUrl: string) {
 			const loginUrl = `${backendUrl}/auth/login/`;

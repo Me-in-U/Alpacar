@@ -119,16 +119,19 @@ const router = createRouter({
 			path: "/admin-main",
 			name: "admin-main",
 			component: AdminMain,
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/admin-parkinglogs",
 			name: "admin-parkinglogs",
 			component: AdminParkingLogs,
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/admin-parkingreassign",
 			name: "admin-parkingreassign",
 			component: AdminParkingReassign,
+			meta: { requiresAuth: true },
 		},
 		{
 			path: "/parking-recommend",
@@ -176,6 +179,12 @@ const router = createRouter({
 // 네비게이션 가드 추가
 router.beforeEach(async (to, from, next) => {
 	const isLoggedIn = isAuthenticated();
+
+	// — 관리자 페이지 접근 시 로그인 체크
+  if (to.path.startsWith('/admin') && to.path !== '/admin-login' && !isLoggedIn) {
+    console.log('관리자 인증 필요, admin-login으로 이동');
+    return next('/admin-login');
+  }
 
 	// 인증이 필요한 페이지인지 확인
 	if (to.meta.requiresAuth) {
