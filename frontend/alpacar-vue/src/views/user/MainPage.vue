@@ -76,7 +76,7 @@
                     <div class="grade-fill" :style="{ width: userScore + '%' }"></div>
                     <div class="grade-marker" :style="{ left: `calc(${Math.max(5, Math.min(95, userScore))}% - 20px)` }">
                       <div class="marker-icon">
-                        <img src="@/assets/alpaka_in_car.png" alt="Alpaka in Car" />
+                        <img :src="alpakaInCarImage" alt="Alpaka in Car" />
                       </div>
                     </div>
                   </div>
@@ -132,6 +132,9 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const userStore = useUserStore()
 
+// 정적 이미지 import
+const alpakaInCarImage = new URL('@/assets/alpaka_in_car.png', import.meta.url).href
+
 // 사용자 정보 기반 computed 속성들
 const userScore = computed(() => userStore.me?.score || 0)
 const userName = computed(() => userStore.me?.nickname || 'User')
@@ -168,13 +171,13 @@ const avatarImage = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return '/src/assets/alpaca-beginner.PNG'
+      return new URL('@/assets/alpaca-beginner.PNG', import.meta.url).href
     case 'intermediate':
-      return '/src/assets/alpaca-intermediate.png'
+      return new URL('@/assets/alpaca-intermediate.png', import.meta.url).href
     case 'advanced':
-      return '/src/assets/alpaca-advanced.PNG'
+      return new URL('@/assets/alpaca-advanced.PNG', import.meta.url).href
     default:
-      return '/src/assets/alpaca-beginner.PNG'
+      return new URL('@/assets/alpaca-beginner.PNG', import.meta.url).href
   }
 })
 
@@ -182,13 +185,13 @@ const skillIcon = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return '/src/assets/handle-beginner.png'
+      return new URL('@/assets/handle-beginner.png', import.meta.url).href
     case 'intermediate':
-      return '/src/assets/handle-intermediate.png'
+      return new URL('@/assets/handle-intermediate.png', import.meta.url).href
     case 'advanced':
-      return '/src/assets/handle-advanced.png'
+      return new URL('@/assets/handle-advanced.png', import.meta.url).href
     default:
-      return '/src/assets/handle-beginner.png'
+      return new URL('@/assets/handle-beginner.png', import.meta.url).href
   }
 })
 
