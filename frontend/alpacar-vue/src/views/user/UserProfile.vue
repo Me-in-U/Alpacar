@@ -40,7 +40,7 @@
 					placeholder="ex) 010-1234-5678" 
 					class="input-field__input"
 					maxlength="13"
-					autocomplete="new-password"
+					autocomplete="nope"
 					autocorrect="off"
 					autocapitalize="off"
 					spellcheck="false"
