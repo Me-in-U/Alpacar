@@ -187,3 +187,89 @@ def check_license(request):
         )
     exists = Vehicle.objects.filter(license_plate=license_plate).exists()
     return Response({"exists": exists})
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="현재 사용자가 차량을 등록했는지 확인합니다.",
+    responses={
+        200: openapi.Response(
+            description="차량 등록 여부",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'has_vehicle': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+                }
+            )
+        ),
+        401: "인증되지 않은 사용자"
+    }
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def check_vehicle_registration(request):
+    """
+    GET /api/user/vehicle/check/
+    → { "has_vehicle": true } or { "has_vehicle": false }
+    """
+    has_vehicle = Vehicle.objects.filter(user=request.user).exists()
+    return Response({"has_vehicle": has_vehicle})
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="차량 번호판만으로 간단하게 차량을 등록합니다.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'license_plate': openapi.Schema(type=openapi.TYPE_STRING, description="차량 번호판")
+        },
+        required=['license_plate']
+    ),
+    responses={
+        201: VehicleSerializer,
+        400: "잘못된 요청 데이터 또는 중복된 번호판",
+        401: "인증되지 않은 사용자"
+    }
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_simple_vehicle(request):
+    """
+    POST /api/user/vehicle/
+    → 번호판만으로 간단한 차량 등록 (기본 모델 사용)
+    """
+    license_plate = request.data.get('license_plate')
+    if not license_plate:
+        return Response(
+            {"detail": "license_plate는 필수입니다."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 중복 체크
+    if Vehicle.objects.filter(license_plate=license_plate).exists():
+        return Response(
+            {"detail": "이미 등록된 차량 번호입니다."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 기본 차량 모델 가져오기 (없으면 첫 번째 모델 사용)
+    try:
+        default_model = VehicleModel.objects.filter(size_class='midsize').first()
+        if not default_model:
+            default_model = VehicleModel.objects.first()
+    except VehicleModel.DoesNotExist:
+        return Response(
+            {"detail": "차량 모델이 설정되지 않았습니다. 관리자에게 문의하세요."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # 차량 생성
+    vehicle = Vehicle.objects.create(
+        license_plate=license_plate,
+        user=request.user,
+        model=default_model
+    )
+
+    serializer = VehicleSerializer(vehicle)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -27,6 +27,7 @@ services:
       - ~/.env
     environment:
       - DJANGO_SETTINGS_MODULE=djangoApp.settings
+      - DB_HOST=mysql
     ports:
       - "8000:8000"
     depends_on:

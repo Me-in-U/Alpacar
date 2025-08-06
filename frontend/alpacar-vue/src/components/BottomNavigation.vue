@@ -85,20 +85,44 @@ const getNavIcon = (iconType: string) => {
   }
 }
 
-const goToMain = () => {
-  router.push('/main')
+const goToMain = async () => {
+  console.log('Navigating to main...')
+  try {
+    await router.push('/main')
+    console.log('Navigation to main completed')
+  } catch (error) {
+    console.error('Navigation error:', error)
+  }
 }
 
-const goToParkingHistory = () => {
-  router.push('/parking-history')
+const goToParkingHistory = async () => {
+  console.log('Navigating to parking history...')
+  try {
+    await router.push('/parking-history')
+    console.log('Navigation to parking history completed')
+  } catch (error) {
+    console.error('Navigation error:', error)
+  }
 }
 
-const goToMap = () => {
-  router.push('/parking-recommend')
+const goToMap = async () => {
+  console.log('Navigating to parking recommend...')
+  try {
+    await router.push('/parking-recommend')
+    console.log('Navigation to parking recommend completed')
+  } catch (error) {
+    console.error('Navigation error:', error)
+  }
 }
 
-const goToUserProfile = () => {
-  router.push('/user-profile')
+const goToUserProfile = async () => {
+  console.log('Navigating to user profile...')
+  try {
+    await router.push('/user-profile')
+    console.log('Navigation to user profile completed')
+  } catch (error) {
+    console.error('Navigation error:', error)
+  }
 }
 </script>
 
@@ -144,6 +168,11 @@ const goToUserProfile = () => {
 
 .nav-item:hover {
   background-color: #F5F5F5;
+}
+
+.nav-item:active {
+  background-color: #E0E0E0;
+  transform: scale(0.95);
 }
 
 .nav-item.active {

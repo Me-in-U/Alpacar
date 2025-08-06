@@ -20,7 +20,7 @@ from accounts.views.password_reset import (
     PasswordResetRequestAPIView,
     PasswordResetVerifyAPIView,
 )
-from accounts.views.profile import UserProfileAPI
+from accounts.views.profile import UserProfileAPI, set_parking_skill
 from accounts.views.push import push_setting, subscribe_push, unsubscribe_push
 from accounts.views.email_verify import (
     SignupEmailVerifyRequestAPIView,
@@ -122,4 +122,10 @@ urlpatterns = [
         google_callback,
         name="google_callback",
     ),  # GET: Google 콜백 처리
+    # ── 주차 실력 설정 ──────────────────────────────────────────────
+    path(
+        "user/parking-skill/",
+        set_parking_skill,
+        name="set-parking-skill",
+    ),  # POST: 사용자 주차 실력과 점수 설정
 ]

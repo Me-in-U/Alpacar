@@ -19,8 +19,8 @@
 				<!-- Name Field -->
 				<div class="field-group">
 					<label class="field-label">이름 *</label>
-					<input v-model="formData.full_name" @input="handleNameInput" :class="['input-field', { error: formData.full_name && !nameValid }]" placeholder="이름을 입력하세요" maxlength="18" />
-					<p v-if="formData.full_name && !nameValid" class="field-help error-text">공백 없이 1~18자</p>
+					<input v-model="formData.full_name" @input="handleNameInput" @keypress="preventInvalidNameChars" :class="['input-field', { error: formData.full_name && !nameValid }]" placeholder="이름을 입력하세요" maxlength="18" />
+					<p v-if="formData.full_name && !nameValid" class="field-help error-text">한글/영문만 1~18자</p>
 				</div>
 
 				<!-- Email + 인증번호 받기 -->
@@ -47,7 +47,7 @@
 				<div class="field-group">
 					<label class="field-label">비밀번호 *</label>
 					<input type="password" v-model="formData.password" :class="['input-field', { error: formData.password && !passwordValid }]" placeholder="비밀번호를 입력하세요" maxlength="20" />
-					<ul v-if="formData.password" class="password-rules">
+					<ul v-if="formData.password && !passwordValid" class="password-rules">
 						<li :class="lengthValid ? 'valid' : 'invalid'">8~20자</li>
 						<li :class="letterValid ? 'valid' : 'invalid'">문자 포함</li>
 						<li :class="numberValid ? 'valid' : 'invalid'">숫자 포함</li>
@@ -76,7 +76,7 @@
 				<div class="field-group">
 					<label class="field-label">전화번호 *</label>
 
-					<input v-model="formData.phoneDisplay" @input="onPhoneInput" :class="['input-field', { error: formData.phone && !phoneValid }]" placeholder="000-0000-0000" maxlength="13" />
+					<input v-model="formData.phoneDisplay" @input="onPhoneInput" @keypress="preventInvalidPhoneChars" :class="['input-field', { error: formData.phone && !phoneValid }]" placeholder="ex) 010-1234-1234" maxlength="13" />
 					<p v-if="formData.phone && !phoneValid" class="field-help error-text">숫자만, 최대 11자</p>
 				</div>
 
@@ -84,11 +84,11 @@
 				<div class="field-group">
 					<label class="field-label">닉네임 *</label>
 					<div class="input-with-button">
-						<input v-model="formData.nickname" @input="nickOK = false" :class="['input-field', { error: formData.nickname && !nicknameValid }]" placeholder="닉네임을 입력하세요" maxlength="18" />
+						<input v-model="formData.nickname" @input="handleNicknameInput" @keypress="preventInvalidNicknameChars" :class="['input-field', { error: formData.nickname && !nicknameValid }]" placeholder="닉네임을 입력하세요" maxlength="18" />
 						<button class="duplicate-check-button" @click="checkNickname">중복확인</button>
 						<span v-if="nickOK" class="checkmark">✔</span>
 					</div>
-					<p v-if="formData.nickname && !nicknameValid" class="field-help error-text">1~18자, 중복확인 필요</p>
+					<p v-if="formData.nickname && !nicknameValid" class="field-help error-text">특수문자 금지, 1~18자, 중복확인 필요</p>
 				</div>
 
 				<!-- Signup Button -->
@@ -122,10 +122,21 @@ export default defineComponent({
 		const emailVerified = ref(false);
 		const nickOK = ref(false);
 
-		// 1) 이름 유효성
-		const nameValid = computed(() => formData.full_name.length > 0 && formData.full_name.length <= 18);
+		// 1) 이름 유효성 - 한글, 영문만 허용
+		const nameValid = computed(() => {
+			const koreanEnglishOnly = /^[a-zA-Z가-힣]+$/.test(formData.full_name);
+			return formData.full_name.length > 0 && formData.full_name.length <= 18 && koreanEnglishOnly;
+		});
 		const handleNameInput = () => {
-			formData.full_name = formData.full_name.replace(/\s/g, "");
+			// 공백 제거 및 한글/영문만 유지
+			formData.full_name = formData.full_name.replace(/[^a-zA-Z가-힣]/g, "");
+		};
+		const preventInvalidNameChars = (e: KeyboardEvent) => {
+			const char = e.key;
+			// 한글, 영문, 백스페이스, 방향키 등 허용
+			if (!/[a-zA-Z가-힣]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+				e.preventDefault();
+			}
 		};
 
 		// 2) 이메일 형식
@@ -166,7 +177,7 @@ export default defineComponent({
 		// 4) 비밀번호 확인
 		const passwordConfirmValid = computed(() => formData.passwordConfirm === formData.password && formData.passwordConfirm.length > 0);
 
-		// 5) 전화번호
+		// 5) 전화번호 - 숫자만 허용
 		const phoneValid = computed(() => /^[0-9]{1,11}$/.test(formData.phone));
 		const onPhoneInput = (e: Event) => {
 			// 입력값에서 숫자만 추출
@@ -180,9 +191,31 @@ export default defineComponent({
 			// 실제 전송용: 숫자만
 			formData.phone = digits;
 		};
+		const preventInvalidPhoneChars = (e: KeyboardEvent) => {
+			const char = e.key;
+			// 숫자, 백스페이스, 방향키 등만 허용
+			if (!/[0-9]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+				e.preventDefault();
+			}
+		};
 
-		// 6) 닉네임
-		const nicknameValid = computed(() => formData.nickname.length > 0 && formData.nickname.length <= 18 && nickOK.value);
+		// 6) 닉네임 - 특수문자 금지 (한글, 영문, 숫자만 허용)
+		const nicknameValid = computed(() => {
+			const noSpecialChars = /^[a-zA-Z가-힣0-9]+$/.test(formData.nickname);
+			return formData.nickname.length > 0 && formData.nickname.length <= 18 && noSpecialChars && nickOK.value;
+		});
+		const handleNicknameInput = () => {
+			// 특수문자 제거 및 한글/영문/숫자만 유지
+			formData.nickname = formData.nickname.replace(/[^a-zA-Z가-힣0-9]/g, "");
+			nickOK.value = false;
+		};
+		const preventInvalidNicknameChars = (e: KeyboardEvent) => {
+			const char = e.key;
+			// 한글, 영문, 숫자, 백스페이스, 방향키 등 허용
+			if (!/[a-zA-Z가-힣0-9]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+				e.preventDefault();
+			}
+		};
 
 		// 7) 전체 가입 가능
 		const canSignup = computed(() => nameValid.value && emailFormatValid.value && emailVerified.value && passwordValid.value && passwordConfirmValid.value && phoneValid.value && nicknameValid.value);
@@ -338,7 +371,11 @@ export default defineComponent({
 			canSignup,
 
 			handleNameInput,
+			preventInvalidNameChars,
 			onPhoneInput,
+			preventInvalidPhoneChars,
+			handleNicknameInput,
+			preventInvalidNicknameChars,
 			sendCode,
 			verifyCode,
 			checkNickname,
