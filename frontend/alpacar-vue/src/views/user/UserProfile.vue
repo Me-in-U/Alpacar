@@ -818,7 +818,7 @@ const removeVehicle = async (id: number) => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	height: 75px;
+	height: 150px;
 	background: #fff;
 	border: 1px solid #ccc;
 	border-radius: 10px;
@@ -826,8 +826,8 @@ const removeVehicle = async (id: number) => {
 	margin-bottom: 15px;
 }
 .vehicle-card__image {
-	width: 60px;
-	height: 50px;
+	width: 120px;
+	height: 100px;
 	object-fit: contain;
 	border-radius: 5px;
 	margin-right: 12px;
@@ -836,7 +836,7 @@ const removeVehicle = async (id: number) => {
 	padding: 2px;
 }
 .vehicle-card__info {
-	font-size: 14px;
+	font-size: 18px;
 	white-space: normal;
 	flex: 1;
 	min-width: 0;
@@ -847,7 +847,7 @@ const removeVehicle = async (id: number) => {
 }
 .vehicle-card__edit,
 .vehicle-card__delete {
-	font-size: 11px;
+	font-size: 16px;
 	cursor: pointer;
 }
 
