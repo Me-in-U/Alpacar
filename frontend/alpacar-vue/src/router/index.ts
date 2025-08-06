@@ -47,7 +47,7 @@ async function hasVehicleRegistered(): Promise<boolean> {
 	}
 
 	try {
-		const response = await fetch(`${BACKEND_BASE_URL}}/vehicles/check/`, {
+		const response = await fetch(`${BACKEND_BASE_URL}/vehicles/check/`, {
 			method: "GET",
 			headers: {
 				Authorization: `Bearer ${token}`,
