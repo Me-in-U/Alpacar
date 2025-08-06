@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 
@@ -213,6 +213,15 @@ const completeSetup = async () => {
 		alert("주차실력 저장 중 오류가 발생했습니다.");
 	}
 };
+
+// 페이지 접근 시 로그인 상태 확인
+onMounted(() => {
+	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+	if (!token) {
+		alert("로그인이 필요합니다.");
+		router.push("/login");
+	}
+});
 </script>
 
 <style scoped>
