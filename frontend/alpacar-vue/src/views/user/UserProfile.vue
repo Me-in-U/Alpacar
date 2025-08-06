@@ -155,9 +155,11 @@
 					<input 
 						v-model="newNickname" 
 						@input="handleNicknameInput"
+						@compositionstart="onNicknameCompositionStart"
+						@compositionend="onNicknameCompositionEnd"
 						@keypress="preventInvalidNicknameChars"
 						type="text" 
-						placeholder="예: 주차하는 알파카" 
+						placeholder="예: 주차하는알파카" 
 						class="modal__input"
 						maxlength="18" 
 					/>
@@ -401,21 +403,67 @@ const onPhoneFocus = (e: FocusEvent) => {
 	uniqueId.value = Date.now();
 };
 
+// 닉네임 입력 조합 시작 (한글 입력 시작)
+const onNicknameCompositionStart = () => {
+	isNicknameComposing.value = true;
+};
+
+// 닉네임 입력 조합 종료 (한글 입력 완료)
+const onNicknameCompositionEnd = (e: Event) => {
+	isNicknameComposing.value = false;
+	// 조합이 완료된 후 검증 수행
+	handleNicknameInput(e);
+};
+
 // 닉네임 입력 핸들러 (특수문자 방지)
 const handleNicknameInput = (e: Event) => {
+	// 한글 입력 조합 중이면 검증하지 않음
+	if (isNicknameComposing.value) {
+		return;
+	}
+	
 	const input = e.target as HTMLInputElement;
+	const originalValue = input.value;
+	
 	// 특수문자 제거 (한글, 영문, 숫자만 허용)
-	const cleaned = input.value.replace(/[^a-zA-Z가-힣0-9]/g, "");
+	const cleaned = originalValue.replace(/[^a-zA-Z가-힣0-9]/g, "");
+	
 	// 최대 18자로 제한
-	newNickname.value = cleaned.slice(0, 18);
-	input.value = newNickname.value;
+	const truncated = cleaned.slice(0, 18);
+	
+	// 값이 변경된 경우에만 업데이트
+	if (originalValue !== truncated) {
+		newNickname.value = truncated;
+		// 다음 틱에서 input 값 설정 (Vue의 반응성과 충돌 방지)
+		setTimeout(() => {
+			if (input.value !== truncated) {
+				input.value = truncated;
+			}
+		}, 0);
+	}
 };
 
 // 닉네임 입력 시 특수문자 방지
 const preventInvalidNicknameChars = (e: KeyboardEvent) => {
+	// 한글 입력 조합 중에는 키 입력을 제한하지 않음
+	if (isNicknameComposing.value) {
+		return;
+	}
+	
 	const char = e.key;
-	// 한글, 영문, 숫자, 백스페이스 등만 허용
-	if (!/[a-zA-Z가-힣0-9]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+	
+	// 제어 키들은 항상 허용
+	if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(char)) {
+		return;
+	}
+	
+	// 한글 입력 시작하는 키들은 허용
+	if (e.isComposing || char === 'Process') {
+		return;
+	}
+	
+	// 한글, 영문, 숫자만 허용
+	if (!/[a-zA-Z가-힣0-9]/.test(char)) {
 		e.preventDefault();
 	}
 };
@@ -536,6 +584,9 @@ const phoneDisplay = ref("");
 // 자동완성 방지를 위한 유니크 ID와 placeholder
 const uniqueId = ref(Date.now());
 const phonePlaceholder = ref("ex) 010-1234-5678");
+
+// 한글 입력 조합 상태 관리
+const isNicknameComposing = ref(false);
 
 // 이메일 인증 관련
 const verificationCode = ref("");
