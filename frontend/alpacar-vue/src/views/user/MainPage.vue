@@ -34,27 +34,27 @@
               <div class="profile-content">
                 <div class="profile-left">
                   <div class="avatar-container">
-                    <img src="@/assets/초급자알파카_아바타.png" alt="User Avatar" class="avatar-image" />
+                    <img :src="avatarImage" alt="User Avatar" class="avatar-image" />
                   </div>
                 </div>
                 <div class="profile-right">
                   <div class="skill-badge">
                     <div class="skill-icon">
-                      <div class="skill-circle">
+                      <div class="skill-circle" :style="{ backgroundImage: `url(${skillIcon})` }">
                       </div>
                     </div>
-                    <span class="skill-text">초급자</span>
+                    <span class="skill-text" :style="{ color: gradeInfo.color }">{{ gradeInfo.text }}</span>
                   </div>
                   <div class="user-info">
                     <div class="user-name">
                       <span class="label">Name</span>
                       <span class="separator">|</span>
-                      <span class="value">User</span>
+                      <span class="value">{{ userName }}</span>
                     </div>
                     <div class="user-number">
                       <span class="label">No.</span>
                       <span class="separator">|</span>
-                      <span class="value">111 가 1111</span>
+                      <span class="value">{{ userVehicleNumber }}</span>
                     </div>
                     <p class='touch-text-description'>카드를 두번 터치하면 화면이 돌아갑니다.</p>
                   </div>
@@ -69,14 +69,14 @@
               </div>
               <div class="back-content">
                 <div class="back-title">
-                  <h2>초급자(50점)</h2>
+                  <h2>{{ gradeInfo.text }}({{ userScore }}점)</h2>
                 </div>
                 <div class="grade-display">
                   <div class="grade-bar">
-                    <div class="grade-fill" style="width: 50%"></div>
-                    <div class="grade-marker" style="left: 50%">
+                    <div class="grade-fill" :style="{ width: userScore + '%' }"></div>
+                    <div class="grade-marker" :style="{ left: `calc(${Math.max(5, Math.min(95, userScore))}% - 20px)` }">
                       <div class="marker-icon">
-                        <img src="@/assets/alpaka_in_car.png" alt="Alpaka in Car" />
+                        <img :src="alpakaInCarImage" alt="Alpaka in Car" />
                       </div>
                     </div>
                   </div>
@@ -125,10 +125,75 @@
 <script setup lang="ts">
 import Header from '@/components/Header.vue'
 import BottomNavigation from '@/components/BottomNavigation.vue'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+
+// 정적 이미지 import
+const alpakaInCarImage = new URL('@/assets/alpaka_in_car.png', import.meta.url).href
+
+// 사용자 정보 기반 computed 속성들
+const userScore = computed(() => userStore.me?.score || 0)
+const userName = computed(() => userStore.me?.nickname || 'User')
+const userVehicleNumber = computed(() => {
+  // 가장 첫 번째 등록된 차량의 번호를 반환
+  return userStore.vehicles.length > 0 ? userStore.vehicles[0].license_plate : '111 가 1111'
+})
+
+// 점수별 등급 계산
+const userGrade = computed(() => {
+  const score = userScore.value
+  if (score <= 50) return 'beginner'
+  if (score <= 85) return 'intermediate'
+  return 'advanced'
+})
+
+// 등급별 텍스트 및 색상
+const gradeInfo = computed(() => {
+  const grade = userGrade.value
+  switch (grade) {
+    case 'beginner':
+      return { text: '초급자', color: '#4CAF50' }
+    case 'intermediate':
+      return { text: '중급자', color: '#FF9800' }
+    case 'advanced':
+      return { text: '상급자', color: '#F44336' }
+    default:
+      return { text: '초급자', color: '#4CAF50' }
+  }
+})
+
+// 등급별 이미지 경로
+const avatarImage = computed(() => {
+  const grade = userGrade.value
+  switch (grade) {
+    case 'beginner':
+      return new URL('@/assets/alpaca-beginner.PNG', import.meta.url).href
+    case 'intermediate':
+      return new URL('@/assets/alpaca-intermediate.png', import.meta.url).href
+    case 'advanced':
+      return new URL('@/assets/alpaca-advanced.PNG', import.meta.url).href
+    default:
+      return new URL('@/assets/alpaca-beginner.PNG', import.meta.url).href
+  }
+})
+
+const skillIcon = computed(() => {
+  const grade = userGrade.value
+  switch (grade) {
+    case 'beginner':
+      return new URL('@/assets/handle-beginner.png', import.meta.url).href
+    case 'intermediate':
+      return new URL('@/assets/handle-intermediate.png', import.meta.url).href
+    case 'advanced':
+      return new URL('@/assets/handle-advanced.png', import.meta.url).href
+    default:
+      return new URL('@/assets/handle-beginner.png', import.meta.url).href
+  }
+})
 
 // 주차 히스토리 페이지로 이동
 const goToParkingHistory = () => {
@@ -499,9 +564,26 @@ const handleTouchEnd = () => {
 }
 
 
-onMounted(() => {
+onMounted(async () => {
   isMobile.value = detectMobile()
   console.log('모바일 감지 결과:', isMobile.value)
+  
+  // 사용자 정보 및 차량 정보 로드
+  try {
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      // 사용자 정보가 없으면 다시 불러오기
+      if (!userStore.me) {
+        await userStore.fetchMe(token)
+      }
+      // 차량 정보 불러오기
+      if (userStore.vehicles.length === 0) {
+        await userStore.fetchMyVehicles()
+      }
+    }
+  } catch (error) {
+    console.error('사용자 정보 로드 실패:', error)
+  }
   
   // 전역 마우스 이벤트 리스너 추가 (카드 영역 밖에서 마우스 업 감지)
   const handleGlobalMouseUp = () => {
@@ -719,7 +801,6 @@ onMounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-image: url('@/assets/초보자핸들.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -831,6 +912,8 @@ onMounted(() => {
   height: 30px;
   transition: left 0.3s ease;
   z-index: 2;
+  /* 마커가 grade-bar 영역을 벗어나지 않도록 제한 */
+  max-width: calc(100% - 10px);
 }
 
 .marker-icon {
