@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions
-from vehicles.models import Vehicle, VehicleModel
+from vehicles.models import Vehicle, VehicleLicensePlateModelMapping, VehicleModel
 from vehicles.serializers.vehicles import (
     VehicleCreateSerializer,
     VehicleModelSerializer,
@@ -18,20 +18,17 @@ class VehicleModelListAPIView(generics.ListAPIView):
     GET  /api/vehicle-models/
       → 제조사·모델명·이미지 목록 조회
     """
-    
+
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = VehicleModel.objects.all().order_by("brand", "model_name")
+    serializer_class = VehicleModelSerializer
+
     @swagger_auto_schema(
         operation_description="제조사와 모델명, 이미지 목록을 조회합니다.",
-        responses={
-            200: VehicleModelSerializer(many=True),
-            401: "인증되지 않은 사용자"
-        }
+        responses={200: VehicleModelSerializer(many=True), 401: "인증되지 않은 사용자"},
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
-
-    queryset = VehicleModel.objects.all().order_by("brand", "model_name")
-    serializer_class = VehicleModelSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
 
 class VehicleListCreateAPIView(generics.ListCreateAPIView):
@@ -41,28 +38,7 @@ class VehicleListCreateAPIView(generics.ListCreateAPIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_description="사용자의 차량 목록을 조회합니다.",
-        responses={
-            200: VehicleSerializer(many=True),
-            401: "인증되지 않은 사용자"
-        }
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_description="새로운 차량을 등록합니다.",
-        request_body=VehicleCreateSerializer,
-        responses={
-            201: VehicleSerializer,
-            400: "잘못된 요청 데이터",
-            401: "인증되지 않은 사용자"
-        }
-    )
-    def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+    serializer_class = VehicleSerializer
 
     def get_queryset(self):
         return Vehicle.objects.filter(user=self.request.user)
@@ -72,8 +48,38 @@ class VehicleListCreateAPIView(generics.ListCreateAPIView):
             return VehicleCreateSerializer
         return VehicleSerializer
 
-    def perform_create(self, serializer):
-        serializer.save()
+    @swagger_auto_schema(
+        operation_description="사용자의 차량 목록을 조회합니다.",
+        responses={200: VehicleSerializer(many=True), 401: "인증되지 않은 사용자"},
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_description="새로운 차량을 등록합니다.",
+        request_body=VehicleCreateSerializer,
+        responses={
+            201: VehicleSerializer,
+            400: "잘못된 요청 데이터 또는 중복된 번호판",
+            401: "인증되지 않은 사용자",
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        lp = request.data.get("license_plate")
+        if not lp:
+            return Response({"detail": "license_plate는 필수입니다."}, status=400)
+        if Vehicle.objects.filter(license_plate=lp).exists():
+            return Response({"detail": "이미 등록된 차량 번호입니다."}, status=400)
+        try:
+            mapping = VehicleLicensePlateModelMapping.objects.get(license_plate=lp)
+        except VehicleLicensePlateModelMapping.DoesNotExist:
+            return Response({"detail": "차량 모델 매핑 정보가 없습니다."}, status=400)
+        model = VehicleModel.objects.get(pk=mapping.model_id)
+        vehicle = Vehicle.objects.create(
+            license_plate=lp, user=request.user, model=model
+        )
+        serializer = VehicleSerializer(vehicle)
+        return Response(serializer.data, status=201)
 
 
 class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -86,13 +92,23 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Vehicle.objects.none()
+        return Vehicle.objects.filter(user=self.request.user)
+
+    def get_serializer_class(self):
+        if self.request.method in ["PUT", "PATCH"]:
+            return VehicleCreateSerializer
+        return VehicleSerializer
+
     @swagger_auto_schema(
         operation_description="특정 차량의 상세 정보를 조회합니다.",
         responses={
             200: VehicleSerializer,
             404: "차량을 찾을 수 없음",
-            401: "인증되지 않은 사용자"
-        }
+            401: "인증되지 않은 사용자",
+        },
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
@@ -104,8 +120,8 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             200: VehicleSerializer,
             400: "잘못된 요청 데이터",
             404: "차량을 찾을 수 없음",
-            401: "인증되지 않은 사용자"
-        }
+            401: "인증되지 않은 사용자",
+        },
     )
     def put(self, request, *args, **kwargs):
         return super().put(request, *args, **kwargs)
@@ -117,8 +133,8 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             200: VehicleSerializer,
             400: "잘못된 요청 데이터",
             404: "차량을 찾을 수 없음",
-            401: "인증되지 않은 사용자"
-        }
+            401: "인증되지 않은 사용자",
+        },
     )
     def patch(self, request, *args, **kwargs):
         return super().patch(request, *args, **kwargs)
@@ -128,34 +144,23 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         responses={
             204: "삭제 성공",
             404: "차량을 찾을 수 없음",
-            401: "인증되지 않은 사용자"
-        }
+            401: "인증되지 않은 사용자",
+        },
     )
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
 
-    def get_queryset(self):
-        # Swagger가 스키마 생성용으로 호출할 때는 빈 쿼리셋 반환
-        if getattr(self, "swagger_fake_view", False):
-            return Vehicle.objects.none()
-        return Vehicle.objects.filter(user=self.request.user)
-
-    def get_serializer_class(self):
-        if self.request.method in ["PUT", "PATCH"]:
-            return VehicleCreateSerializer
-        return VehicleSerializer
-
 
 @swagger_auto_schema(
-    method='get',
+    method="get",
     operation_description="특정 번호판이 이미 등록되어 있는지 확인합니다.",
     manual_parameters=[
         openapi.Parameter(
-            'license',
+            "license",
             openapi.IN_QUERY,
             description="확인할 번호판",
             type=openapi.TYPE_STRING,
-            required=True
+            required=True,
         )
     ],
     responses={
@@ -163,14 +168,12 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             description="번호판 존재 여부",
             schema=openapi.Schema(
                 type=openapi.TYPE_OBJECT,
-                properties={
-                    'exists': openapi.Schema(type=openapi.TYPE_BOOLEAN)
-                }
-            )
+                properties={"exists": openapi.Schema(type=openapi.TYPE_BOOLEAN)},
+            ),
         ),
         400: "license 파라미터가 없음",
-        401: "인증되지 않은 사용자"
-    }
+        401: "인증되지 않은 사용자",
+    },
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -179,31 +182,29 @@ def check_license(request):
     GET /api/vehicles/check-license/?license=12가3456
     → { "exists": true } or { "exists": false }
     """
-    license_plate = request.query_params.get("license")
-    if not license_plate:
+    lp = request.query_params.get("license")
+    if not lp:
         return Response(
             {"detail": "license 파라미터가 필요합니다."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    exists = Vehicle.objects.filter(license_plate=license_plate).exists()
+    exists = Vehicle.objects.filter(license_plate=lp).exists()
     return Response({"exists": exists})
 
 
 @swagger_auto_schema(
-    method='get',
+    method="get",
     operation_description="현재 사용자가 차량을 등록했는지 확인합니다.",
     responses={
         200: openapi.Response(
             description="차량 등록 여부",
             schema=openapi.Schema(
                 type=openapi.TYPE_OBJECT,
-                properties={
-                    'has_vehicle': openapi.Schema(type=openapi.TYPE_BOOLEAN)
-                }
-            )
+                properties={"has_vehicle": openapi.Schema(type=openapi.TYPE_BOOLEAN)},
+            ),
         ),
-        401: "인증되지 않은 사용자"
-    }
+        401: "인증되지 않은 사용자",
+    },
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -217,59 +218,72 @@ def check_vehicle_registration(request):
 
 
 @swagger_auto_schema(
-    method='post',
-    operation_description="차량 번호판만으로 간단하게 차량을 등록합니다.",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'license_plate': openapi.Schema(type=openapi.TYPE_STRING, description="차량 번호판")
-        },
-        required=['license_plate']
-    ),
+    method="get",
+    operation_description="차량번호-모델 매핑 정보를 조회합니다.",
+    manual_parameters=[
+        openapi.Parameter(
+            "license_plate",
+            openapi.IN_QUERY,
+            description="번호판",
+            type=openapi.TYPE_STRING,
+            required=True,
+        )
+    ],
     responses={
-        201: VehicleSerializer,
-        400: "잘못된 요청 데이터 또는 중복된 번호판",
-        401: "인증되지 않은 사용자"
-    }
+        200: openapi.Response(
+            description="매핑 정보",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={"model_id": openapi.Schema(type=openapi.TYPE_INTEGER)},
+            ),
+        ),
+        400: "license_plate 파라미터 필요",
+        404: "매핑 정보 없음",
+        401: "인증되지 않은 사용자",
+    },
 )
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_mapping_model(request):
+    lp = request.query_params.get("license_plate")
+    if not lp:
+        return Response(
+            {"detail": "license_plate 파라미터 필요"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        mapping = VehicleLicensePlateModelMapping.objects.get(license_plate=lp)
+        return Response({"model_id": mapping.model_id})
+    except VehicleLicensePlateModelMapping.DoesNotExist:
+        return Response({"detail": "매핑 정보 없음"}, status=status.HTTP_404_NOT_FOUND)
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_simple_vehicle(request):
     """
-    POST /api/user/vehicle/
-    → 번호판만으로 간단한 차량 등록 (기본 모델 사용)
+    POST /api/vehicles/  { "license_plate": "…" }
+    → mapping에서 model_id를 조회해 Vehicle 생성
     """
-    license_plate = request.data.get('license_plate')
-    if not license_plate:
+    lp = request.data.get("license_plate")
+    if not lp:
         return Response(
             {"detail": "license_plate는 필수입니다."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-    # 중복 체크
-    if Vehicle.objects.filter(license_plate=license_plate).exists():
+    if Vehicle.objects.filter(license_plate=lp).exists():
         return Response(
             {"detail": "이미 등록된 차량 번호입니다."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-    # 기본 차량 모델 가져오기 (없으면 첫 번째 모델 사용)
     try:
-        default_model = VehicleModel.objects.filter(size_class='midsize').first()
-        if not default_model:
-            default_model = VehicleModel.objects.first()
-    except VehicleModel.DoesNotExist:
+        mapping = VehicleLicensePlateModelMapping.objects.get(license_plate=lp)
+    except VehicleLicensePlateModelMapping.DoesNotExist:
         return Response(
-            {"detail": "차량 모델이 설정되지 않았습니다. 관리자에게 문의하세요."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            {"detail": "차량 모델 매핑 정보가 없습니다."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
-
-    # 차량 생성
-    vehicle = Vehicle.objects.create(
-        license_plate=license_plate,
-        user=request.user,
-        model=default_model
-    )
-
+    model = VehicleModel.objects.get(pk=mapping.model_id)
+    vehicle = Vehicle.objects.create(license_plate=lp, user=request.user, model=model)
     serializer = VehicleSerializer(vehicle)
     return Response(serializer.data, status=status.HTTP_201_CREATED)

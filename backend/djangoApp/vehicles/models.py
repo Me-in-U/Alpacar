@@ -57,3 +57,30 @@ class Vehicle(models.Model):
     def __str__(self):
         # 번호판을 문자열로 표현
         return self.license_plate
+
+
+class VehicleLicensePlateModelMapping(models.Model):
+    """
+    차량 번호판 ↔ VehicleModel 매핑 테이블
+    """
+
+    license_plate = models.CharField(
+        "차량 번호판",
+        max_length=255,
+        unique=True,
+    )
+    model = models.ForeignKey(
+        VehicleModel,
+        verbose_name="모델",
+        on_delete=models.CASCADE,
+        db_column="model_id",
+        related_name="plate_mappings",
+    )
+
+    class Meta:
+        db_table = "vehicle_license_plate_model_mapping"
+        verbose_name = "번호판-모델 매핑"
+        verbose_name_plural = "번호판-모델 매핑"
+
+    def __str__(self):
+        return f"{self.license_plate} → {self.model_id}"

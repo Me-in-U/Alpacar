@@ -25,6 +25,7 @@ import ModalTest from "@/views/user/ModalTest.vue";
 import AdminErrorModalTest from "@/views/admin/AdminErrorModalTest.vue";
 import GoogleCallback from "@/views/user/GoogleCallback.vue";
 import MainWithHolo from "@/views/user/MainWithHolo.vue";
+import { BACKEND_BASE_URL } from "@/utils/api";
 
 // 로그인 상태 확인 함수
 function isAuthenticated(): boolean {
@@ -46,21 +47,21 @@ async function hasVehicleRegistered(): Promise<boolean> {
 	}
 
 	try {
-		const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL || 'http://localhost:8000'}/user/vehicle/check/`, {
-			method: 'GET',
+		const response = await fetch(`${BACKEND_BASE_URL}/vehicles/check/`, {
+			method: "GET",
 			headers: {
-				'Authorization': `Bearer ${token}`,
-				'Content-Type': 'application/json'
-			}
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
 		});
 
 		if (response.ok) {
 			const data = await response.json();
-			return data.has_vehicle || false;
+			return data.has_vehicle ?? false;
 		}
 		return false;
 	} catch (error) {
-		console.error('차량 등록 여부 확인 중 오류:', error);
+		console.error("차량 등록 여부 확인 중 오류:", error);
 		return false;
 	}
 }
@@ -181,10 +182,10 @@ router.beforeEach(async (to, from, next) => {
 	const isLoggedIn = isAuthenticated();
 
 	// — 관리자 페이지 접근 시 로그인 체크
-  if (to.path.startsWith('/admin') && to.path !== '/admin-login' && !isLoggedIn) {
-    console.log('관리자 인증 필요, admin-login으로 이동');
-    return next('/admin-login');
-  }
+	if (to.path.startsWith("/admin") && to.path !== "/admin-login" && !isLoggedIn) {
+		console.log("관리자 인증 필요, admin-login으로 이동");
+		return next("/admin-login");
+	}
 
 	// 인증이 필요한 페이지인지 확인
 	if (to.meta.requiresAuth) {
@@ -195,7 +196,7 @@ router.beforeEach(async (to, from, next) => {
 		} else {
 			// 로그인된 경우 차량 등록 여부 확인
 			const hasVehicle = await hasVehicleRegistered();
-			
+
 			if (!hasVehicle && to.name !== "social-login-info") {
 				// 차량 등록이 안 되어 있고 social-login-info 페이지가 아닌 경우
 				console.log("차량 등록이 필요합니다. 차량 등록 페이지로 이동합니다.");
