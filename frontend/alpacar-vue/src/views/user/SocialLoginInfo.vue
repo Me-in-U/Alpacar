@@ -189,7 +189,7 @@ const completeSetup = async () => {
     }
 
     // 주차 실력별 점수 매핑
-    const scoreMap = {
+    const scoreMap: Record<string, number> = {
       'beginner': 30,    // 초급자
       'intermediate': 65, // 중급자
       'advanced': 86      // 상급자
