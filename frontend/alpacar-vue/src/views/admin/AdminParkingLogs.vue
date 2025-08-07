@@ -61,7 +61,7 @@ export default defineComponent({
 		let ws: WebSocket;
 
 		// 페이지 불러오기
-		const fetchPage = async (url = "http://localhost:8000/api/vehicle-events/?page=1") => {
+		const fetchPage = async (url = `${BACKEND_BASE_URL}/vehicle-events/?page=1`) => {
 			loading.value = true;
 			const token = localStorage.getItem("access_token");
 			const res = await fetch(url, {
