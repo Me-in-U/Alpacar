@@ -36,6 +36,10 @@
 						</tbody>
 					</table>
 				</div>
+				<div class="pagination">
+					<button @click="goPrev" :disabled="!prevPage || loading">이전</button>
+					<button @click="goNext" :disabled="!nextPage || loading">다음</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -50,7 +54,34 @@ export default defineComponent({
 	name: "AdminParkingLogs",
 	components: { AdminNavbar },
 	setup() {
-		const logs = ref<Array<any>>([]);
+		const logs = ref<any[]>([]);
+		const nextPage = ref<string | null>(null);
+		const prevPage = ref<string | null>(null);
+		const loading = ref(false);
+		let ws: WebSocket;
+
+		// 페이지 불러오기
+		const fetchPage = async (url = "http://localhost:8000/api/vehicle-events/?page=1") => {
+			loading.value = true;
+			const token = localStorage.getItem("access_token");
+			const res = await fetch(url, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+			});
+			if (!res.ok) {
+				console.log("이벤트 불러오기 실패", res.status, res.statusText);
+				throw new Error("이벤트 불러오기 실패");
+			}
+			console.log("이벤트 불러오기 성공", res.status, res.statusText);
+			const data = await res.json();
+			logs.value = data.results;
+			nextPage.value = data.next;
+			prevPage.value = data.previous;
+			loading.value = false;
+		};
 		const formatDate = (iso: string | null) => {
 			if (!iso) return "-";
 			// 로컬 타임존, 24h 포맷
@@ -64,7 +95,7 @@ export default defineComponent({
 				hour12: false,
 			});
 		};
-		let ws: WebSocket;
+
 		const manualParking = async (vehicleId: number) => {
 			const token = localStorage.getItem("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/${vehicleId}/manual-parking/`, {
@@ -107,22 +138,7 @@ export default defineComponent({
 		};
 
 		onMounted(async () => {
-			// 1) 기존 DB 로그 불러오기
-			const token = localStorage.getItem("access_token");
-			const res = await fetch(`${BACKEND_BASE_URL}/vehicle-events/`, {
-				method: "GET",
-				headers: {
-					Authorization: `Bearer ${token}`,
-					"Content-Type": "application/json",
-				},
-			});
-			if (!res.ok) {
-				console.error("이벤트 불러오기 실패", await res.json());
-				return;
-			}
-			logs.value = await res.json();
-			console.log("[WS] 기존 로그 불러오기 완료" + logs.value.length + "개");
-			console.log(logs.value);
+			await fetchPage();
 
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
 			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
@@ -132,12 +148,25 @@ export default defineComponent({
 			ws.onmessage = (ev) => {
 				const d = JSON.parse(ev.data);
 				const idx = logs.value.findIndex((e) => e.id === d.id);
-				idx >= 0 ? logs.value.splice(idx, 1, d) : logs.value.unshift(d);
+				if (idx >= 0) logs.value.splice(idx, 1, d);
+				// 새 로그가 끝 페이지에 있으면 무시
 			};
 		});
 		onBeforeUnmount(() => ws?.close());
+		const goNext = () => nextPage.value && fetchPage(nextPage.value);
+		const goPrev = () => prevPage.value && fetchPage(prevPage.value);
 
-		return { logs, manualParking, manualExit, formatDate };
+		return {
+			logs,
+			nextPage,
+			prevPage,
+			loading,
+			manualParking,
+			manualExit,
+			formatDate,
+			goNext,
+			goPrev,
+		};
 	},
 });
 </script>
@@ -202,6 +231,34 @@ export default defineComponent({
 	border: none;
 }
 
+.pagination {
+	margin-top: auto; /* 위쪽 여백을 자동으로 채워서 맨 아래로 */
+	display: flex;
+	justify-content: center; /* 중앙 정렬 */
+	padding-top: 16px;
+	border-top: 1px solid #e0e0e0; /* 분리선 */
+}
+
+.pagination button {
+	margin: 0 8px;
+	padding: 8px 16px;
+	border: none;
+	border-radius: 4px;
+	background-color: #a29280;
+	color: #ffffff;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.3s;
+}
+
+.pagination button:disabled {
+	background-color: #cccccc;
+	cursor: not-allowed;
+}
+
+.pagination button:not(:disabled):hover {
+	background-color: #6e6257;
+}
 /* Mobile 대응 */
 @media (max-width: 768px) {
 	.container {

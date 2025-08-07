@@ -9,12 +9,21 @@ from rest_framework.response import Response
 from .models import VehicleEvent
 from .serializers import VehicleEventSerializer
 
+from rest_framework.pagination import PageNumberPagination
+
+
+class VehicleEventPagination(PageNumberPagination):
+    page_size = 10  # 한 페이지당 10개
+
 
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def list_vehicle_events(request):
     qs = VehicleEvent.objects.select_related("vehicle").order_by("-id")
-    return Response(VehicleEventSerializer(qs, many=True).data)
+    paginator = VehicleEventPagination()
+    page = paginator.paginate_queryset(qs, request)
+    serializer = VehicleEventSerializer(page, many=True)
+    return paginator.get_paginated_response(serializer.data)
 
 
 @api_view(["POST"])
