@@ -24,11 +24,27 @@ let VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 // 사용자 스토어에서 VAPID 키 가져오기 함수
 function getVapidKeyFromUser(): string | null {
   try {
+    // 1. localStorage에서 user 객체 확인
     const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
-      return user.vapid_public_key || null;
+      console.log('localStorage user 객체:', user);
+      if (user && user.vapid_public_key && typeof user.vapid_public_key === 'string') {
+        return user.vapid_public_key;
+      }
     }
+
+    // 2. Pinia store에서 직접 접근 시도
+    const storeStr = localStorage.getItem('user-store');
+    if (storeStr) {
+      const store = JSON.parse(storeStr);
+      console.log('Pinia store 확인:', store);
+      if (store && store.me && store.me.vapid_public_key) {
+        return store.me.vapid_public_key;
+      }
+    }
+
+    console.warn('사용자 정보에서 VAPID 키를 찾을 수 없음');
   } catch (error) {
     console.warn('사용자 정보에서 VAPID 키 추출 실패:', error);
   }
