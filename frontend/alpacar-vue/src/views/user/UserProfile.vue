@@ -999,21 +999,35 @@ const toggleNotifications = async () => {
 			}
 
 			// 알림 구독
-			const subscription = await subscribeToPushNotifications();
-			if (subscription) {
-				isNotificationEnabled.value = true;
-				alert('푸시 알림이 활성화되었습니다. 주차 입출차 알림을 받을 수 있습니다.');
+			try {
+				const subscription = await subscribeToPushNotifications();
+				if (subscription) {
+					isNotificationEnabled.value = true;
+					alert('푸시 알림이 활성화되었습니다. 주차 입출차 알림을 받을 수 있습니다.');
+					
+					// 테스트 알림 발송 (모바일 확인용)
+					setTimeout(() => {
+						showLocalNotification({
+							type: 'general',
+							title: '🎉 알림 설정 완료',
+							body: '이제 주차 알림을 받을 수 있습니다!'
+						});
+					}, 1000);
+				}
+			} catch (error: any) {
+				console.error('푸시 알림 구독 오류:', error);
 				
-				// 테스트 알림 발송 (모바일 확인용)
-				setTimeout(() => {
-					showLocalNotification({
-						type: 'general',
-						title: '🎉 알림 설정 완료',
-						body: '이제 주차 알림을 받을 수 있습니다!'
-					});
-				}, 1000);
-			} else {
-				alert('푸시 알림 활성화에 실패했습니다.');
+				// 상세한 에러 메시지 제공
+				let errorMessage = '푸시 알림 활성화에 실패했습니다.';
+				if (error.message.includes('VAPID')) {
+					errorMessage = '서버 설정 오류입니다. 관리자에게 문의하세요.';
+				} else if (error.message.includes('Service Worker')) {
+					errorMessage = 'HTTPS 환경에서 사용해주세요.';
+				} else if (error.message.includes('권한')) {
+					errorMessage = '알림 권한을 허용해주세요.';
+				}
+				
+				alert(errorMessage);
 			}
 		}
 	} catch (error) {

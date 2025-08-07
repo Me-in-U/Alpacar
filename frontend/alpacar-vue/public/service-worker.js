@@ -67,22 +67,44 @@ self.addEventListener("fetch", (event) => {
 					return await fetch(event.request);
 				}
 				
-				// 캐시 우선 전략
+				// 캐시 우선 전략 with 오프라인 fallback
 				const cached = await caches.match(event.request);
 				if (cached) {
+					console.log('캐시에서 제공:', event.request.url);
 					return cached;
 				}
 				
 				// 네트워크에서 가져와서 캐시에 저장
 				const response = await fetch(event.request);
-				if (response.status === 200) {
+				if (response.status === 200 && response.type === 'basic') {
 					const cache = await caches.open(CACHE_NAME);
+					console.log('캐시에 저장:', event.request.url);
 					cache.put(event.request, response.clone());
 				}
 				return response;
 			} catch (err) {
 				console.error("SW fetch error:", err);
-				return new Response(null, { status: 504, statusText: "SW_GATEWAY_TIMEOUT" });
+				
+				// 오프라인 상태에서 캐시된 리소스 반환
+				const cached = await caches.match(event.request);
+				if (cached) {
+					console.log('오프라인 - 캐시에서 제공:', event.request.url);
+					return cached;
+				}
+				
+				// HTML 요청의 경우 오프라인 페이지 반환
+				if (event.request.destination === 'document') {
+					const offlineResponse = await caches.match('/');
+					if (offlineResponse) {
+						return offlineResponse;
+					}
+				}
+				
+				return new Response('오프라인 상태입니다.', { 
+					status: 503, 
+					statusText: "Service Unavailable",
+					headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+				});
 			}
 		})()
 	);

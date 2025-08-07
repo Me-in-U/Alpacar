@@ -64,6 +64,11 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     return null;
   }
 
+  // 네트워크 IP 접속 시 HTTPS가 아닌 경우 경고
+  if (!window.isSecureContext && location.hostname !== 'localhost') {
+    console.warn('PWA는 HTTPS 또는 localhost에서만 완전히 지원됩니다. 일부 기능이 제한될 수 있습니다.');
+  }
+
   try {
     const registration = await navigator.serviceWorker.register('/service-worker.js', {
       scope: '/'
@@ -94,17 +99,32 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 // 푸시 알림 구독
 export async function subscribeToPushNotifications(): Promise<PushSubscription | null> {
+  // VAPID 키 검증
+  if (!VAPID_PUBLIC_KEY) {
+    console.error('VAPID 공개 키가 설정되지 않았습니다.');
+    throw new Error('VAPID 키 설정 오류');
+  }
+
   const registration = await registerServiceWorker();
   if (!registration) {
-    return null;
+    throw new Error('Service Worker 등록 실패');
   }
 
   const hasPermission = await requestNotificationPermission();
   if (!hasPermission) {
-    return null;
+    throw new Error('알림 권한 거부됨');
   }
 
   try {
+    // 기존 구독 확인
+    const existingSubscription = await registration.pushManager.getSubscription();
+    if (existingSubscription) {
+      console.log('기존 구독 사용:', existingSubscription);
+      await sendSubscriptionToServer(existingSubscription);
+      return existingSubscription;
+    }
+
+    // 새 구독 생성
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
@@ -113,12 +133,15 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
     console.log('푸시 알림 구독 성공:', subscription);
     
     // 서버에 구독 정보 전송
-    await sendSubscriptionToServer(subscription);
+    const serverSuccess = await sendSubscriptionToServer(subscription);
+    if (!serverSuccess) {
+      console.warn('서버 구독 등록 실패, 로컬 구독은 유지');
+    }
     
     return subscription;
   } catch (error) {
     console.error('푸시 알림 구독 실패:', error);
-    return null;
+    throw error;
   }
 }
 
