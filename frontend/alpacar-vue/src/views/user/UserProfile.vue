@@ -105,7 +105,7 @@
 			<div class="section-title">비밀번호 변경</div>
 			<div class="section-subtitle">현재 비밀번호 입력</div>
 			<div class="input-field input-field--password">
-				<input v-model="currentPassword" type="password" placeholder="현재 비밀번호를 입력하세요" class="input-field__input" />
+				<input v-model="currentPassword" type="password" placeholder="현재 비밀번호를 입력하세요" class="input-field__input" maxlength="20"/>
 			</div>
 
 			<div class="section-subtitle">새 비밀번호 입력</div>
@@ -184,7 +184,9 @@
 					<input 
 						v-model="newNickname" 
 						@input="handleNicknameInput"
+						@beforeinput="preventNicknameLengthExceed"
 						@compositionstart="onNicknameCompositionStart"
+						@compositionupdate="onNicknameCompositionUpdate"
 						@compositionend="onNicknameCompositionEnd"
 						@keypress="preventInvalidNicknameChars"
 						type="text" 
@@ -437,22 +439,61 @@ const onNicknameCompositionStart = () => {
 	isNicknameComposing.value = true;
 };
 
+// 닉네임 입력 조합 중 업데이트 (한글 입력 중 실시간 제한)
+const onNicknameCompositionUpdate = (e: CompositionEvent) => {
+	const input = e.target as HTMLInputElement;
+	const currentValue = input.value;
+	
+	// 조합 중에도 18자 초과 시 마지막 문자 제거
+	if (currentValue.length > 18) {
+		const truncated = currentValue.slice(0, 18);
+		input.value = truncated;
+		// Vue 모델도 동기화
+		newNickname.value = truncated;
+	}
+};
+
 // 닉네임 입력 조합 종료 (한글 입력 완료)
 const onNicknameCompositionEnd = (e: Event) => {
 	isNicknameComposing.value = false;
-	// 조합이 완료된 후 검증 수행
-	handleNicknameInput(e);
+	
+	// 조합이 완료된 후 18자 제한 및 특수문자 제거 적용
+	const input = e.target as HTMLInputElement;
+	const originalValue = input.value;
+	
+	// 특수문자 제거 (한글, 영문, 숫자만 허용)
+	const cleaned = originalValue.replace(/[^a-zA-Z가-힣0-9]/g, "");
+	
+	// 최대 18자로 제한
+	const truncated = cleaned.slice(0, 18);
+	
+	// 값이 변경된 경우 업데이트
+	if (originalValue !== truncated) {
+		newNickname.value = truncated;
+		// DOM 업데이트를 다음 틱으로 지연
+		setTimeout(() => {
+			input.value = truncated;
+		}, 0);
+	}
 };
 
 // 닉네임 입력 핸들러 (특수문자 방지)
 const handleNicknameInput = (e: Event) => {
-	// 한글 입력 조합 중이면 검증하지 않음
-	if (isNicknameComposing.value) {
+	const input = e.target as HTMLInputElement;
+	const originalValue = input.value;
+	
+	// 한글 조합 중이더라도 18자 초과시 잘라내기 (모바일 대응)
+	if (originalValue.length > 18) {
+		const truncated = originalValue.slice(0, 18);
+		newNickname.value = truncated;
+		input.value = truncated;
 		return;
 	}
 	
-	const input = e.target as HTMLInputElement;
-	const originalValue = input.value;
+	// 한글 입력 조합 중이면 길이 제한만 적용하고 다른 검증은 skip
+	if (isNicknameComposing.value) {
+		return;
+	}
 	
 	// 특수문자 제거 (한글, 영문, 숫자만 허용)
 	const cleaned = originalValue.replace(/[^a-zA-Z가-힣0-9]/g, "");
@@ -472,6 +513,34 @@ const handleNicknameInput = (e: Event) => {
 	}
 };
 
+// 닉네임 길이 제한 (18자 초과 입력 방지)
+const preventNicknameLengthExceed = (e: Event) => {
+	const input = e.target as HTMLInputElement;
+	const beforeInputEvent = e as InputEvent;
+	const currentLength = input.value.length;
+	
+	// 입력이 문자 삽입/추가인 경우에만 길이 체크
+	if (beforeInputEvent.inputType && 
+		(beforeInputEvent.inputType.includes('insert') || 
+		 beforeInputEvent.inputType.includes('replace') ||
+		 beforeInputEvent.inputType === 'insertText' ||
+		 beforeInputEvent.inputType === 'insertCompositionText')) {
+		
+		// 현재 18자이고 추가 입력이려는 경우 방지
+		if (currentLength >= 18) {
+			e.preventDefault();
+			return;
+		}
+		
+		// 입력 예정 텍스트를 고려한 길이 체크
+		const inputData = beforeInputEvent.data || '';
+		if (currentLength + inputData.length > 18) {
+			e.preventDefault();
+			return;
+		}
+	}
+};
+
 // 닉네임 입력 시 특수문자 방지
 const preventInvalidNicknameChars = (e: KeyboardEvent) => {
 	// 한글 입력 조합 중에는 키 입력을 제한하지 않음
@@ -480,6 +549,7 @@ const preventInvalidNicknameChars = (e: KeyboardEvent) => {
 	}
 	
 	const char = e.key;
+	const input = e.target as HTMLInputElement;
 	
 	// 제어 키들은 항상 허용
 	if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(char)) {
@@ -488,6 +558,12 @@ const preventInvalidNicknameChars = (e: KeyboardEvent) => {
 	
 	// 한글 입력 시작하는 키들은 허용
 	if (e.isComposing || char === 'Process') {
+		return;
+	}
+	
+	// 18자 초과 입력 방지 (한글 조합 중이 아닐 때)
+	if (input.value.length >= 18) {
+		e.preventDefault();
 		return;
 	}
 	
