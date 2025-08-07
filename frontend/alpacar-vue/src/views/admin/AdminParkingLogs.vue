@@ -15,6 +15,8 @@
 								<th>주차 시각</th>
 								<th>출차 시각</th>
 								<th>상태</th>
+								<th>액션</th>
+								<!-- 추가 -->
 							</tr>
 						</thead>
 						<tbody>
@@ -25,6 +27,10 @@
 								<td>{{ evt.parking_time || "-" }}</td>
 								<td>{{ evt.exit_time || "-" }}</td>
 								<td>{{ evt.status }}</td>
+								<td>
+									<button @click="manualParking(evt.vehicle_id)">주차완료</button>
+									<button @click="manualExit(evt.vehicle_id)">출차</button>
+								</td>
 							</tr>
 						</tbody>
 					</table>
@@ -42,59 +48,34 @@ export default defineComponent({
 	name: "AdminParkingLogs",
 	components: { AdminNavbar },
 	setup() {
-		// 실시간 로그를 저장할 배열
-		const logs = ref<
-			Array<{
-				id: number;
-				license_plate: string;
-				location: string;
-				entrance_time: string | null;
-				parking_time: string | null;
-				exit_time: string | null;
-				status: string;
-			}>
-		>([]);
-
+		const logs = ref<Array<any>>([]);
 		let ws: WebSocket;
 
+		const manualParking = async (vehicleId: number) => {
+			const res = await fetch(`/api/vehicles/${vehicleId}/manual-parking/`, { method: "POST", credentials: "include" });
+			if (!res.ok) throw new Error("주차완료 실패");
+			const data = await res.json();
+			logs.value.unshift(data);
+		};
+
+		const manualExit = async (vehicleId: number) => {
+			const res = await fetch(`/api/vehicles/${vehicleId}/manual-exit/`, { method: "POST", credentials: "include" });
+			if (!res.ok) throw new Error("출차 실패");
+			const data = await res.json();
+			logs.value.unshift(data);
+		};
+
 		onMounted(() => {
-			// 백엔드 WebSocket URL
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
-			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
-
-			ws.onopen = () => {
-				console.log("WS 연결 성공: 주차 로그 수신 대기");
-			};
-
-			ws.onmessage = (event) => {
-				// 서버로부터 { id, license_plate, location, entrance_time, parking_time, exit_time, status } 형태로 수신
-				const data = JSON.parse(event.data);
-				const idx = logs.value.findIndex((e) => e.id === data.id);
-				if (idx !== -1) {
-					// 이미 존재하면 업데이트
-					logs.value[idx] = data;
-				} else {
-					// 신규 이벤트면 맨 앞에 추가
-					logs.value.unshift(data);
-				}
-			};
-
-			ws.onerror = (err) => {
-				console.error("WS 오류:", err);
-			};
-
-			ws.onclose = () => {
-				console.log("WS 연결 종료");
+			ws.onmessage = (ev) => {
+				const d = JSON.parse(ev.data);
+				const idx = logs.value.findIndex((e) => e.id === d.id);
+				idx >= 0 ? logs.value.splice(idx, 1, d) : logs.value.unshift(d);
 			};
 		});
+		onBeforeUnmount(() => ws?.close());
 
-		onBeforeUnmount(() => {
-			if (ws && ws.readyState === WebSocket.OPEN) {
-				ws.close();
-			}
-		});
-
-		return { logs };
+		return { logs, manualParking, manualExit };
 	},
 });
 </script>

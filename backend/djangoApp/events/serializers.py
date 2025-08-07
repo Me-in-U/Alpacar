@@ -4,6 +4,7 @@ from .models import VehicleEvent
 
 
 class VehicleEventSerializer(serializers.ModelSerializer):
+    vehicle_id = serializers.IntegerField(source="vehicle.id", read_only=True)  # 추가
     license_plate = serializers.CharField(
         source="vehicle.license_plate", read_only=True
     )
@@ -17,6 +18,7 @@ class VehicleEventSerializer(serializers.ModelSerializer):
         model = VehicleEvent
         fields = [
             "id",
+            "vehicle_id",
             "license_plate",
             "location",
             "entrance_time",
@@ -25,13 +27,9 @@ class VehicleEventSerializer(serializers.ModelSerializer):
             "status",
         ]
 
-    def get_status(self, obj):
-        return obj.get_event_type_display()
-
     def get_parking_time(self, obj):
-        if obj.event_type == "Entrance":
+        if obj.event_type != "Parking":
             return None
-        # 예시: 입차 후 5분 계산 (프로덕션: 로직 교체)
         return obj.timestamp
 
     def get_exit_time(self, obj):

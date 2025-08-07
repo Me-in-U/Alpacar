@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='CarNumberPlateModelMapping',
+            name='VehicleLicensePlateModelMapping',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('license_plate', models.CharField(max_length=255, unique=True, verbose_name='차량 번호판')),
@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
             options={
                 'verbose_name': '번호판-모델 매핑',
                 'verbose_name_plural': '번호판-모델 매핑',
-                'db_table': 'car_number_plate_model_mapping',
+                'db_table': 'vehicle_license_plate_model_mapping',
             },
         ),
     ]
