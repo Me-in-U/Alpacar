@@ -18,8 +18,38 @@ export interface PushNotificationData {
   requireInteraction?: boolean;
 }
 
-// VAPID 공개 키 (환경 변수에서 안전하게 가져옴)
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+// VAPID 공개 키 - 서버에서 동적으로 가져오거나 환경 변수 사용
+let VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+
+// 사용자 스토어에서 VAPID 키 가져오기 함수
+function getVapidKeyFromUser(): string | null {
+  try {
+    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.vapid_public_key || null;
+    }
+  } catch (error) {
+    console.warn('사용자 정보에서 VAPID 키 추출 실패:', error);
+  }
+  return null;
+}
+
+// 동적 VAPID 키 가져오기
+function getVapidKey(): string {
+  // 1. 환경 변수 우선 사용 (로컬 개발)
+  if (VAPID_PUBLIC_KEY) {
+    return VAPID_PUBLIC_KEY;
+  }
+  
+  // 2. 사용자 정보에서 가져오기 (배포 환경)
+  const userVapidKey = getVapidKeyFromUser();
+  if (userVapidKey) {
+    return userVapidKey;
+  }
+  
+  throw new Error('VAPID 키를 찾을 수 없습니다. 로그인 후 다시 시도해주세요.');
+}
 
 // URL-safe base64를 Uint8Array로 변환
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -44,17 +74,27 @@ export async function requestNotificationPermission(): Promise<boolean> {
     return false;
   }
 
+  // HTTPS 환경 확인 (배포 환경 호환성)
+  if (!window.isSecureContext && location.hostname !== 'localhost') {
+    console.warn('푸시 알림은 HTTPS 환경에서만 지원됩니다.');
+    throw new Error('HTTPS 환경에서 사용해주세요.');
+  }
+
   if (Notification.permission === 'granted') {
     return true;
   }
 
   if (Notification.permission === 'denied') {
     console.warn('알림 권한이 거부되었습니다.');
-    return false;
+    throw new Error('알림 권한이 거부되었습니다. 브라우저 설정에서 알림을 허용해주세요.');
   }
 
   const permission = await Notification.requestPermission();
-  return permission === 'granted';
+  if (permission !== 'granted') {
+    throw new Error('알림 권한을 허용해주세요.');
+  }
+  
+  return true;
 }
 
 // Service Worker 등록
@@ -99,10 +139,13 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 // 푸시 알림 구독
 export async function subscribeToPushNotifications(): Promise<PushSubscription | null> {
-  // VAPID 키 검증
-  if (!VAPID_PUBLIC_KEY) {
-    console.error('VAPID 공개 키가 설정되지 않았습니다.');
-    throw new Error('VAPID 키 설정 오류');
+  // 동적 VAPID 키 가져오기
+  let vapidKey: string;
+  try {
+    vapidKey = getVapidKey();
+  } catch (error) {
+    console.error('VAPID 키 가져오기 실패:', error);
+    throw error;
   }
 
   const registration = await registerServiceWorker();
@@ -127,7 +170,7 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
     // 새 구독 생성
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      applicationServerKey: urlBase64ToUint8Array(vapidKey)
     });
 
     console.log('푸시 알림 구독 성공:', subscription);
