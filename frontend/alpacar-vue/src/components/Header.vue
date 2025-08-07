@@ -84,7 +84,7 @@ const deleteAllNotifications = () => {
 	top: 0;
 	left: 0;
 	right: 0;
-	height: 80px;
+	height: 60px;
 	background: #776b5d;
 	display: flex;
 	align-items: center;
@@ -98,8 +98,8 @@ const deleteAllNotifications = () => {
 }
 
 .logo-icon {
-	width: 40px;
-	height: 40px;
+	width: 35px;
+	height: 35px;
 	object-fit: contain;
 }
 
@@ -108,8 +108,8 @@ const deleteAllNotifications = () => {
 }
 
 .notification-bell {
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 	object-fit: contain;
 }
 

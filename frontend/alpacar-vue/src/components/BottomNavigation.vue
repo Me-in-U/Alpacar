@@ -10,6 +10,7 @@
         alt="Home" 
         class="nav-icon" 
       />
+      <span class="nav-label">홈</span>
     </div>
     <div 
       class="nav-item" 
@@ -21,6 +22,7 @@
         alt="History" 
         class="nav-icon" 
       />
+      <span class="nav-label">히스토리</span>
     </div>
     <div
       class="nav-item"
@@ -32,6 +34,7 @@
       alt="Map" 
       class="nav-icon" 
       />
+      <span class="nav-label">추천받기</span>
     </div>
     <div 
       class="nav-item" 
@@ -43,6 +46,7 @@
         alt="User" 
         class="nav-icon" 
       />
+      <span class="nav-label">My</span>
     </div>
 </div>
 </template>
@@ -135,7 +139,7 @@ const goToUserProfile = async () => {
   transform: translateX(-50%);
   width: 100%;
   max-width: 440px;
-  height: 80px;
+  height: 60px;
   background: #FFFFFF;
   display: flex;
   align-items: center;
@@ -159,6 +163,7 @@ const goToUserProfile = async () => {
 .nav-item {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
@@ -179,9 +184,17 @@ const goToUserProfile = async () => {
   background-color: #F0F0F0;
 }
 
+.nav-label {
+  font-size: 10px;
+  color: #776b5d;
+  margin-top: 4px;
+  text-align: center;
+  font-family: "Inter", sans-serif;
+}
+
 .nav-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
 }
 </style>
