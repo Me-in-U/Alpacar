@@ -75,6 +75,7 @@ const deleteAllNotifications = () => {
 	console.log("전체 알림 삭제");
 	// 실제로는 API 호출로 모든 알림을 삭제
 };
+
 </script>
 
 <style scoped>

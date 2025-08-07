@@ -28,3 +28,9 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# PWA build files
+dev-dist/
+sw.js
+workbox-*.js
+nul
