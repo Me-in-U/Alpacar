@@ -10,7 +10,7 @@
 						<thead>
 							<tr>
 								<th>차량 번호</th>
-								<th>주차 위치</th>
+								<th>주차 위치(임시 모델)</th>
 								<th>입차 시각</th>
 								<th>주차 시각</th>
 								<th>출차 시각</th>
@@ -23,9 +23,10 @@
 							<tr v-for="evt in logs" :key="evt.id">
 								<td>{{ evt.license_plate }}</td>
 								<td>{{ evt.location }}</td>
-								<td>{{ evt.entrance_time || "-" }}</td>
-								<td>{{ evt.parking_time || "-" }}</td>
-								<td>{{ evt.exit_time || "-" }}</td>
+								<td>{{ formatDate(evt.entrance_time) }}</td>
+								<td>{{ formatDate(evt.parking_time) }}</td>
+								<td>{{ formatDate(evt.exit_time) }}</td>
+
 								<td>{{ evt.status }}</td>
 								<td>
 									<button @click="manualParking(evt.vehicle_id)">주차완료</button>
@@ -43,30 +44,91 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, onBeforeUnmount } from "vue";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
+import { BACKEND_BASE_URL } from "@/utils/api";
 
 export default defineComponent({
 	name: "AdminParkingLogs",
 	components: { AdminNavbar },
 	setup() {
 		const logs = ref<Array<any>>([]);
+		const formatDate = (iso: string | null) => {
+			if (!iso) return "-";
+			// 로컬 타임존, 24h 포맷
+			return new Date(iso).toLocaleString("ko-KR", {
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+				hour12: false,
+			});
+		};
 		let ws: WebSocket;
-
 		const manualParking = async (vehicleId: number) => {
-			const res = await fetch(`/api/vehicles/${vehicleId}/manual-parking/`, { method: "POST", credentials: "include" });
+			const token = localStorage.getItem("access_token");
+			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/${vehicleId}/manual-parking/`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+			});
 			if (!res.ok) throw new Error("주차완료 실패");
 			const data = await res.json();
-			logs.value.unshift(data);
+
+			// 기존에 같은 id가 있으면 교체, 없으면 맨 앞에 추가
+			const idx = logs.value.findIndex((e) => e.id === data.id);
+			if (idx >= 0) {
+				logs.value.splice(idx, 1, data);
+			} else {
+				logs.value.unshift(data);
+			}
 		};
 
 		const manualExit = async (vehicleId: number) => {
-			const res = await fetch(`/api/vehicles/${vehicleId}/manual-exit/`, { method: "POST", credentials: "include" });
+			const token = localStorage.getItem("access_token");
+			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/${vehicleId}/manual-exit/`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+			});
 			if (!res.ok) throw new Error("출차 실패");
 			const data = await res.json();
-			logs.value.unshift(data);
+
+			const idx = logs.value.findIndex((e) => e.id === data.id);
+			if (idx >= 0) {
+				logs.value.splice(idx, 1, data);
+			} else {
+				logs.value.unshift(data);
+			}
 		};
 
-		onMounted(() => {
+		onMounted(async () => {
+			// 1) 기존 DB 로그 불러오기
+			const token = localStorage.getItem("access_token");
+			const res = await fetch(`${BACKEND_BASE_URL}/vehicle-events/`, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+			});
+			if (!res.ok) {
+				console.error("이벤트 불러오기 실패", await res.json());
+				return;
+			}
+			logs.value = await res.json();
+			console.log("[WS] 기존 로그 불러오기 완료" + logs.value.length + "개");
+			console.log(logs.value);
+
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
+			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
+			ws.onopen = () => console.log("[WS] 연결 열림");
+			ws.onerror = (e) => console.error("[WS] 에러", e);
+			ws.onclose = () => console.warn("[WS] 연결 종료");
 			ws.onmessage = (ev) => {
 				const d = JSON.parse(ev.data);
 				const idx = logs.value.findIndex((e) => e.id === d.id);
@@ -75,7 +137,7 @@ export default defineComponent({
 		});
 		onBeforeUnmount(() => ws?.close());
 
-		return { logs, manualParking, manualExit };
+		return { logs, manualParking, manualExit, formatDate };
 	},
 });
 </script>

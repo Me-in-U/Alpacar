@@ -13,31 +13,24 @@ class VehicleEvent(models.Model):
     - timestamp: 이벤트 발생 시각
     """
 
-    EVENT_TYPE_CHOICES = [
-        ("Entrance", "입차"),  # 입차 이벤트
-        ("Parking", "주차완료"),  # 주차완료 이벤트
-        ("Exit", "출차"),  # 출차 이벤트
-        ("Exception", "예외"),  # 기타 예외 이벤트
+    STATUS_CHOICES = [
+        ("Entrance", "입차"),
+        ("Parking", "주차완료"),
+        ("Exit", "출차"),
+        ("Exception", "예외"),
     ]
+
     vehicle = models.ForeignKey(
-        Vehicle,
-        on_delete=models.CASCADE,
-        db_column="vehicle_id",
-        related_name="events",
-        verbose_name="차량",
-    )  # 이벤트 대상 차량
-    event_type = models.CharField(
-        max_length=20,
-        choices=EVENT_TYPE_CHOICES,
-        verbose_name="이벤트 종류",
-    )  # 이벤트 타입
-    timestamp = models.DateTimeField(verbose_name="발생 시각")  # 이벤트 발생 시각 저장
+        Vehicle, on_delete=models.CASCADE, db_column="vehicle_id"
+    )
+    entrance_time = models.DateTimeField(null=True, blank=True)
+    parking_time = models.DateTimeField(null=True, blank=True)
+    exit_time = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Entrance")
 
     class Meta:
-        db_table = "vehicle_event"  # 테이블명 지정
-        verbose_name = "차량 이벤트"
-        verbose_name_plural = "차량 이벤트"
+        db_table = "vehicle_event"
 
     def __str__(self):
         # 문자열 표현: "번호판 — 이벤트종류 @ 시각"
-        return f"{self.vehicle.license_plate} — {self.get_event_type_display()} @ {self.timestamp}"
+        return f"{self.vehicle.license_plate} — {self.get_event_type_display()} @ {self.entrance_time}"

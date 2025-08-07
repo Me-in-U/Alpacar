@@ -21,8 +21,5 @@ def broadcast_vehicle_event(sender, instance, created, **kwargs):
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         ParkingLogConsumer.group_name,
-        {
-            "type": "vehicle_event",
-            "data": data,
-        },
+        {"type": "vehicle_event", "data": data},
     )

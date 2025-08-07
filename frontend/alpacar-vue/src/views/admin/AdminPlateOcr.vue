@@ -6,7 +6,7 @@
 			<AdminAuthRequiredModal v-if="showModal" @close="showModal = false" />
 
 			<div class="container">
-				<p class="title">입차 차단바 OCR</p>
+				<p class="title">차단바 CCTV</p>
 				<!-- WebSocket 스트리밍 결과 표시 -->
 				<img :src="videoSrc" width="640" height="480" alt="라이브 영상" />
 				<p>
@@ -38,6 +38,7 @@ export default defineComponent({
 		let ws: WebSocket | null = null;
 
 		onMounted(() => {
+			// ws = new WebSocket("ws://localhost:8000/ws/stream/");
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/stream/");
 			ws.onopen = () => {
 				console.log("[WS] 연결 성공");

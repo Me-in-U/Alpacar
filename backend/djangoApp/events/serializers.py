@@ -4,15 +4,12 @@ from .models import VehicleEvent
 
 
 class VehicleEventSerializer(serializers.ModelSerializer):
-    vehicle_id = serializers.IntegerField(source="vehicle.id", read_only=True)  # 추가
+    vehicle_id = serializers.IntegerField(source="vehicle.id", read_only=True)
     license_plate = serializers.CharField(
         source="vehicle.license_plate", read_only=True
     )
     location = serializers.CharField(source="vehicle.model.model_name", read_only=True)
-    status = serializers.SerializerMethodField()
-    entrance_time = serializers.DateTimeField(source="timestamp", read_only=True)
-    parking_time = serializers.SerializerMethodField()
-    exit_time = serializers.SerializerMethodField()
+    status = serializers.CharField(source="get_status_display", read_only=True)
 
     class Meta:
         model = VehicleEvent
@@ -27,12 +24,16 @@ class VehicleEventSerializer(serializers.ModelSerializer):
             "status",
         ]
 
+    def get_status(self, obj):
+        return obj.get_event_type_display()
+
     def get_parking_time(self, obj):
-        if obj.event_type != "Parking":
+        if obj.status != "Parking":
             return None
-        return obj.timestamp
+        # datetime → ISO 문자열로 변환
+        return obj.parking_time.isoformat()
 
     def get_exit_time(self, obj):
-        if obj.event_type != "Exit":
+        if obj.status != "Exit":
             return None
-        return obj.timestamp
+        return obj.exit_time.isoformat()
