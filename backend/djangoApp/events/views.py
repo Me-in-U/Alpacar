@@ -10,25 +10,67 @@ from .models import VehicleEvent
 from .serializers import VehicleEventSerializer
 
 
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def list_vehicle_events(request):
+    qs = VehicleEvent.objects.select_related("vehicle").order_by("-id")
+    return Response(VehicleEventSerializer(qs, many=True).data)
+
+
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def manual_parking_complete(request, vehicle_id):
-    event = VehicleEvent.objects.create(
-        vehicle_id=vehicle_id,
-        event_type="Parking",
-        timestamp=timezone.now(),
+    now = timezone.now()
+    # 1) “입차는 되었으나(parking_time is null) 아직 주차되지 않은” 이벤트 조회
+    ev = (
+        VehicleEvent.objects.filter(
+            vehicle_id=vehicle_id,
+            entrance_time__isnull=False,
+            parking_time__isnull=True,
+        )
+        .order_by("-id")
+        .first()
     )
-    data = VehicleEventSerializer(event).data
-    return Response(data, status=status.HTTP_201_CREATED)
+
+    if ev is None:
+        return Response(
+            {"detail": "해당 차량의 입차 기록이 없습니다."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 2) 주차시간·상태 업데이트
+    ev.parking_time = now
+    ev.status = "Parking"
+    ev.save()
+
+    return Response(VehicleEventSerializer(ev).data, status=200)
+
+
+from rest_framework import status
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def manual_exit(request, vehicle_id):
-    event = VehicleEvent.objects.create(
-        vehicle_id=vehicle_id,
-        event_type="Exit",
-        timestamp=timezone.now(),
+    now = timezone.now()
+    # ① “주차는 되었으나(exit_time이 null) 아직 출차되지 않은” 이벤트 조회
+    ev = (
+        VehicleEvent.objects.filter(
+            vehicle_id=vehicle_id, parking_time__isnull=False, exit_time__isnull=True
+        )
+        .order_by("-id")
+        .first()
     )
-    data = VehicleEventSerializer(event).data
-    return Response(data, status=status.HTTP_201_CREATED)
+
+    if ev is None:
+        return Response(
+            {"detail": "출차할 주차 기록이 없습니다."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # ② exit_time·status 업데이트
+    ev.exit_time = now
+    ev.status = "Exit"
+    ev.save()
+
+    return Response(VehicleEventSerializer(ev).data, status=status.HTTP_200_OK)
