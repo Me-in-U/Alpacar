@@ -36,12 +36,15 @@ export const useUserStore = defineStore("user", {
 	actions: {
 		setUser(user: User) {
 			this.me = user;
+			// 사용자 정보를 localStorage에 저장 (PWA에서 VAPID 키 접근용)
+			localStorage.setItem('user', JSON.stringify(user));
 		},
 		clearUser() {
 			this.me = null;
 			this.vehicles = [];
 			localStorage.removeItem("access_token");
 			localStorage.removeItem("refresh_token");
+			localStorage.removeItem("user");
 		},
 		async fetchMe(accessToken: string, baseUrl?: string) {
 			const apiUrl = baseUrl || BACKEND_BASE_URL;
