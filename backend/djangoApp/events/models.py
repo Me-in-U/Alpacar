@@ -15,6 +15,7 @@ class VehicleEvent(models.Model):
 
     EVENT_TYPE_CHOICES = [
         ("Entrance", "입차"),  # 입차 이벤트
+        ("Parking", "주차완료"),  # 주차완료 이벤트
         ("Exit", "출차"),  # 출차 이벤트
         ("Exception", "예외"),  # 기타 예외 이벤트
     ]

@@ -54,6 +54,7 @@ api_patterns = [
     path("", include("parking.urls")),
     # 스트리밍 앱 (Pi 업로드, 대시보드)
     path("", include("streamapp.urls")),
+    path("", include("events.urls")),  # 수동 주차/출차 API
     # Swagger / OpenAPI
     re_path(
         r"^swagger(?P<format>\.json|\.yaml)$",
