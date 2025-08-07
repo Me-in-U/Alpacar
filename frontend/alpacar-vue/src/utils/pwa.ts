@@ -37,34 +37,57 @@ function getVapidKeyFromUser(): string | null {
 
 // 동적 VAPID 키 가져오기
 function getVapidKey(): string {
+  console.log('VAPID 키 검색 시작...');
+  
   // 1. 환경 변수 우선 사용 (로컬 개발)
-  if (VAPID_PUBLIC_KEY) {
+  if (VAPID_PUBLIC_KEY && typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.length > 0) {
+    console.log('환경 변수에서 VAPID 키 사용');
     return VAPID_PUBLIC_KEY;
   }
   
   // 2. 사용자 정보에서 가져오기 (배포 환경)
   const userVapidKey = getVapidKeyFromUser();
-  if (userVapidKey) {
+  if (userVapidKey && typeof userVapidKey === 'string' && userVapidKey.length > 0) {
+    console.log('사용자 정보에서 VAPID 키 사용');
     return userVapidKey;
   }
   
+  console.error('VAPID 키를 찾을 수 없음:', {
+    envKey: VAPID_PUBLIC_KEY,
+    userKey: userVapidKey
+  });
   throw new Error('VAPID 키를 찾을 수 없습니다. 로그인 후 다시 시도해주세요.');
 }
 
 // URL-safe base64를 Uint8Array로 변환
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
+  // 입력값 검증
+  if (!base64String || typeof base64String !== 'string') {
+    console.error('urlBase64ToUint8Array: 잘못된 입력값:', base64String);
+    throw new Error('VAPID 키 형식이 올바르지 않습니다.');
   }
-  return outputArray;
+
+  if (base64String.length === 0) {
+    throw new Error('VAPID 키가 비어있습니다.');
+  }
+
+  try {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  } catch (error) {
+    console.error('VAPID 키 디코딩 실패:', error);
+    throw new Error('VAPID 키 디코딩에 실패했습니다. 관리자에게 문의하세요.');
+  }
 }
 
 // 푸시 알림 권한 요청
@@ -193,21 +216,13 @@ export async function sendSubscriptionToServer(subscription: PushSubscription): 
   try {
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
     
-    const response = await fetch(`${BACKEND_BASE_URL}/notifications/subscribe/`, {
+    const response = await fetch(`${BACKEND_BASE_URL}/push/subscribe/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({
-        subscription: {
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!))),
-            auth: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!)))
-          }
-        }
-      })
+      body: JSON.stringify(subscription.toJSON())
     });
 
     if (response.ok) {
@@ -256,7 +271,7 @@ async function removeSubscriptionFromServer(subscription: PushSubscription): Pro
   try {
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
     
-    await fetch(`${BACKEND_BASE_URL}/notifications/unsubscribe/`, {
+    await fetch(`${BACKEND_BASE_URL}/push/unsubscribe/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
