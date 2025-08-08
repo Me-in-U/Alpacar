@@ -48,27 +48,38 @@ const emit = defineEmits<{
   (e: "logout"): void;
 }>();
 
-defineProps<{ showLogout: boolean }>();
+// 여기서 바로 정의
+function isAuthenticated(): boolean {
+  const token =
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("access") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("adminAccess") ||
+    localStorage.getItem("token");
+
+  if (!token) return false;
+
+  // user 정보에서 is_staff 읽기
+  const userRaw = localStorage.getItem("user");
+  if (!userRaw) return false;
+
+  try {
+    const user = JSON.parse(userRaw);
+    return user.is_staff === true;
+  } catch {
+    return false;
+  }
+}
+
+// computed로 감싸서 반응형으로 사용
+const isLoggedIn = computed(() => isAuthenticated());
 
 const goTo = (path: string) => {
   isOpen.value = false;
   router.push(path);
 };
 
-// 로그인 여부 체크 (토큰/플래그 키 여러 케이스 대응)
-const isLoggedIn = computed(() => {
-  const tokens = [
-    localStorage.getItem("access"),
-    localStorage.getItem("accessToken"),
-    localStorage.getItem("adminAccess"),
-    localStorage.getItem("token"),
-  ];
-  const hasToken = tokens.some((t) => !!t);
-  const isStaff = localStorage.getItem("is_staff");
-  return hasToken && (isStaff === "true" || isStaff === "1");
-});
-
-// 메뉴 클릭 공통 처리: 관리자 미로그인 시 모달 오픈
+// 메뉴 클릭 시
 const handleMenuClick = (path: string) => {
   if (!isLoggedIn.value) {
     showAuthModal.value = true;
