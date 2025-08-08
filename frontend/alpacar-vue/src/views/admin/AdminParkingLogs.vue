@@ -142,17 +142,22 @@ export default defineComponent({
 
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
 			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
-			ws.onopen = () => console.log("[WS] 연결 열림");
-			ws.onerror = (e) => console.error("[WS] 에러", e);
-			ws.onclose = () => console.warn("[WS] 연결 종료");
+			ws.onopen = () => {
+				console.log("[WebSocket] ✅ Connected");
+			};
 			ws.onmessage = (ev) => {
 				const d = JSON.parse(ev.data);
 				const idx = logs.value.findIndex((e) => e.id === d.id);
 				if (idx >= 0) logs.value.splice(idx, 1, d);
 				// 새 로그가 끝 페이지에 있으면 무시
 			};
+			ws.onerror = (e) => console.error("[WebSocket] ❌ Error", e);
+			ws.onclose = () => {
+				console.warn("[WebSocket] 🔒 Closed");
+			};
 		});
 		onBeforeUnmount(() => ws?.close());
+
 		const goNext = () => nextPage.value && fetchPage(nextPage.value);
 		const goPrev = () => prevPage.value && fetchPage(prevPage.value);
 

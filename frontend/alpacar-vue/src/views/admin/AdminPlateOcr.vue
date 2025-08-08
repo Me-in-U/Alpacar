@@ -41,7 +41,7 @@ export default defineComponent({
 			// ws = new WebSocket("ws://localhost:8000/ws/stream/");
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/stream/");
 			ws.onopen = () => {
-				console.log("[WS] 연결 성공");
+				console.log("[WebSocket] ✅ Connected");
 			};
 			ws.onmessage = (evt) => {
 				try {
@@ -49,19 +49,19 @@ export default defineComponent({
 					videoSrc.value = "data:image/jpeg;base64," + image;
 					plateText.value = text;
 				} catch (e) {
-					console.error("[WS] 데이터 파싱 실패:", e);
+					console.error("[WebSocket] 데이터 파싱 실패:", e);
 				}
 			};
-			ws.onerror = (err) => {
-				console.error("[WS] 에러:", err);
+			ws.onerror = (evt) => {
+				console.error("[WebSocket] ❌ Error:", evt);
 			};
 			ws.onclose = (evt) => {
-				console.warn("[WS] 연결 종료:", evt);
+				console.warn("[WebSocket] 🔒 Closed:", evt);
 			};
 		});
 
 		onUnmounted(() => {
-			if (ws) ws.close();
+			if (ws) ws?.close();
 		});
 
 		return {

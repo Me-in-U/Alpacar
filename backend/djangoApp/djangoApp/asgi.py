@@ -25,6 +25,7 @@ from channels.security.websocket import AllowedHostsOriginValidator
 # 라우팅 설정
 import streamapp.routing
 import events.routing
+import parking.routing
 
 # 로깅 설정
 import logging
@@ -50,6 +51,7 @@ async def debug_scope(scope, receive, send):
                 URLRouter(
                     streamapp.routing.websocket_urlpatterns
                     + events.routing.websocket_urlpatterns
+                    + parking.routing.websocket_urlpatterns
                 )
             ),
         }
