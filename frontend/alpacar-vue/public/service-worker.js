@@ -1,13 +1,13 @@
 // public/service-worker.js - Alpacar PWA Service Worker (safe fetch)
-const SW_VERSION = "v3.1"; // ← 버전 업!
+const SW_VERSION = "v3.2"; // ← 버전 업!
 const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
 
 const NOTIFICATION_SETTINGS = {
-	parking: { title: "🚗 주차 알림", icon: "/alpaca-logo-small.png", badge: "/alpaca-logo-small.png", tag: "parking-notification" },
-	entry: { title: "🅿️ 입차 완료", icon: "/alpaca-logo-small.png", badge: "/alpaca-logo-small.png", tag: "entry-notification" },
-	exit: { title: "🚪 출차 완료", icon: "/alpaca-logo-small.png", badge: "/alpaca-logo-small.png", tag: "exit-notification" },
-	warning: { title: "⚠️ 주차 경고", icon: "/alpaca-logo-small.png", badge: "/alpaca-logo-small.png", tag: "warning-notification" },
+	parking: { title: "🚗 주차 알림", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-notification" },
+	entry: { title: "🅿️ 입차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "entry-notification" },
+	exit: { title: "🚪 출차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "exit-notification" },
+	warning: { title: "⚠️ 주차 경고", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "warning-notification" },
 };
 
 self.addEventListener("install", (event) => {

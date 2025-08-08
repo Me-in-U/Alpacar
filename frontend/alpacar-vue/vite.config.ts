@@ -20,7 +20,7 @@ export default defineConfig({
 				enabled: true,
 				type: "module",
 			},
-			includeAssets: ["favicon.ico", "alpaca-logo-small.png", "service-worker.js"],
+			includeAssets: ["favicon.ico", "alpaca-192.png", "alpaca-512.png", "service-worker.js"],
 			manifest: {
 				name: "Alpacar - 스마트 주차 서비스",
 				short_name: "Alpacar",
