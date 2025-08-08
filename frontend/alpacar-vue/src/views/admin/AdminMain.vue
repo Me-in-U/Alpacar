@@ -118,7 +118,7 @@ export default defineComponent({
 			}>
 		>([]);
 		let ws: WebSocket | null = null;
-		const WSS_URL = `${BACKEND_BASE_URL}/ws/car-position/`;
+		const WSS_URL = `wss://i13e102.p.ssafy.io/ws/car-position/`;
 
 		function connect() {
 			ws = new WebSocket(WSS_URL);
