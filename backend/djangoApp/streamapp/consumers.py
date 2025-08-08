@@ -82,6 +82,7 @@ def send_push(subscription, title, body):
 class PiUploadConsumer(AsyncWebsocketConsumer):
     """
     RPi에서 전송된 이미지/텍스트 수신 및 처리
+    "ws/upload/"
     """
 
     # last_entered = None  # 마지막 입차된 번호판 기록
@@ -158,10 +159,11 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
                 )
 
 
-# ─── StreamConsumer: 관리 화면용 WebSocket ─────────────────────────────────
+# ─── StreamConsumer: Django → Web ─────────────────────────────────
 class StreamConsumer(AsyncWebsocketConsumer):
     """
     관리자용 실시간 스트림 Consumer
+    "ws/stream/"
     """
 
     async def connect(self):
@@ -197,7 +199,7 @@ class StreamConsumer(AsyncWebsocketConsumer):
         )  # 이벤트 전송
 
 
-# ─── OCRTextConsumer: 텍스트 전용 푸시용 WebSocket ─────────────────────────
+# ─── OCRTextConsumer: Django -> 전광판 ─────────────────────────
 class OCRTextConsumer(AsyncWebsocketConsumer):
     """
     텍스트 전용 푸시용 Consumer

@@ -1,3 +1,4 @@
+import json
 from rest_framework import generics, permissions
 from vehicles.models import Vehicle, VehicleLicensePlateModelMapping, VehicleModel
 from vehicles.serializers.vehicles import (
@@ -287,3 +288,47 @@ def create_simple_vehicle(request):
     vehicle = Vehicle.objects.create(license_plate=lp, user=request.user, model=model)
     serializer = VehicleSerializer(vehicle)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.conf import settings
+from pywebpush import webpush, WebPushException
+from vehicles.models import Vehicle
+from accounts.models import PushSubscription
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_push_to_plate(request):
+    plate = request.data.get("license_plate")
+    if not plate:
+        return Response({"error": "license_plate 필수"}, status=400)
+
+    try:
+        vehicle = Vehicle.objects.select_related("user").get(license_plate=plate)
+    except Vehicle.DoesNotExist:
+        return Response({"error": "차량을 찾을 수 없음"}, status=404)
+
+    user = vehicle.user
+    subs = PushSubscription.objects.filter(user=user)
+    if not subs:
+        return Response({"error": "푸시 구독 없음"}, status=404)
+
+    payload = {"title": "관리자 알림", "body": f"{plate} 차량 관련 안내입니다."}
+    for s in subs:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": s.endpoint,
+                    "keys": {"p256dh": s.p256dh, "auth": s.auth},
+                },
+                data=json.dumps(payload, ensure_ascii=False),
+                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                vapid_claims=settings.VAPID_CLAIMS,
+            )
+        except WebPushException as e:
+            print(f"[PUSH ERROR] {e}")
+
+    return Response({"success": True})
