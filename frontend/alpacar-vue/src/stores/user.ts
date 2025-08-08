@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/utils/pwa";
 
 export interface VehicleModel {
 	id: number;
@@ -35,12 +36,15 @@ export const useUserStore = defineStore("user", {
 	actions: {
 		setUser(user: User) {
 			this.me = user;
+			// 사용자 정보를 localStorage에 저장 (PWA에서 VAPID 키 접근용)
+			localStorage.setItem('user', JSON.stringify(user));
 		},
 		clearUser() {
 			this.me = null;
 			this.vehicles = [];
 			localStorage.removeItem("access_token");
 			localStorage.removeItem("refresh_token");
+			localStorage.removeItem("user");
 		},
 		async fetchMe(accessToken: string, baseUrl?: string) {
 			const apiUrl = baseUrl || BACKEND_BASE_URL;
@@ -235,62 +239,26 @@ export const useUserStore = defineStore("user", {
 			const prev = this.me.push_on;
 			this.me.push_on = on;
 
-			const token = localStorage.getItem("access_token");
-			if (!token) {
-				console.error("[togglePush] 토큰 없음, 롤백");
-				this.me.push_on = prev;
-				this.isToggling = false;
-				return;
-			}
-
 			try {
-				let swReg: ServiceWorkerRegistration | undefined;
-				// ready 대신 getRegistration 으로 방어
-				if ("serviceWorker" in navigator) {
-					swReg = await navigator.serviceWorker.getRegistration();
-					if (!swReg) {
-						console.warn("[togglePush] SW 미등록, 푸시 구독 로직을 건너뜁니다.");
-					}
+				if (on) {
+					// PWA utils의 통합된 구독 함수 사용
+					console.log("[togglePush] PWA 구독 시도");
+					await subscribeToPushNotifications();
+					console.log("[togglePush] PWA 구독 성공");
+				} else {
+					// PWA utils의 통합된 구독 해제 함수 사용
+					console.log("[togglePush] PWA 구독 해제 시도");
+					await unsubscribeFromPushNotifications();
+					console.log("[togglePush] PWA 구독 해제 성공");
 				}
 
-				if (on && swReg) {
-					// 구독
-					console.log("[togglePush] 구독 시도");
-					const sub = await swReg.pushManager.subscribe({
-						userVisibleOnly: true,
-						applicationServerKey: urlBase64ToUint8Array(this.me.vapid_public_key),
-					});
-					const res = await fetch(`${BACKEND_BASE_URL}/push/subscribe/`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${token}`,
-						},
-						body: JSON.stringify(sub.toJSON()),
-					});
-					if (!res.ok) throw new Error("구독 API 실패");
-					console.log("[togglePush] 구독 성공");
-				} else {
-					// 구독해제
-					console.log("[togglePush] 구독 해제 시도");
-					const sub = await swReg?.pushManager.getSubscription();
-					if (sub) {
-						await sub.unsubscribe();
-						const res = await fetch(`${BACKEND_BASE_URL}/push/unsubscribe/`, {
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-								Authorization: `Bearer ${token}`,
-							},
-							body: JSON.stringify({ endpoint: sub.endpoint }),
-						});
-						if (!res.ok) throw new Error("구독해제 API 실패");
-						console.log("[togglePush] 구독 해제 성공");
-					}
+				// 서버에 설정 저장
+				const token = localStorage.getItem("access_token");
+				if (!token) {
+					throw new Error("인증 토큰이 없습니다.");
 				}
 
 				console.log("[togglePush] 서버에 설정 저장 시도:", on);
-				// 최종 서버 설정 저장
 				const saveRes = await fetch(`${BACKEND_BASE_URL}/push/setting/`, {
 					method: "POST",
 					headers: {
@@ -304,6 +272,21 @@ export const useUserStore = defineStore("user", {
 			} catch (e) {
 				console.error("[togglePush] 오류 발생, 롤백", e);
 				this.me.push_on = prev; // 롤백
+				
+				// 사용자에게 구체적인 오류 메시지 제공
+				let errorMessage = '푸시 알림 설정에 실패했습니다.';
+				if (e instanceof Error) {
+					if (e.message.includes('VAPID')) {
+						errorMessage = '서버 설정 오류입니다. 관리자에게 문의하세요.';
+					} else if (e.message.includes('Service Worker')) {
+						errorMessage = 'HTTPS 환경에서 사용해주세요.';
+					} else if (e.message.includes('Permission')) {
+						errorMessage = '알림 권한을 허용해주세요.';
+					} else if (e.message.includes('인증')) {
+						errorMessage = '로그인 상태를 확인해주세요.';
+					}
+				}
+				throw new Error(errorMessage);
 			} finally {
 				this.isToggling = false;
 				console.log("[togglePush] 완료, 최종 상태:", this.me.push_on);
@@ -387,11 +370,3 @@ export const useUserStore = defineStore("user", {
 		},
 	},
 });
-
-// VAPID 키 디코드 헬퍼
-function urlBase64ToUint8Array(base64String: string) {
-	const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-	const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
-	const rawData = atob(base64);
-	return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
-}

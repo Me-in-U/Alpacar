@@ -136,6 +136,41 @@
 				</div>
 			</div>
 
+			<!-- Notification Section -->
+			<div class="section-title">알림 설정</div>
+			<div class="notification-settings">
+				<div class="notification-item">
+					<div class="notification-item__content">
+						<div class="notification-item__label">푸시 알림</div>
+						<div class="notification-item__desc">주차 입출차 및 중요 알림 수신</div>
+					</div>
+					<div class="notification-item__toggle">
+						<button 
+							class="toggle-button" 
+							:class="{ 'toggle-button--active': isNotificationEnabled }"
+							@click="toggleNotifications"
+						>
+							{{ isNotificationEnabled ? '켜짐' : '꺼짐' }}
+						</button>
+					</div>
+				</div>
+				<div class="notification-item">
+					<div class="notification-item__content">
+						<div class="notification-item__label">PWA 설치</div>
+						<div class="notification-item__desc">앱처럼 사용하기</div>
+					</div>
+					<div class="notification-item__toggle">
+						<button 
+							class="install-button"
+							@click="installPWA"
+							:disabled="!canInstallPWA"
+						>
+							{{ canInstallPWA ? '설치' : '설치됨' }}
+						</button>
+					</div>
+				</div>
+			</div>
+
 			<!-- Vehicle Section -->
 			<div class="section-title">내 차량정보</div>
 			<div class="button-container">
@@ -324,6 +359,7 @@ import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { subscribeToPushNotifications, unsubscribeFromPushNotifications, getSubscriptionStatus, showLocalNotification } from "@/utils/pwa";
 import defaultCarImage from "@/assets/alpaka_in_car.png";
 
 const router = useRouter();
@@ -381,6 +417,10 @@ onMounted(async () => {
 			await userStore.fetchMe(token);
 			await userStore.fetchMyVehicles();
 			await userStore.fetchVehicleModels();
+			
+			// PWA 리스너 설정 및 알림 상태 확인
+			setupPWAListeners();
+			await checkNotificationStatus();
 		} catch (e) {
 			console.error("데이터 조회 오류", e);
 		}
@@ -693,6 +733,11 @@ const phonePlaceholder = ref("ex) 010-1234-5678");
 // 한글 입력 조합 상태 관리
 const isNicknameComposing = ref(false);
 
+// PWA 및 알림 관련 상태
+const isNotificationEnabled = ref(false);
+const canInstallPWA = ref(false);
+let deferredPrompt: any = null;
+
 // 이메일 인증 관련
 const verificationCode = ref("");
 const emailSent = ref(false);
@@ -919,6 +964,148 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 	
 	// 010-1234-1234 형태로 포맷팅
 	return digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+};
+
+// PWA 관련 함수들
+// 알림 토글 - 모바일 최적화
+const toggleNotifications = async () => {
+	try {
+		if (isNotificationEnabled.value) {
+			// 알림 해제
+			await unsubscribeFromPushNotifications();
+			isNotificationEnabled.value = false;
+			alert('푸시 알림이 해제되었습니다.');
+		} else {
+			// 모바일 환경 체크
+			if (!('Notification' in window)) {
+				alert('이 브라우저는 알림을 지원하지 않습니다.');
+				return;
+			}
+
+			if (!('serviceWorker' in navigator)) {
+				alert('이 브라우저는 푸시 알림을 지원하지 않습니다.');
+				return;
+			}
+
+			// 권한 요청
+			let permission = Notification.permission;
+			if (permission === 'default') {
+				permission = await Notification.requestPermission();
+			}
+
+			if (permission !== 'granted') {
+				alert('알림 권한이 필요합니다. 브라우저 설정에서 알림을 허용해주세요.');
+				return;
+			}
+
+			// 알림 구독
+			try {
+				const subscription = await subscribeToPushNotifications();
+				if (subscription) {
+					isNotificationEnabled.value = true;
+					alert('푸시 알림이 활성화되었습니다. 주차 입출차 알림을 받을 수 있습니다.');
+					
+					// 테스트 알림 발송 (모바일 확인용)
+					setTimeout(() => {
+						showLocalNotification({
+							type: 'general',
+							title: '🎉 알림 설정 완료',
+							body: '이제 주차 알림을 받을 수 있습니다!'
+						});
+					}, 1000);
+				}
+			} catch (error: any) {
+				console.error('푸시 알림 구독 오류:', error);
+				
+				// 상세한 에러 메시지 제공
+				let errorMessage = '푸시 알림 활성화에 실패했습니다.';
+				if (error.message.includes('VAPID')) {
+					errorMessage = '서버 설정 오류입니다. 관리자에게 문의하세요.';
+				} else if (error.message.includes('Service Worker')) {
+					errorMessage = 'HTTPS 환경에서 사용해주세요.';
+				} else if (error.message.includes('권한')) {
+					errorMessage = '알림 권한을 허용해주세요.';
+				}
+				
+				alert(errorMessage);
+			}
+		}
+	} catch (error) {
+		console.error('알림 설정 변경 오류:', error);
+		alert('알림 설정 변경 중 오류가 발생했습니다.');
+	}
+};
+
+// PWA 설치
+const installPWA = async () => {
+	if (deferredPrompt) {
+		try {
+			deferredPrompt.prompt();
+			const choiceResult = await deferredPrompt.userChoice;
+			if (choiceResult.outcome === 'accepted') {
+				console.log('PWA 설치 승인');
+				canInstallPWA.value = false;
+			} else {
+				console.log('PWA 설치 거부');
+			}
+			deferredPrompt = null;
+		} catch (error) {
+			console.error('PWA 설치 오류:', error);
+			alert('PWA 설치 중 오류가 발생했습니다.');
+		}
+	} else if (window.matchMedia('(display-mode: standalone)').matches) {
+		alert('이미 PWA로 설치되어 실행 중입니다.');
+	} else {
+		// 모바일 브라우저에서 수동 설치 안내
+		const userAgent = navigator.userAgent.toLowerCase();
+		if (userAgent.includes('android')) {
+			alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
+		} else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+			alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
+		} else {
+			alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
+		}
+	}
+};
+
+// 알림 상태 확인
+const checkNotificationStatus = async () => {
+	try {
+		// 알림 권한 확인
+		const hasPermission = Notification.permission === 'granted';
+		
+		// 구독 상태 확인
+		const subscription = await getSubscriptionStatus();
+		
+		isNotificationEnabled.value = hasPermission && !!subscription;
+		
+		// PWA 설치 가능 여부 확인 - 더 정확한 감지
+		const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+		const isInWebAppiOS = (window.navigator as any).standalone === true;
+		const isInstalled = isStandalone || isInWebAppiOS;
+		
+		canInstallPWA.value = !isInstalled && (!!deferredPrompt || 'serviceWorker' in navigator);
+	} catch (error) {
+		console.error('알림 상태 확인 오류:', error);
+	}
+};
+
+// PWA 설치 프롬프트 이벤트 리스너
+const setupPWAListeners = () => {
+	// PWA 설치 프롬프트 감지
+	window.addEventListener('beforeinstallprompt', (e) => {
+		e.preventDefault();
+		deferredPrompt = e;
+		canInstallPWA.value = true;
+		console.log('PWA 설치 프롬프트 준비됨');
+	});
+
+	// PWA 설치 완료 감지
+	window.addEventListener('appinstalled', () => {
+		console.log('PWA 설치 완료');
+		canInstallPWA.value = false;
+		deferredPrompt = null;
+	});
 };
 </script>
 
@@ -1353,6 +1540,93 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 
 .password-rules li.invalid::before {
 	content: "✗ ";
+}
+
+/* Notification Settings */
+.notification-settings {
+	background: #ffffff;
+	border-radius: 16px;
+	padding: 20px;
+	margin-bottom: 30px;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+	border: 1px solid rgba(119, 107, 93, 0.1);
+}
+
+.notification-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 0;
+	border-bottom: 1px solid rgba(119, 107, 93, 0.1);
+}
+
+.notification-item:last-child {
+	border-bottom: none;
+}
+
+.notification-item__content {
+	flex: 1;
+}
+
+.notification-item__label {
+	font-size: 16px;
+	font-weight: 600;
+	color: #333333;
+	margin-bottom: 4px;
+}
+
+.notification-item__desc {
+	font-size: 14px;
+	color: #776B5D;
+}
+
+.notification-item__toggle {
+	margin-left: 16px;
+}
+
+.toggle-button {
+	padding: 8px 16px;
+	border: 2px solid #776B5D;
+	border-radius: 20px;
+	background: #ffffff;
+	color: #776B5D;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	min-width: 60px;
+}
+
+.toggle-button:hover {
+	background: rgba(119, 107, 93, 0.1);
+}
+
+.toggle-button--active {
+	background: #776B5D;
+	color: #ffffff;
+}
+
+.install-button {
+	padding: 8px 16px;
+	border: 2px solid #4CAF50;
+	border-radius: 20px;
+	background: #ffffff;
+	color: #4CAF50;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	min-width: 60px;
+}
+
+.install-button:hover:not(:disabled) {
+	background: rgba(76, 175, 80, 0.1);
+}
+
+.install-button:disabled {
+	border-color: #cccccc;
+	color: #cccccc;
+	cursor: not-allowed;
 }
 
 /* ── Responsive (데스크톱 vs 모바일) ── */
