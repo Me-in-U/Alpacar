@@ -36,45 +36,64 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 
 const router = useRouter();
+const route = useRoute();
+
 const isOpen = ref(false);
 const showAuthModal = ref(false);
+const isLoggedIn = ref(false);
 
-const emit = defineEmits<{
-	(e: "logout"): void;
-}>();
+const emit = defineEmits<{ (e: "logout"): void }>();
 
-// 여기서 바로 정의
-function isAuthenticated(): boolean {
-	const token = localStorage.getItem("access_token") || localStorage.getItem("access") || localStorage.getItem("accessToken") || localStorage.getItem("adminAccess") || localStorage.getItem("token");
+function readAuth(): boolean {
+  const token =
+    localStorage.getItem("access_token") ||  // ← 스샷 기준 키
+    localStorage.getItem("access") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("adminAccess") ||
+    localStorage.getItem("token");
+  if (!token) return false;
 
-	if (!token) return false;
+  const raw = localStorage.getItem("user");
+  if (!raw) return false;
 
-	// user 정보에서 is_staff 읽기
-	const userRaw = localStorage.getItem("user");
-	if (!userRaw) return false;
-
-	try {
-		const user = JSON.parse(userRaw);
-		return user.is_staff === true;
-	} catch {
-		return false;
-	}
+  try {
+    const user = JSON.parse(raw);
+    return user?.is_staff === true; // ← 여기서 관리자 여부 체크
+  } catch {
+    return false;
+  }
 }
 
-// computed로 감싸서 반응형으로 사용
-const isLoggedIn = computed(() => isAuthenticated());
+function refreshAuth() {
+  isLoggedIn.value = readAuth();
+}
+
+onMounted(() => {
+  refreshAuth();
+  // 동일 탭에서는 storage 이벤트가 안 떠서, 다른 신호에도 갱신
+  window.addEventListener("focus", refreshAuth);        // 탭 포커스 복귀
+  window.addEventListener("visibilitychange", () => {   // 화면 전환
+    if (!document.hidden) refreshAuth();
+  });
+});
+
+// 라우트가 바뀔 때마다 재평가 (로그인 후 리다이렉트 시)
+watch(() => route.fullPath, () => refreshAuth());
+
+onUnmounted(() => {
+  window.removeEventListener("focus", refreshAuth);
+});
 
 const goTo = (path: string) => {
 	isOpen.value = false;
 	router.push(path);
 };
 
-// 메뉴 클릭 시
 const handleMenuClick = (path: string) => {
 	if (!isLoggedIn.value) {
 		showAuthModal.value = true;
@@ -84,11 +103,17 @@ const handleMenuClick = (path: string) => {
 };
 
 const handleLogout = () => {
-	const keys = ["access", "refresh", "accessToken", "refreshToken", "adminAccess", "adminRefresh", "token", "is_staff", "user"];
-	keys.forEach((k) => localStorage.removeItem(k));
+  // 실제 저장된 키 반영 (스크린샷 기준)
+  [
+    "access_token", "refresh_token",
+    "access", "refresh", "accessToken", "refreshToken",
+    "adminAccess", "adminRefresh", "token",
+    "is_staff", "user",
+  ].forEach((k) => localStorage.removeItem(k));
 
-	emit("logout");
-	router.replace("/admin-login");
+  refreshAuth(); // 즉시 갱신
+  emit("logout");
+  router.replace("/admin-login");
 };
 </script>
 
@@ -143,9 +168,9 @@ const handleLogout = () => {
 }
 
 .signout {
-	height: 32px;
-	width: 32px;
-	cursor: pointer;
+  height: 22px;
+  width: 16px;
+  cursor: pointer;
 }
 
 /* 모바일 전용 햄버거 */
