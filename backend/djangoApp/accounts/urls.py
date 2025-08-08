@@ -26,6 +26,14 @@ from accounts.views.email_verify import (
     SignupEmailVerifyRequestAPIView,
     SignupEmailVerifyVerifyAPIView,
 )
+from accounts.views.notifications import (
+    notification_list,
+    notification_detail, 
+    notification_delete, 
+    notification_delete_all, 
+    notification_mark_all_read, 
+    notification_unread_count
+)
 
 urlpatterns = [
     # ─ 회원가입 / 로그인 / 토큰갱신 ──────────────────────────────────────────
@@ -128,4 +136,35 @@ urlpatterns = [
         set_parking_skill,
         name="set-parking-skill",
     ),  # POST: 사용자 주차 실력과 점수 설정
+    # ── 알림 관리 ──────────────────────────────────────────────
+    path(
+        "notifications/",
+        notification_list,
+        name="notification-list",
+    ),  # GET: 알림 목록 조회
+    path(
+        "notifications/<int:notification_id>/",
+        notification_detail,
+        name="notification-detail",
+    ),  # GET/PUT: 알림 상세 조회/업데이트
+    path(
+        "notifications/<int:notification_id>/delete/",
+        notification_delete,
+        name="notification-delete",
+    ),  # DELETE: 특정 알림 삭제
+    path(
+        "notifications/delete-all/",
+        notification_delete_all,
+        name="notification-delete-all",
+    ),  # DELETE: 모든 알림 삭제
+    path(
+        "notifications/mark-all-read/",
+        notification_mark_all_read,
+        name="notification-mark-all-read",
+    ),  # PUT: 모든 알림 읽음 처리
+    path(
+        "notifications/unread-count/",
+        notification_unread_count,
+        name="notification-unread-count",
+    ),  # GET: 읽지 않은 알림 개수
 ]

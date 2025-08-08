@@ -3,8 +3,11 @@
 		<div class="logo" @click="goToMain">
 			<img src="@/assets/home_logo.png" alt="Home Logo" class="logo-icon" />
 		</div>
-		<div class="notification" @click="showNotificationModal = true">
+		<div class="notification" @click="openNotificationModal">
 			<img src="@/assets/notification-bell.png" alt="Notification" class="notification-bell" />
+			<span v-if="notificationStore.unreadCount > 0" class="notification-badge">
+				{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}
+			</span>
 		</div>
 	</div>
 
@@ -18,24 +21,56 @@
 			</div>
 
 			<div class="notification-list">
-				<div class="delete-all" @click="deleteAllNotifications">전체 삭제</div>
-				<!-- 주차 완료 알림 -->
-				<div class="notification-item">
-					<div class="notification-content">
-						<h3 class="notification-title">주차 완료 알림</h3>
-						<p class="notification-text">주차 일시 : 2025-07-20 16:00</p>
-						<p class="notification-text">주차 공간 : A4</p>
-					</div>
-					<div class="delete-button" @click="deleteNotification(1)">삭제</div>
+				<div class="list-header">
+					<div class="delete-all" @click="deleteAllNotifications">전체 삭제</div>
 				</div>
 
-				<!-- 등급 승급 알림 -->
-				<div class="notification-item">
-					<div class="notification-content">
-						<h3 class="notification-title">등급 승급 알림</h3>
-						<p class="notification-text">주차 등급이 초급자 에서 중급자 로 승급되었습니다</p>
+				<!-- 로딩 상태 -->
+				<div v-if="notificationStore.isLoading && notificationStore.notifications.length === 0" class="loading">
+					알림을 불러오는 중...
+				</div>
+
+				<!-- 알림이 없는 경우 -->
+				<div v-else-if="notificationStore.notifications.length === 0" class="no-notifications">
+					알림이 없습니다.
+				</div>
+
+				<!-- 실제 알림 목록 -->
+				<div v-else>
+					<div 
+						v-for="notification in notificationStore.notifications" 
+						:key="notification.id"
+						class="notification-item"
+						:class="{ 'unread': !notification.is_read }"
+						@click="markAsRead(notification.id)"
+					>
+						<div class="notification-content">
+							<div class="notification-header">
+								<span class="notification-icon">{{ notificationStore.getNotificationIcon(notification.notification_type) }}</span>
+								<h3 class="notification-title">{{ notification.title }}</h3>
+								<span class="notification-time">{{ notificationStore.formatDate(notification.created_at) }}</span>
+							</div>
+							<div class="notification-message">
+								<!-- 주차 완료 알림인 경우 특별한 형태로 표시 -->
+								<div v-if="notification.notification_type === 'parking_complete'">
+									<p class="notification-text">주차 일시: {{ formatParkingTime(notification.data.parking_time) }}</p>
+									<p class="notification-text">주차 공간: {{ notification.data.parking_space || 'A4' }}</p>
+								</div>
+								<!-- 기타 알림 -->
+								<div v-else>
+									<p class="notification-text">{{ notification.message }}</p>
+								</div>
+							</div>
+						</div>
+						<div class="delete-button" @click.stop="deleteNotification(notification.id)">삭제</div>
 					</div>
-					<div class="delete-button" @click="deleteNotification(2)">삭제</div>
+
+					<!-- 더보기 버튼 -->
+					<div v-if="notificationStore.hasMore" class="load-more">
+						<button @click="loadMoreNotifications" :disabled="notificationStore.isLoading" class="load-more-button">
+							{{ notificationStore.isLoading ? '로딩 중...' : '더보기' }}
+						</button>
+					</div>
 				</div>
 			</div>
 
@@ -47,13 +82,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import { useNotificationStore } from "@/stores/notification";
 
 const router = useRouter();
 const showNotificationModal = ref(false);
 const userStore = useUserStore();
+const notificationStore = useNotificationStore();
 
 const pushOn = computed<boolean>({
 	get: () => userStore.me?.push_on ?? false,
@@ -66,15 +103,82 @@ const goToMain = () => {
 	router.push("/main");
 };
 
-const deleteNotification = (id: number) => {
-	console.log("알림 삭제:", id);
-	// 실제로는 API 호출로 알림을 삭제
+const openNotificationModal = async () => {
+	showNotificationModal.value = true;
+	try {
+		// 알림 목록 새로고침
+		await notificationStore.fetchNotifications(true);
+	} catch (error) {
+		console.error("알림 목록 로드 실패:", error);
+	}
 };
 
-const deleteAllNotifications = () => {
-	console.log("전체 알림 삭제");
-	// 실제로는 API 호출로 모든 알림을 삭제
+const markAsRead = async (notificationId: number) => {
+	try {
+		await notificationStore.markAsRead(notificationId);
+	} catch (error) {
+		console.error("알림 읽음 처리 실패:", error);
+	}
 };
+
+const deleteNotification = async (id: number) => {
+	try {
+		await notificationStore.deleteNotification(id);
+	} catch (error) {
+		console.error("알림 삭제 실패:", error);
+		alert("알림 삭제에 실패했습니다.");
+	}
+};
+
+const deleteAllNotifications = async () => {
+	if (!confirm("모든 알림을 삭제하시겠습니까?")) {
+		return;
+	}
+
+	try {
+		const deletedCount = await notificationStore.deleteAllNotifications();
+		alert(`${deletedCount}개의 알림이 삭제되었습니다.`);
+	} catch (error) {
+		console.error("전체 알림 삭제 실패:", error);
+		alert("알림 삭제에 실패했습니다.");
+	}
+};
+
+const loadMoreNotifications = async () => {
+	try {
+		await notificationStore.fetchNotifications();
+	} catch (error) {
+		console.error("추가 알림 로드 실패:", error);
+	}
+};
+
+const formatParkingTime = (timeString: string | undefined): string => {
+	if (!timeString) return '';
+	
+	try {
+		const date = new Date(timeString);
+		return date.toLocaleString('ko-KR', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+		});
+	} catch (error) {
+		return timeString;
+	}
+};
+
+// 컴포넌트 마운트 시 읽지 않은 알림 개수 조회
+onMounted(async () => {
+	if (userStore.me) {
+		try {
+			await notificationStore.fetchUnreadCount();
+		} catch (error) {
+			console.error("읽지 않은 알림 개수 조회 실패:", error);
+		}
+	}
+});
 
 </script>
 
@@ -105,6 +209,7 @@ const deleteAllNotifications = () => {
 }
 
 .notification {
+	position: relative;
 	cursor: pointer;
 }
 
@@ -112,6 +217,20 @@ const deleteAllNotifications = () => {
 	width: 20px;
 	height: 20px;
 	object-fit: contain;
+}
+
+.notification-badge {
+	position: absolute;
+	top: -5px;
+	right: -5px;
+	background: #ff4757;
+	color: white;
+	border-radius: 10px;
+	padding: 2px 6px;
+	font-size: 10px;
+	font-weight: bold;
+	min-width: 16px;
+	text-align: center;
 }
 
 /* Modal Styles */
@@ -155,6 +274,12 @@ const deleteAllNotifications = () => {
 	margin: 0;
 }
 
+.list-header {
+	display: flex;
+	justify-content: flex-end;
+	margin-bottom: 10px;
+}
+
 .delete-all {
 	color: #000000;
 	font-size: 12px;
@@ -164,11 +289,71 @@ const deleteAllNotifications = () => {
 	padding: 5px 10px;
 	border-radius: 4px;
 	transition: background-color 0.3s ease;
-	margin-left: auto;
 }
 
 .delete-all:hover {
 	background-color: rgba(0, 0, 0, 0.1);
+}
+
+.loading, .no-notifications {
+	text-align: center;
+	color: #666;
+	font-size: 14px;
+	padding: 40px 20px;
+	font-family: "Inter", sans-serif;
+}
+
+.notification-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 5px;
+}
+
+.notification-icon {
+	font-size: 16px;
+}
+
+.notification-time {
+	margin-left: auto;
+	color: #666;
+	font-size: 11px;
+	font-family: "Inter", sans-serif;
+}
+
+.notification-message {
+	margin-top: 5px;
+}
+
+.notification-item.unread {
+	border-left: 4px solid #776b5d;
+	background: #f0ede8;
+}
+
+.load-more {
+	text-align: center;
+	margin-top: 15px;
+}
+
+.load-more-button {
+	background: #776b5d;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	padding: 8px 16px;
+	cursor: pointer;
+	font-size: 12px;
+	font-family: "Inter", sans-serif;
+	transition: background-color 0.3s ease;
+}
+
+.load-more-button:hover:not(:disabled) {
+	background: #665a4d;
+}
+
+.load-more-button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
 }
 
 .notification-list {
