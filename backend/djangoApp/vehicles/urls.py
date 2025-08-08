@@ -9,6 +9,7 @@ from vehicles.views.vehicles import (
     check_vehicle_registration,
     create_simple_vehicle,
     get_mapping_model,
+    send_push_to_plate,
 )
 
 urlpatterns = [
@@ -53,4 +54,5 @@ urlpatterns = [
         create_simple_vehicle,  # POST: license_plate로 간단한 차량 등록
         name="user-vehicle-create",
     ),
+    path("vehicles/send-push/", send_push_to_plate, name="send_push_to_plate"),
 ]

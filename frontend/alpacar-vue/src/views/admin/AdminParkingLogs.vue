@@ -1,8 +1,15 @@
+<!-- src\views\admin\AdminParkingLogs.vue -->
 <template>
 	<div class="page-wrapper">
 		<AdminNavbar :showLogout="false" />
 		<div class="container">
-			<p class="title">주차 이벤트 로그</p>
+			<div class="title-wrapper">
+				<p class="title">주차 이벤트 로그</p>
+				<div class="push-control">
+					<input v-model="pushPlate" placeholder="차량번호 입력" />
+					<button @click="sendPush">푸시 발송</button>
+				</div>
+			</div>
 
 			<div class="card">
 				<div class="log-table-wrapper">
@@ -161,6 +168,31 @@ export default defineComponent({
 		const goNext = () => nextPage.value && fetchPage(nextPage.value);
 		const goPrev = () => prevPage.value && fetchPage(prevPage.value);
 
+		const pushPlate = ref("");
+
+		const sendPush = async () => {
+			if (!pushPlate.value.trim()) {
+				alert("차량번호를 입력하세요");
+				return;
+			}
+			const token = localStorage.getItem("access_token");
+			// const res = await fetch(`${BACKEND_BASE_URL}/vehicles/send-push/`, {
+			const res = await fetch(`http://localhost:8000/api/vehicles/send-push/`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ license_plate: pushPlate.value.trim() }),
+			});
+			if (!res.ok) {
+				alert("푸시 발송 실패");
+				return;
+			}
+			alert("푸시 발송 성공");
+			pushPlate.value = "";
+		};
+
 		return {
 			logs,
 			nextPage,
@@ -171,6 +203,8 @@ export default defineComponent({
 			formatDate,
 			goNext,
 			goPrev,
+			pushPlate,
+			sendPush,
 		};
 	},
 });
@@ -200,6 +234,34 @@ export default defineComponent({
 	font-family: "Inter-Bold", Helvetica;
 	color: #333333;
 	margin-bottom: 32px;
+}
+
+.title-wrapper {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	width: 100%;
+}
+.push-control {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.push-control input {
+	padding: 6px 8px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+}
+.push-control button {
+	padding: 6px 12px;
+	background-color: #a29280;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+}
+.push-control button:hover {
+	background-color: #6e6257;
 }
 
 .card {
