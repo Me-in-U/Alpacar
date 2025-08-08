@@ -81,6 +81,7 @@ import { ref } from "vue";
 import { defineComponent, reactive, onMounted, onBeforeUnmount } from "vue";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
+import { BACKEND_BASE_URL } from "@/utils/api";
 
 const showModal = ref(false);
 export default defineComponent({
@@ -117,7 +118,7 @@ export default defineComponent({
 			}>
 		>([]);
 		let ws: WebSocket | null = null;
-		const WSS_URL = "ws://localhost:8000/ws/car-position/";
+		const WSS_URL = `${BACKEND_BASE_URL}/ws/car-position/`;
 
 		function connect() {
 			ws = new WebSocket(WSS_URL);

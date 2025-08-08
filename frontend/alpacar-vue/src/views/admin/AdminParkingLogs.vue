@@ -148,7 +148,6 @@ export default defineComponent({
 			await fetchPage();
 
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
-			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
 			ws.onopen = () => {
 				console.log("[WebSocket] ✅ Connected");
 			};
@@ -176,8 +175,7 @@ export default defineComponent({
 				return;
 			}
 			const token = localStorage.getItem("access_token");
-			// const res = await fetch(`${BACKEND_BASE_URL}/vehicles/send-push/`, {
-			const res = await fetch(`http://localhost:8000/api/vehicles/send-push/`, {
+			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/send-push/`, {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${token}`,

@@ -21,6 +21,7 @@
 import { ref, onMounted, onUnmounted, defineComponent } from "vue";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
+import { BACKEND_BASE_URL } from "@/utils/api";
 
 export default defineComponent({
 	name: "AdminMain",
@@ -38,8 +39,7 @@ export default defineComponent({
 		let ws: WebSocket | null = null;
 
 		onMounted(() => {
-			// ws = new WebSocket("ws://localhost:8000/ws/stream/");
-			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/stream/");
+			ws = new WebSocket(`${BACKEND_BASE_URL}/ws/stream/`);
 			ws.onopen = () => {
 				console.log("[WebSocket] ✅ Connected");
 			};
