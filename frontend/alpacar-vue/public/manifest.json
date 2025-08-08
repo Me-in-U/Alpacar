@@ -11,13 +11,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/alpaca-logo-small.png",
+      "src": "/alpaca-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/alpaca-logo-small.png",
+      "src": "/alpaca-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

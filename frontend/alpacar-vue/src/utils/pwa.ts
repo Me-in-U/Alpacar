@@ -345,7 +345,7 @@ export async function showLocalNotification(data: PushNotificationData): Promise
 
   const notification = new Notification(data.title, {
     body: data.body,
-    icon: '/alpaca-logo-small.png',
+    icon: '/alpaca-192.png',
     tag: `${data.type}-notification`,
     data: data.data,
     requireInteraction: data.requireInteraction || false
