@@ -156,43 +156,47 @@ watch(recommendedId, updatePin)
 </script>
 
 <style scoped>
+/* ✅ 모바일 기본: 100vw + 440px 상한으로 확대/축소 방지 */
 .main-page-container {
-  width: 440px;
+  width: 100vw;
+  max-width: 440px;
   min-height: 100vh;
   position: relative;
   background: #f3eeea;
   margin: 0 auto;
   overflow: hidden;
-}
-.main-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+}
 
-  padding-top: 80px;
-  padding-bottom: 80px;
-  min-height: calc(100vh - 160px); /* 헤더+하단 */
+/* ✅ main-content: 폭은 100%, 가운데 정렬은 상태 컨테이너에서 처리 */
+.main-content {
+  flex: 1;
+  display: block;
+  padding-top: 80px;      /* 헤더 */
+  padding-bottom: 80px;   /* 하단 내비 */
+  min-height: calc(100vh - 160px);
+  overflow-y: auto;
+  width: 100%;
 }
 
 /* 1️⃣ 차량 미인식 상태 */
 .unrecognized-container {
   width: 100%;
-  flex: 1;
+  min-height: calc(100vh - 160px); /* 헤더+하단바 제외 */
   display: flex;
   flex-direction: column;
-  justify-content: center;  /* 세로 가운데 */
-  align-items: center;      /* 가로 가운데 */
+  justify-content: center;  /* 세로 중앙 */
+  align-items: center;      /* 가로 중앙 */
   text-align: center;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 .center-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;   /* 수직 정렬 */
-  width: 100%;
-  height: 100%;
+  justify-content: center;
 }
 .center-content .title {
   font-size: 20px;
@@ -209,16 +213,19 @@ watch(recommendedId, updatePin)
 /* 2️⃣ 로딩 중 */
 .loading-container{
   width: 100%;
-  flex: 1;
+  min-height: calc(100vh - 160px);
   display: flex;
-  flex-direction: column;
-  justify-content: center;  /* 세로 가운데 */
-  align-items: center;      /* 가로 가운데 */
+  flex-direction: column;   /* 이미지 위, 텍스트 아래 */
+  justify-content: center;
+  align-items: center;
   text-align: center;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 .car-animation-wrapper {
   position: relative;
   width: 100%;
+  max-width: 400px;        /* 맵 폭과 일치 */
   height: 100px;
   overflow: hidden;
 }
@@ -279,7 +286,8 @@ watch(recommendedId, updatePin)
 .map-section { text-align: center; }
 .map-wrapper {
   position: relative;
-  width: 400px;
+  width: 100%;             /* 모바일은 100%, 상한 400px */
+  max-width: 400px;
   height: 354px;
   background: #444;
   border-radius: 8px;
@@ -377,19 +385,13 @@ watch(recommendedId, updatePin)
   background: #5a9857;
 }
 
+/* 데스크톱(441px 이상)에서만 440px 고정 */
 @media (min-width: 441px) {
   .main-page-container {
     width: 440px;
-    height: auto;
     min-height: 100vh;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
   }
-  
   .main-content {
-    flex: 1;
-    height: auto;
     min-height: calc(100vh - 160px);
     padding-bottom: 20px;
   }
