@@ -64,8 +64,10 @@
 import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { useUserStore } from "@/stores/user";
 
 const router = useRouter();
+const userStore = useUserStore();
 const showModal = ref(false);
 const selectedSkill = ref("advanced");
 const vehicleNumber = ref("");
@@ -73,6 +75,16 @@ const vehicleNumber = ref("");
 const formData = reactive({
 	vehicleNumber: "",
 	parkingSkill: "advanced",
+});
+
+// 관리자 접근 차단 - 컴포넌트 레벨에서 추가 보호
+onMounted(() => {
+	const isAdmin = userStore.me?.is_staff ?? false;
+	if (isAdmin) {
+		console.log("[SOCIAL-LOGIN-INFO] 관리자는 차량 등록 페이지에 접근할 수 없습니다. 관리자 메인 페이지로 리다이렉트합니다.");
+		router.replace("/admin-main");
+		return;
+	}
 });
 
 // 차량번호 입력 시 숫자와 한글만 허용
