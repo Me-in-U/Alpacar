@@ -50,6 +50,32 @@
 				</div>
 			</div>
 
+      <!-- Vehicle Section -->
+			<div class="section-title">내 차량정보</div>
+			<div class="button-container">
+				<div class="button button--secondary" @click="showVehicleModal = true">
+					<div class="button__text">내 차 추가</div>
+				</div>
+			</div>
+      <!-- Vehicle List -->
+			<div class="vehicle-list">
+				<div v-for="vehicle in displayedVehicles" :key="vehicle.id" class="vehicle-card">
+					<img 
+						:src="getVehicleImageUrl(vehicle.model?.image_url)" 
+						alt="차량 이미지" 
+						class="vehicle-card__image" 
+						@error="(e) => (e.target as HTMLImageElement).src = defaultCarImage"
+					/>
+					<div class="vehicle-card__info">
+						<div><strong>번호판:</strong> {{ vehicle.license_plate }}</div>
+						<div><strong>모델:</strong> {{ vehicle.model?.brand || '알파카' }} {{ vehicle.model?.model_name || '차량' }}</div>
+					</div>
+					<div class="vehicle-card__actions">
+						<div class="vehicle-card__delete" @click="removeVehicle(vehicle.id)">삭제</div>
+					</div>
+				</div>
+			</div>
+
 			<!-- Nickname Section -->
 			<div class="section-title">닉네임</div>
 			<div class="input-field">
@@ -156,7 +182,7 @@
 				</div>
 				<div class="notification-item">
 					<div class="notification-item__content">
-						<div class="notification-item__label">PWA 설치</div>
+						<div class="notification-item__label">앱 설치하기</div>
 						<div class="notification-item__desc">앱처럼 사용하기</div>
 					</div>
 					<div class="notification-item__toggle">
@@ -171,32 +197,7 @@
 				</div>
 			</div>
 
-			<!-- Vehicle Section -->
-			<div class="section-title">내 차량정보</div>
-			<div class="button-container">
-				<div class="button button--secondary" @click="showVehicleModal = true">
-					<div class="button__text">내 차 추가</div>
-				</div>
-			</div>
-
-			<!-- Vehicle List -->
-			<div class="vehicle-list">
-				<div v-for="vehicle in displayedVehicles" :key="vehicle.id" class="vehicle-card">
-					<img 
-						:src="getVehicleImageUrl(vehicle.model?.image_url)" 
-						alt="차량 이미지" 
-						class="vehicle-card__image" 
-						@error="(e) => (e.target as HTMLImageElement).src = defaultCarImage"
-					/>
-					<div class="vehicle-card__info">
-						<div><strong>번호판:</strong> {{ vehicle.license_plate }}</div>
-						<div><strong>모델:</strong> {{ vehicle.model?.brand || '알파카' }} {{ vehicle.model?.model_name || '차량' }}</div>
-					</div>
-					<div class="vehicle-card__actions">
-						<div class="vehicle-card__delete" @click="removeVehicle(vehicle.id)">삭제</div>
-					</div>
-				</div>
-			</div>
+			
 
 			<!-- More/Less Button -->
 			<div class="button-container" v-if="vehicles.length > 3">
