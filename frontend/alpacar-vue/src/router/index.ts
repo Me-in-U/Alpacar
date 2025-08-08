@@ -182,6 +182,63 @@ const router = createRouter({
 // 네비게이션 가드 추가
 router.beforeEach(async (to, from, next) => {
 	const isLoggedIn = isAuthenticated();
+	
+	console.log(`[ROUTER GUARD] 페이지 접근: ${to.path}, 로그인 상태: ${isLoggedIn}`);
+
+	// **최우선 순위: 로그인된 사용자가 관리자인 경우 접근 제어**
+	if (isLoggedIn) {
+		const userStore = useUserStore();
+		console.log(`[ROUTER GUARD] 사용자 스토어 상태:`, userStore.me);
+		
+		// 사용자 정보가 없으면 localStorage에서 확인 시도
+		if (!userStore.me) {
+			const storedUser = localStorage.getItem('user');
+			if (storedUser) {
+				try {
+					const userData = JSON.parse(storedUser);
+					console.log(`[ROUTER GUARD] localStorage에서 사용자 정보 복구:`, userData);
+					userStore.setUser(userData);
+				} catch (e) {
+					console.error(`[ROUTER GUARD] localStorage 사용자 정보 파싱 실패:`, e);
+				}
+			}
+		}
+		
+		const isAdmin = userStore.me?.is_staff ?? false;
+		console.log(`[ROUTER GUARD] 관리자 여부: ${isAdmin}`);
+		
+		if (isAdmin) {
+			console.log(`[ROUTER GUARD] 관리자가 ${to.path} 접근 시도`);
+			
+					// 관리자 허용 페이지 목록 (화이트리스트)
+		const adminAllowedPages = [
+			"/admin-main", "/admin-parkinglogs", "/admin-parkingreassign",
+			"/admin-plate-ocr", "/admin-login", "/modal-test", "/admin-error-test", "/holo"
+		];
+		
+		// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
+		const adminBlockedPages = [
+			"/social-login-info", "/main", "/parking-history", "/user-profile",
+			"/parking-recommend", "/parking-complete"
+		];
+			
+					// 관리자가 접근하면 안 되는 페이지인지 먼저 확인
+		if (adminBlockedPages.includes(to.path)) {
+			console.log(`[ROUTER GUARD] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
+			return next("/admin-main");
+		}
+		
+		// 관리자 페이지이거나 허용된 테스트 페이지인 경우
+		if (to.path.startsWith("/admin") || adminAllowedPages.includes(to.path)) {
+			console.log(`[ROUTER GUARD] 관리자 허용 페이지 접근: ${to.path}`);
+			return next();
+		} else {
+			// 관리자가 허용되지 않은 모든 페이지에 접근하려는 경우 차단
+			console.log(`[ROUTER GUARD] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
+			return next("/admin-main");
+		}
+		}
+	}
 
 	// — 관리자 페이지 접근 시 로그인 체크
 	if (to.path.startsWith("/admin") && to.path !== "/admin-login" && !isLoggedIn) {
@@ -196,48 +253,88 @@ router.beforeEach(async (to, from, next) => {
 			console.log("로그인이 필요한 페이지입니다. 로그인 페이지로 이동합니다.");
 			next("/login");
 		} else {
-			// 사용자 스토어에서 관리자 여부 먼저 확인
-			const userStore = useUserStore();
-			const isAdmin = userStore.me?.is_staff ?? false;
-			
-			console.log(`[ROUTER DEBUG] 페이지: ${to.path}, 관리자 여부: ${isAdmin}, 사용자 정보:`, userStore.me);
-			
-			// 관리자 페이지이거나 관리자 사용자인 경우 차량 등록 체크를 건너뛰기
-			if (to.path.startsWith("/admin") || isAdmin) {
-				if (to.path.startsWith("/admin")) {
-					console.log("관리자 페이지 접근입니다. 차량 등록 체크를 건너뜁니다.");
-				} else {
-					console.log("관리자 사용자입니다. 차량 등록 체크를 건너뜁니다.");
-				}
-				next();
-			} else {
-				// 일반 사용자인 경우 차량 등록 여부 확인
-				console.log("일반 사용자입니다. 차량 등록 여부를 확인합니다.");
-				const hasVehicle = await hasVehicleRegistered();
-				console.log(`[ROUTER DEBUG] 차량 등록 여부: ${hasVehicle}`);
+			// 일반 사용자 로직 (관리자 체크는 이미 위에서 완료)
+			// 일반 사용자인 경우 차량 등록 여부 확인
+			console.log("일반 사용자입니다. 차량 등록 여부를 확인합니다.");
+			const hasVehicle = await hasVehicleRegistered();
+			console.log(`[ROUTER DEBUG] 차량 등록 여부: ${hasVehicle}`);
 
-				if (!hasVehicle && to.name !== "social-login-info") {
-					// 차량 등록이 안 되어 있고 social-login-info 페이지가 아닌 경우
-					console.log("차량 등록이 필요합니다. 차량 등록 페이지로 이동합니다.");
-					next("/social-login-info");
-				} else if (hasVehicle && to.name === "social-login-info") {
-					// 차량 등록이 되어 있는데 social-login-info 페이지에 접근하려는 경우
-					console.log("이미 차량이 등록되어 있습니다. 메인 페이지로 이동합니다.");
-					next("/main");
-				} else {
-					// 차량 등록이 되어 있거나 social-login-info 페이지인 경우 계속 진행
-					next();
-				}
+			if (!hasVehicle && to.name !== "social-login-info") {
+				// 차량 등록이 안 되어 있고 social-login-info 페이지가 아닌 경우
+				console.log("차량 등록이 필요합니다. 차량 등록 페이지로 이동합니다.");
+				next("/social-login-info");
+			} else if (hasVehicle && to.name === "social-login-info") {
+				// 차량 등록이 되어 있는데 social-login-info 페이지에 접근하려는 경우
+				console.log("이미 차량이 등록되어 있습니다. 메인 페이지로 이동합니다.");
+				next("/main");
+			} else {
+				// 차량 등록이 되어 있거나 social-login-info 페이지인 경우 계속 진행
+				next();
 			}
 		}
 	} else {
 		// 이미 로그인된 사용자가 로그인 관련 페이지에 접근하려는 경우
 		if (isLoggedIn && (to.name === "login" || to.name === "signup" || to.name === "entry-page")) {
-			console.log("이미 로그인된 사용자입니다. 메인 페이지로 이동합니다.");
-			next("/main");
+			// 관리자인지 확인하여 적절한 페이지로 리다이렉트
+			const userStore = useUserStore();
+			const isAdmin = userStore.me?.is_staff ?? false;
+			
+			if (isAdmin) {
+				console.log("이미 로그인된 관리자입니다. 관리자 메인 페이지로 이동합니다.");
+				next("/admin-main");
+			} else {
+				console.log("이미 로그인된 사용자입니다. 메인 페이지로 이동합니다.");
+				next("/main");
+			}
 		} else {
-			// 인증이 필요하지 않은 페이지는 그대로 진행
-			next();
+			// 인증이 필요하지 않은 페이지도 관리자 접근 제어 적용
+			if (isLoggedIn) {
+				const userStore = useUserStore();
+				const isAdmin = userStore.me?.is_staff ?? false;
+				
+				if (isAdmin) {
+					console.log(`[ADMIN ACCESS - 비인증페이지] 관리자가 ${to.path} 접근 시도`);
+					
+					// 관리자 허용 페이지 목록 (화이트리스트)
+					const adminAllowedPages = [
+						"/admin-main",
+						"/admin-parkinglogs", 
+						"/admin-parkingreassign",
+						"/admin-plate-ocr",
+						"/modal-test",
+						"/admin-error-test", 
+						"/holo"
+					];
+					
+					// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
+					const adminBlockedPages = [
+						"/social-login-info", "/main", "/parking-history", "/user-profile",
+						"/parking-recommend", "/parking-complete"
+					];
+					
+					// 관리자가 접근하면 안 되는 페이지인지 먼저 확인
+					if (adminBlockedPages.includes(to.path)) {
+						console.log(`[ADMIN ACCESS - 비인증페이지] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
+						return next("/admin-main");
+					}
+					
+					// 관리자 페이지이거나 허용된 테스트 페이지인 경우
+					if (to.path.startsWith("/admin") || adminAllowedPages.includes(to.path)) {
+						console.log(`[ADMIN ACCESS - 비인증페이지] 허용된 페이지 접근: ${to.path}`);
+						next();
+					} else {
+						// 관리자가 허용되지 않은 모든 페이지에 접근하려는 경우 차단
+						console.log(`[ADMIN ACCESS - 비인증페이지] 차단된 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
+						next("/admin-main");
+					}
+				} else {
+					// 일반 사용자는 그대로 진행
+					next();
+				}
+			} else {
+				// 로그인하지 않은 사용자는 그대로 진행
+				next();
+			}
 		}
 	}
 });
