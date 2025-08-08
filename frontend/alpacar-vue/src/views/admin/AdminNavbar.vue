@@ -11,7 +11,7 @@
 				<div class="menu-item" @click="goTo('/admin-main')">실시간 주차 현황</div>
 				<div class="menu-item" @click="goTo('/admin-plate-ocr')">실시간 번호판 인식</div>
 				<div class="menu-item" @click="goTo('/admin-parkinglogs')">로그 및 기록</div>
-				<div class="menu-item" @click="goTo('/admin-parkingreassign')">주차 배정 정보 변경</div>
+				<!-- <div class="menu-item" @click="goTo('/admin-parkingreassign')">주차 배정 정보 변경</div> -->
 				<div class="menu-item test-button" @click="$emit('test-modal')">🔒 관리자 인증 테스트</div>
 				<img v-if="showLogout" class="signout" src="@/assets/signout.png" alt="로그아웃" @click="$emit('logout')" />
 			</div>
@@ -25,8 +25,9 @@
 		<!-- DROPDOWN (navbar 바로 아래에 오버레이) -->
 		<div v-if="isOpen" class="dropdown-menu" @mouseenter="isOpen = true" @mouseleave="isOpen = false">
 			<div class="menu-item" @click="goTo('/admin-main')">실시간 주차 현황</div>
+			<div class="menu-item" @click="goTo('/admin-plate-ocr')">실시간 번호판 인식</div>
 			<div class="menu-item" @click="goTo('/admin-parkinglogs')">로그 및 기록</div>
-			<div class="menu-item" @click="goTo('/admin-parkingreassign')">주차 배정 정보 변경</div>
+			<!-- <div class="menu-item" @click="goTo('/admin-parkingreassign')">주차 배정 정보 변경</div> -->
 			<div class="menu-item test-button" @click="$emit('test-modal')">🔒 관리자 인증 테스트</div>
 			<img v-if="showLogout" class="signout" src="@/assets/signout.png" alt="로그아웃" @click="$emit('logout')" />
 		</div>
