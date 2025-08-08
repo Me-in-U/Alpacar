@@ -17,6 +17,12 @@ class ParkingSpace(models.Model):
         ("suv", "SUV"),  # 대형(SUV)
     ]
 
+    STATUS_CHOICES = [
+        ("free", "비어있음"),
+        ("occupied", "사용중"),
+        ("reserved", "예약됨"),
+    ]
+
     zone = models.CharField("구역", max_length=10)  # 주차 구역 이름
     slot_number = models.PositiveIntegerField("슬롯 번호")  # 구역 내 고유 슬롯 번호
     size_class = models.CharField(
@@ -24,8 +30,12 @@ class ParkingSpace(models.Model):
         max_length=10,
         choices=SIZE_CLASS_CHOICES,
     )  # 허용 차량 크기
-    is_occupied = models.BooleanField("점유 여부", default=False)  # 현재 점유 상태
-
+    status = models.CharField(
+        "상태",
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="free",
+    )
     created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각
     updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각
 
@@ -36,7 +46,7 @@ class ParkingSpace(models.Model):
         unique_together = (("zone", "slot_number"),)  # 구역+번호 조합 유일
 
     def __str__(self):
-        return f"{self.zone}-{self.slot_number}"  # 대표 문자열
+        return f"{self.zone}-{self.slot_number} ({self.get_status_display()})"
 
 
 class ParkingAssignment(models.Model):
