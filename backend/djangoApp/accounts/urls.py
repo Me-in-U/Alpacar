@@ -21,7 +21,7 @@ from accounts.views.password_reset import (
     PasswordResetVerifyAPIView,
 )
 from accounts.views.profile import UserProfileAPI, set_parking_skill
-from accounts.views.push import push_setting, subscribe_push, unsubscribe_push
+from accounts.views.push import push_setting, subscribe_push, unsubscribe_push, test_push_notification
 from accounts.views.email_verify import (
     SignupEmailVerifyRequestAPIView,
     SignupEmailVerifyVerifyAPIView,
@@ -111,6 +111,11 @@ urlpatterns = [
         unsubscribe_push,
         name="api-push-unsubscribe",
     ),  # POST: 구독 해제
+    path(
+        "push/test/",
+        test_push_notification,
+        name="api-push-test",
+    ),  # POST: 테스트 푸시 알림 전송
     # ── 소셜 로그인 (Google) ──────────────────────────────────────────────
     path(
         "auth/social/google/login/",

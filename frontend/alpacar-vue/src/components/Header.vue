@@ -12,13 +12,31 @@
 	<div v-if="showNotificationModal" class="modal-overlay" @click="showNotificationModal = false">
 		<div class="modal-content" @click.stop>
 			<div class="modal-header">
-				<h2 class="modal-title">알림함</h2>
-				<!-- 푸시 알림 설정 버튼 -->
-				<label class="switch"> <input type="checkbox" v-model="pushOn" :disabled="userStore.isToggling" /><span class="slider"></span> </label>
+				<div class="header-left">
+					<h2 class="modal-title">알림함</h2>
+				</div>
+				<div class="header-right">
+					<!-- 푸시 알림 상태 표시 -->
+					<div class="push-status">
+						<div class="push-info">
+							<span class="push-label">푸시 알림</span>
+							<span class="push-status-text" :class="getPushStatusClass(pushStatus)">
+								{{ getPushStatusText(pushStatus) }}
+							</span>
+						</div>
+						<label class="switch"> 
+							<input type="checkbox" v-model="pushOn" :disabled="userStore.isToggling" />
+							<span class="slider"></span> 
+						</label>
+					</div>
+				</div>
 			</div>
 
 			<div class="notification-list">
-				<div class="delete-all" @click="deleteAllNotifications">전체 삭제</div>
+				<div class="list-actions">
+					<button v-if="pushOn" class="test-button" @click="sendTestNotification">테스트 알림</button>
+					<div class="delete-all" @click="deleteAllNotifications">전체 삭제</div>
+				</div>
 				<!-- 주차 완료 알림 -->
 				<div class="notification-item">
 					<div class="notification-content">
@@ -47,18 +65,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import { showLocalNotification } from "@/utils/pwa";
+import { BACKEND_BASE_URL } from "@/utils/api";
+import { checkPushStatus, sendTestPushNotification, getPushStatusText, getPushStatusClass, type PushStatus } from "@/utils/pushNotification";
 
 const router = useRouter();
 const showNotificationModal = ref(false);
 const userStore = useUserStore();
+const pushStatus = ref<PushStatus>({
+	isEnabled: false,
+	hasPermission: false,
+	hasSubscription: false
+});
 
 const pushOn = computed<boolean>({
 	get: () => userStore.me?.push_on ?? false,
-	set: (value: boolean) => {
-		userStore.togglePush(value);
+	set: async (value: boolean) => {
+		try {
+			await userStore.togglePush(value);
+			
+			// 푸시 상태 업데이트
+			await updatePushStatus();
+			
+			// 푸시 알림이 활성화되었을 때 테스트 알림 표시
+			if (value) {
+				setTimeout(() => {
+					showLocalNotification({
+						type: 'general',
+						title: '🔔 푸시 알림 활성화',
+						body: '알림 설정이 완료되었습니다!'
+					});
+				}, 1000);
+			}
+		} catch (error: any) {
+			console.error('Push toggle error:', error);
+			alert(error.message || '푸시 알림 설정 중 오류가 발생했습니다.');
+		}
 	},
 });
 
@@ -75,6 +120,47 @@ const deleteAllNotifications = () => {
 	console.log("전체 알림 삭제");
 	// 실제로는 API 호출로 모든 알림을 삭제
 };
+
+const sendTestNotification = async () => {
+	try {
+		// 로컬 테스트 알림 발송
+		await showLocalNotification({
+			type: 'general',
+			title: '🚗 로컬 테스트 알림',
+			body: '브라우저에서 직접 표시되는 알림입니다!',
+			requireInteraction: true
+		});
+
+		// 서버를 통한 실제 푸시 알림 테스트
+		try {
+			await sendTestPushNotification('🎉 서버 테스트 알림', '서버에서 보낸 푸시 알림입니다!');
+			console.log('서버 테스트 알림 전송 성공');
+		} catch (error: any) {
+			console.warn('서버 테스트 알림 오류:', error.message);
+		}
+
+		// 푸시 상태 업데이트
+		await updatePushStatus();
+	} catch (error: any) {
+		console.error('테스트 알림 발송 실패:', error);
+		alert(`테스트 알림 발송에 실패했습니다: ${error.message}`);
+	}
+};
+
+const updatePushStatus = async () => {
+	try {
+		const status = await checkPushStatus();
+		pushStatus.value = status;
+		console.log('Push status updated:', status);
+	} catch (error) {
+		console.error('Push status update failed:', error);
+	}
+};
+
+// 컴포넌트 마운트 시 푸시 상태 확인
+onMounted(async () => {
+	await updatePushStatus();
+});
 
 </script>
 
@@ -147,12 +233,90 @@ const deleteAllNotifications = () => {
 	border-bottom: 1px solid #e5e5e5;
 }
 
+.header-left {
+	flex: 1;
+}
+
+.header-right {
+	display: flex;
+	align-items: center;
+}
+
+.push-status {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.push-info {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+}
+
+.push-label {
+	font-size: 14px;
+	font-weight: 500;
+	color: #333;
+	white-space: nowrap;
+}
+
+.push-status-text {
+	font-size: 11px;
+	font-weight: 400;
+	padding: 2px 6px;
+	border-radius: 10px;
+	white-space: nowrap;
+}
+
+.push-status-text.status-active {
+	color: #2e7d32;
+	background-color: rgba(76, 175, 80, 0.1);
+}
+
+.push-status-text.status-warning {
+	color: #f57c00;
+	background-color: rgba(255, 152, 0, 0.1);
+}
+
+.push-status-text.status-inactive {
+	color: #757575;
+	background-color: rgba(117, 117, 117, 0.1);
+}
+
 .modal-title {
 	color: #000000;
 	font-size: 24px;
 	font-weight: 600;
 	font-family: "Inter", sans-serif;
 	margin: 0;
+}
+
+.list-actions {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 15px;
+	gap: 10px;
+}
+
+.test-button {
+	background: #4CAF50;
+	color: white;
+	border: none;
+	padding: 8px 16px;
+	border-radius: 6px;
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	white-space: nowrap;
+}
+
+.test-button:hover {
+	background: #45a049;
+	transform: translateY(-1px);
 }
 
 .delete-all {

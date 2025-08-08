@@ -136,24 +136,9 @@
 				</div>
 			</div>
 
-			<!-- Notification Section -->
-			<div class="section-title">알림 설정</div>
+			<!-- PWA 설치 Section -->
+			<div class="section-title">앱 설치</div>
 			<div class="notification-settings">
-				<div class="notification-item">
-					<div class="notification-item__content">
-						<div class="notification-item__label">푸시 알림</div>
-						<div class="notification-item__desc">주차 입출차 및 중요 알림 수신</div>
-					</div>
-					<div class="notification-item__toggle">
-						<button 
-							class="toggle-button" 
-							:class="{ 'toggle-button--active': isNotificationEnabled }"
-							@click="toggleNotifications"
-						>
-							{{ isNotificationEnabled ? '켜짐' : '꺼짐' }}
-						</button>
-					</div>
-				</div>
 				<div class="notification-item">
 					<div class="notification-item__content">
 						<div class="notification-item__label">PWA 설치</div>
@@ -359,7 +344,7 @@ import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
-import { subscribeToPushNotifications, unsubscribeFromPushNotifications, getSubscriptionStatus, showLocalNotification } from "@/utils/pwa";
+import { getSubscriptionStatus } from "@/utils/pwa";
 import defaultCarImage from "@/assets/alpaka_in_car.png";
 
 const router = useRouter();
@@ -418,9 +403,9 @@ onMounted(async () => {
 			await userStore.fetchMyVehicles();
 			await userStore.fetchVehicleModels();
 			
-			// PWA 리스너 설정 및 알림 상태 확인
+			// PWA 리스너 설정
 			setupPWAListeners();
-			await checkNotificationStatus();
+			await checkPWAInstallStatus();
 		} catch (e) {
 			console.error("데이터 조회 오류", e);
 		}
@@ -733,8 +718,7 @@ const phonePlaceholder = ref("ex) 010-1234-5678");
 // 한글 입력 조합 상태 관리
 const isNicknameComposing = ref(false);
 
-// PWA 및 알림 관련 상태
-const isNotificationEnabled = ref(false);
+// PWA 설치 관련 상태
 const canInstallPWA = ref(false);
 let deferredPrompt: any = null;
 
@@ -967,74 +951,6 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 };
 
 // PWA 관련 함수들
-// 알림 토글 - 모바일 최적화
-const toggleNotifications = async () => {
-	try {
-		if (isNotificationEnabled.value) {
-			// 알림 해제
-			await unsubscribeFromPushNotifications();
-			isNotificationEnabled.value = false;
-			alert('푸시 알림이 해제되었습니다.');
-		} else {
-			// 모바일 환경 체크
-			if (!('Notification' in window)) {
-				alert('이 브라우저는 알림을 지원하지 않습니다.');
-				return;
-			}
-
-			if (!('serviceWorker' in navigator)) {
-				alert('이 브라우저는 푸시 알림을 지원하지 않습니다.');
-				return;
-			}
-
-			// 권한 요청
-			let permission = Notification.permission;
-			if (permission === 'default') {
-				permission = await Notification.requestPermission();
-			}
-
-			if (permission !== 'granted') {
-				alert('알림 권한이 필요합니다. 브라우저 설정에서 알림을 허용해주세요.');
-				return;
-			}
-
-			// 알림 구독
-			try {
-				const subscription = await subscribeToPushNotifications();
-				if (subscription) {
-					isNotificationEnabled.value = true;
-					alert('푸시 알림이 활성화되었습니다. 주차 입출차 알림을 받을 수 있습니다.');
-					
-					// 테스트 알림 발송 (모바일 확인용)
-					setTimeout(() => {
-						showLocalNotification({
-							type: 'general',
-							title: '🎉 알림 설정 완료',
-							body: '이제 주차 알림을 받을 수 있습니다!'
-						});
-					}, 1000);
-				}
-			} catch (error: any) {
-				console.error('푸시 알림 구독 오류:', error);
-				
-				// 상세한 에러 메시지 제공
-				let errorMessage = '푸시 알림 활성화에 실패했습니다.';
-				if (error.message.includes('VAPID')) {
-					errorMessage = '서버 설정 오류입니다. 관리자에게 문의하세요.';
-				} else if (error.message.includes('Service Worker')) {
-					errorMessage = 'HTTPS 환경에서 사용해주세요.';
-				} else if (error.message.includes('권한')) {
-					errorMessage = '알림 권한을 허용해주세요.';
-				}
-				
-				alert(errorMessage);
-			}
-		}
-	} catch (error) {
-		console.error('알림 설정 변경 오류:', error);
-		alert('알림 설정 변경 중 오류가 발생했습니다.');
-	}
-};
 
 // PWA 설치
 const installPWA = async () => {
@@ -1068,17 +984,9 @@ const installPWA = async () => {
 	}
 };
 
-// 알림 상태 확인
-const checkNotificationStatus = async () => {
+// PWA 설치 상태 확인
+const checkPWAInstallStatus = async () => {
 	try {
-		// 알림 권한 확인
-		const hasPermission = Notification.permission === 'granted';
-		
-		// 구독 상태 확인
-		const subscription = await getSubscriptionStatus();
-		
-		isNotificationEnabled.value = hasPermission && !!subscription;
-		
 		// PWA 설치 가능 여부 확인 - 더 정확한 감지
 		const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
 		const isInWebAppiOS = (window.navigator as any).standalone === true;
@@ -1086,7 +994,7 @@ const checkNotificationStatus = async () => {
 		
 		canInstallPWA.value = !isInstalled && (!!deferredPrompt || 'serviceWorker' in navigator);
 	} catch (error) {
-		console.error('알림 상태 확인 오류:', error);
+		console.error('PWA 상태 확인 오류:', error);
 	}
 };
 

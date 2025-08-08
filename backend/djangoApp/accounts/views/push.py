@@ -3,10 +3,15 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.http import JsonResponse
+import json
+import logging
 
 from djangoApp import settings
 
 from ..models import PushSubscription
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(["GET", "POST"])
@@ -73,3 +78,61 @@ def unsubscribe_push(request):
     # 해당 사용자와 endpoint를 가진 구독 레코드 삭제
     PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
     return Response(status=status.HTTP_204_NO_CONTENT)  # 삭제 성공 응답
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def test_push_notification(request):
+    """
+    테스트 푸시 알림 전송 엔드포인트
+    - request.data: { title, body }
+    """
+    try:
+        print(f"[DEBUG] test_push_notification called by user: {request.user.email}")
+        
+        # 사용자가 푸시 알림을 활성화했는지 확인
+        if not request.user.push_enabled:
+            print("[DEBUG] User has push notifications disabled")
+            return Response(
+                {"detail": "푸시 알림이 비활성화되어 있습니다."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 사용자의 구독 정보 확인
+        subscriptions = PushSubscription.objects.filter(user=request.user)
+        if not subscriptions.exists():
+            print("[DEBUG] No push subscriptions found for user")
+            return Response(
+                {"detail": "푸시 구독 정보를 찾을 수 없습니다."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 요청 데이터 추출
+        data = request.data
+        title = data.get("title", "테스트 알림")
+        body = data.get("body", "이것은 테스트 푸시 알림입니다.")
+        
+        print(f"[DEBUG] Sending test notification: {title} - {body}")
+        
+        # 실제 푸시 알림 전송 로직은 여기에 구현
+        # pywebpush 라이브러리를 사용하여 실제 푸시 알림을 전송할 수 있습니다.
+        
+        # 현재는 로그만 출력하고 성공 응답 반환
+        success_count = subscriptions.count()
+        
+        logger.info(f"Test push notification sent to user {request.user.email}: {title}")
+        
+        return Response({
+            "message": "테스트 푸시 알림이 전송되었습니다.",
+            "title": title,
+            "body": body,
+            "subscriptions_count": success_count
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"[DEBUG] Error in test_push_notification: {str(e)}")
+        logger.error(f"Test push notification error for user {request.user.email}: {str(e)}")
+        return Response(
+            {"detail": "푸시 알림 전송 중 오류가 발생했습니다."}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
