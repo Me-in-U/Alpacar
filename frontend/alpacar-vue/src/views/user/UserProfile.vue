@@ -5,9 +5,8 @@
 
 		<!-- Main Content -->
 		<div class="user-profile__content">
-			<!-- Title and Logout Section -->
+			<!-- Logout Section -->
 			<div class="user-profile__header">
-				<h1 class="user-profile__title">내 정보 확인하기</h1>
 				<div class="user-profile__logout" @click="handleLogout">로그아웃</div>
 			</div>
 
@@ -51,8 +50,8 @@
 			</div>
 
       <!-- Vehicle Section -->
-			<div class="section-title">내 차량정보</div>
-			<div class="button-container">
+			<div class="section-header">
+				<div class="section-title">내 차량정보</div>
 				<div class="button button--secondary" @click="showVehicleModal = true">
 					<div class="button__text">내 차 추가</div>
 				</div>
@@ -85,7 +84,6 @@
 
 			<!-- Phone Number Section -->
 			<div class="section-title">전화번호 변경</div>
-			<div class="section-subtitle">새 전화번호 입력</div>
 			<form autocomplete="off" @submit.prevent>
 				<!-- Hidden inputs to trick browser autofill -->
 				<input type="text" style="display:none" />
@@ -1132,7 +1130,7 @@ const setupPWAListeners = () => {
 /* Header */
 .user-profile__header {
 	display: flex;
-	justify-content: space-between;
+	justify-content: flex-end;
 	align-items: center;
 	margin-bottom: 20px;
 }
@@ -1272,10 +1270,21 @@ const setupPWAListeners = () => {
 }
 
 /* Section Titles */
+.section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 10px;
+}
+
+.section-header .button {
+	margin-bottom: 0;
+}
+
 .section-title {
 	font-size: 20px;
 	font-weight: 600;
-	margin-bottom: 10px;
+	margin-bottom: 0;
 }
 .section-subtitle {
 	font-size: 16px;
