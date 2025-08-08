@@ -26,6 +26,7 @@ import AdminErrorModalTest from "@/views/admin/AdminErrorModalTest.vue";
 import GoogleCallback from "@/views/user/GoogleCallback.vue";
 import MainWithHolo from "@/views/user/MainWithHolo.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { useUserStore } from "@/stores/user";
 
 // 로그인 상태 확인 함수
 function isAuthenticated(): boolean {
@@ -195,20 +196,38 @@ router.beforeEach(async (to, from, next) => {
 			console.log("로그인이 필요한 페이지입니다. 로그인 페이지로 이동합니다.");
 			next("/login");
 		} else {
-			// 로그인된 경우 차량 등록 여부 확인
-			const hasVehicle = await hasVehicleRegistered();
-
-			if (!hasVehicle && to.name !== "social-login-info") {
-				// 차량 등록이 안 되어 있고 social-login-info 페이지가 아닌 경우
-				console.log("차량 등록이 필요합니다. 차량 등록 페이지로 이동합니다.");
-				next("/social-login-info");
-			} else if (hasVehicle && to.name === "social-login-info") {
-				// 차량 등록이 되어 있는데 social-login-info 페이지에 접근하려는 경우
-				console.log("이미 차량이 등록되어 있습니다. 메인 페이지로 이동합니다.");
-				next("/main");
-			} else {
-				// 차량 등록이 되어 있거나 social-login-info 페이지인 경우 계속 진행
+			// 사용자 스토어에서 관리자 여부 먼저 확인
+			const userStore = useUserStore();
+			const isAdmin = userStore.me?.is_staff ?? false;
+			
+			console.log(`[ROUTER DEBUG] 페이지: ${to.path}, 관리자 여부: ${isAdmin}, 사용자 정보:`, userStore.me);
+			
+			// 관리자 페이지이거나 관리자 사용자인 경우 차량 등록 체크를 건너뛰기
+			if (to.path.startsWith("/admin") || isAdmin) {
+				if (to.path.startsWith("/admin")) {
+					console.log("관리자 페이지 접근입니다. 차량 등록 체크를 건너뜁니다.");
+				} else {
+					console.log("관리자 사용자입니다. 차량 등록 체크를 건너뜁니다.");
+				}
 				next();
+			} else {
+				// 일반 사용자인 경우 차량 등록 여부 확인
+				console.log("일반 사용자입니다. 차량 등록 여부를 확인합니다.");
+				const hasVehicle = await hasVehicleRegistered();
+				console.log(`[ROUTER DEBUG] 차량 등록 여부: ${hasVehicle}`);
+
+				if (!hasVehicle && to.name !== "social-login-info") {
+					// 차량 등록이 안 되어 있고 social-login-info 페이지가 아닌 경우
+					console.log("차량 등록이 필요합니다. 차량 등록 페이지로 이동합니다.");
+					next("/social-login-info");
+				} else if (hasVehicle && to.name === "social-login-info") {
+					// 차량 등록이 되어 있는데 social-login-info 페이지에 접근하려는 경우
+					console.log("이미 차량이 등록되어 있습니다. 메인 페이지로 이동합니다.");
+					next("/main");
+				} else {
+					// 차량 등록이 되어 있거나 social-login-info 페이지인 경우 계속 진행
+					next();
+				}
 			}
 		}
 	} else {
