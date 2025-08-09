@@ -7,7 +7,7 @@ import time
 import random
 from collections import deque
 import json
-import os
+import websocket
 
 # ------------------------------
 # 주차구역 정규화 좌표 (parking_check copy.py에서 복사)
@@ -111,12 +111,6 @@ SNAPSHOT_PATH = str(Path(__file__).with_name('status_snapshot.json'))
 _last_snapshot_ts = 0.0
 _snapshot_interval_s = 0.5
 
-def get_zone_center(rect_norm, frame_w, frame_h):
-    x1n, y1n, x2n, y2n = rect_norm
-    cx = (x1n + x2n) * 0.5 * frame_w
-    cy = (y1n + y2n) * 0.5 * frame_h
-    return float(cx), float(cy)
-
 def assemble_slot_status(zones_norm, state, reserved_upper_set):
     slot = {}
     for zone in zones_norm:
@@ -137,24 +131,6 @@ def vehicle_state_from_zone_state(track_id):
         if st.get('occupant_id') == int(track_id):
             return 'parked'
     return 'running'
-
-def suggest_zone_for_vehicle(cx, cy, zones_norm, frame_w, frame_h, state, reserved_upper_set):
-    # 가장 가까운 free 구역 추천 (reserved 제외)
-    best_zid_upper = None
-    best_dist2 = None
-    for zone in zones_norm:
-        zid_lower = zone['id']
-        zid_upper = zid_lower.upper()
-        if zid_upper in reserved_upper_set:
-            continue
-        if state.get(zid_lower, {}).get('occupant_id') is not None:
-            continue
-        zcx, zcy = get_zone_center(zone['rect'], frame_w, frame_h)
-        d2 = (zcx - cx) ** 2 + (zcy - cy) ** 2
-        if best_dist2 is None or d2 < best_dist2:
-            best_dist2 = d2
-            best_zid_upper = zid_upper
-    return best_zid_upper
 
 def assemble_snapshot(center_list, xyxyxyxy_list, ids, zones_norm, frame_w, frame_h):
     # 슬롯 상태
@@ -208,6 +184,34 @@ model = YOLO(
 
 # 트래킹 결과를 스트림으로 받아와 원하는 크기로 표시
 _tracker_cfg = str(Path(__file__).with_name('bytetrack.yaml'))
+
+# WebSocket 전송 설정 (임시) - parking.CarPositionConsumer에 맞춘 엔드포인트
+WSS_URL = "wss://i13e102.p.ssafy.io/ws/car-position/"
+
+# 전송 좌표 기준 해상도 (수신측 캔버스 크기)
+OUTPUT_WIDTH = 900
+OUTPUT_HEIGHT = 550
+
+
+def connect_ws():
+    """WebSocket 연결 시도, 실패 시 1초 후 재시도."""
+    while True:
+        try:
+            if hasattr(websocket, 'create_connection'):
+                ws = websocket.create_connection(WSS_URL)
+            elif hasattr(websocket, 'WebSocket') and hasattr(websocket.WebSocket, 'connect'):
+                ws = websocket.WebSocket()
+                ws.connect(WSS_URL)
+            else:
+                raise RuntimeError('websocket-client 모듈이 필요합니다 (pip install websocket-client).')
+            print(f"[WebSocket] Connected to {WSS_URL}")
+            return ws
+        except Exception as e:
+            print(f"[WebSocket] Connection failed: {e}. Retrying in 1s...")
+            time.sleep(1)
+
+# 최초 연결
+ws = connect_ws()
 
 def extract_track_ids(result):
     """Ultralytics 결과 객체에서 트래킹 ID 배열을 안전하게 추출한다.
@@ -426,6 +430,75 @@ def draw_plate_labels(frame, detections,
     except Exception:
         pass
 
+def build_wss_payload_from_result(result, frame_w: int, frame_h: int):
+    """
+    WebSocket 전송용 페이로드를 생성한다. (스키마 고정)
+    - track_id: 추적 ID (int)
+    - center: [cx, cy] (픽셀 좌표, 프레임 기준)
+    - corners: [x1,y1, x2,y2, x3,y3, x4,y4] (픽셀 좌표, 프레임 기준)
+    좌표는 프레임 경계를 벗어나지 않도록 클램핑한다.
+    """
+    payload = []
+    try:
+        obb = getattr(result, 'obb', None)
+        if obb is None:
+            return payload
+
+        ids_t = getattr(obb, 'id', None)
+        xywhr = getattr(obb, 'xywhr', None)
+        corners = getattr(obb, 'xyxyxyxy', None)
+        if ids_t is None or xywhr is None or corners is None:
+            return payload
+
+        ids_list = ids_t.cpu().numpy().tolist() if hasattr(ids_t, 'cpu') else list(ids_t)
+        num = min(len(ids_list), len(xywhr), len(corners))
+        for i in range(num):
+            tid = ids_list[i]
+            if tid is None:
+                continue
+            # 중심 좌표 추출 (cx, cy)
+            try:
+                cx = float(xywhr[i][0].item()); cy = float(xywhr[i][1].item())
+            except Exception:
+                arr = xywhr[i].cpu().numpy().tolist() if hasattr(xywhr[i], 'cpu') else list(xywhr[i])
+                cx, cy = float(arr[0]), float(arr[1])
+
+            # 꼭짓점 8개 좌표 추출
+            try:
+                c8 = corners[i].cpu().numpy().flatten().tolist()
+            except Exception:
+                c8 = np.array(corners[i]).reshape(-1).tolist()
+
+            # 균등 스케일 + 레터박싱 오프셋 적용 (showing과 동일한 비율 유지)
+            if frame_w and frame_h:
+                s = min(float(OUTPUT_WIDTH) / float(frame_w), float(OUTPUT_HEIGHT) / float(frame_h))
+                out_w = float(frame_w) * s
+                out_h = float(frame_h) * s
+                off_x = (float(OUTPUT_WIDTH) - out_w) / 2.0
+                off_y = (float(OUTPUT_HEIGHT) - out_h) / 2.0
+
+                cx = cx * s + off_x
+                cy = cy * s + off_y
+                for idx in range(0, len(c8), 2):
+                    c8[idx] = float(c8[idx]) * s + off_x
+                    c8[idx+1] = float(c8[idx+1]) * s + off_y
+
+                # 좌표 클램프 (출력 해상도 경계 내)
+                cx = max(0.0, min(cx, float(OUTPUT_WIDTH - 1)))
+                cy = max(0.0, min(cy, float(OUTPUT_HEIGHT - 1)))
+                for idx in range(0, len(c8), 2):
+                    c8[idx] = max(0.0, min(float(c8[idx]), float(OUTPUT_WIDTH - 1)))
+                    c8[idx+1] = max(0.0, min(float(c8[idx+1]), float(OUTPUT_HEIGHT - 1)))
+
+            payload.append({
+                'track_id': int(tid),
+                'center': [round(cx, 1), round(cy, 1)],
+                'corners': [round(float(v), 1) for v in c8],
+            })
+    except Exception:
+        return []
+    return payload
+
 def draw_parking_zones(frame, zones_norm, state=None,
                        color_free=(0, 0, 255), color_busy=(0, 200, 0),
                        thickness=2, font_scale=0.8, font_thickness=2):
@@ -589,79 +662,111 @@ def draw_parking_status_panel(frame, zones_norm, state,
     except Exception:
         pass
 
-results = model.track(
-    source=video_path,
-    stream=True,
-    imgsz=1080,
-    conf=0.1,
-    iou=0.6,
-    tracker=_tracker_cfg,
-    visualize=False,
-)
+def track_loop():
+    """메인 트래킹/시각화/전송 루프"""
+    global _last_snapshot_ts, ws
 
-window_name = 'Tracking'
-cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-
-# 최대 창 크기 지정 (원하는 값으로 조정)
-max_width, max_height = 640, 640
-
-for r in results:
-    # im0 = r.plot()  # 주석(박스/라벨) 그려진 프레임 대신 원본 프레임 사용
-    im0 = r.orig_img.copy() if hasattr(r, 'orig_img') else None
-    if im0 is None:
-        continue
-
-    # 시각화 함수 직접 호출
-    angles = draw_direction_arrows(im0, r)
-    xyxyxyxy_list, center_list = draw_boxes(im0, r, angles)
-    ids = extract_track_ids(r)
-    # 새로 탐지된 id에 번호판 매핑 보장
-    ensure_plate_mapping(ids)
-    # 번호판 텍스트를 중심에 표시
-    dets = get_detections_with_ids(r)
-    draw_plate_labels(im0, dets)
-
-    # 주차구역 시각화
-    # 주차 상태 업데이트
-    now_ts = time.time()
-    h_full, w_full = im0.shape[:2]
-    update_parking_states(center_list, ids, PARKING_ZONES_NORM, w_full, h_full, now_ts)
-
-    # 주차구역 시각화(상태 반영)
-    draw_parking_zones(im0, PARKING_ZONES_NORM, state=zone_state, thickness=2)
-    # 좌측 상단 주차 상태 패널 (크기 확대)
-    draw_parking_status_panel(
-        im0,
-        PARKING_ZONES_NORM,
-        zone_state,
-        anchor=(10, 10),
-        font_scale=0.9,
-        text_thickness=2,
-        padding=16,
-        bg_alpha=0.55,
+    results = model.track(
+        source=video_path,
+        stream=True,
+        imgsz=1080,
+        conf=0.1,
+        iou=0.6,
+        tracker=_tracker_cfg,
+        visualize=False,
     )
 
-    # JSON 스냅샷 저장 (주기적으로)
-    try:
-        now = time.time()
-        if now - _last_snapshot_ts >= _snapshot_interval_s:
-            snapshot = assemble_snapshot(center_list, xyxyxyxy_list, ids, PARKING_ZONES_NORM, w_full, h_full)
-            save_status_snapshot(snapshot, SNAPSHOT_PATH)
-            _last_snapshot_ts = now
-    except Exception:
-        pass
-    
+    window_name = 'Tracking'
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
-    # 오버레이 이후 리사이즈 적용
-    h, w = im0.shape[:2]
-    scale = min(max_width / w, max_height / h, 1.0)
-    if scale < 1.0:
-        im_disp = cv2.resize(im0, (int(w * scale), int(h * scale)))
-    else:
-        im_disp = im0
+    # 최대 창 크기 지정 (원하는 값으로 조정)
+    max_width, max_height = 900, 550
 
-    cv2.imshow(window_name, im_disp)
-    if cv2.waitKey(1) & 0xFF == 27:  # ESC로 종료
-        break
+    for r in results:
+        # im0 = r.plot()  # 주석(박스/라벨) 그려진 프레임 대신 원본 프레임 사용
+        im0 = r.orig_img.copy() if hasattr(r, 'orig_img') else None
+        if im0 is None:
+            continue
 
-cv2.destroyAllWindows()
+        # 시각화 함수 직접 호출
+        angles = draw_direction_arrows(im0, r)
+        xyxyxyxy_list, center_list = draw_boxes(im0, r, angles)
+        ids = extract_track_ids(r)
+        # 새로 탐지된 id에 번호판 매핑 보장
+        ensure_plate_mapping(ids)
+        # 번호판 텍스트를 중심에 표시
+        dets = get_detections_with_ids(r)
+        draw_plate_labels(im0, dets)
+
+        # 주차구역 시각화
+        # 주차 상태 업데이트
+        now_ts = time.time()
+        h_full, w_full = im0.shape[:2]
+        update_parking_states(center_list, ids, PARKING_ZONES_NORM, w_full, h_full, now_ts)
+
+        # 주차구역 시각화(상태 반영)
+        draw_parking_zones(im0, PARKING_ZONES_NORM, state=zone_state, thickness=2)
+        # 좌측 상단 주차 상태 패널 (크기 확대)
+        draw_parking_status_panel(
+            im0,
+            PARKING_ZONES_NORM,
+            zone_state,
+            anchor=(10, 10),
+            font_scale=0.9,
+            text_thickness=2,
+            padding=16,
+            bg_alpha=0.55,
+        )
+
+        # JSON 스냅샷/WS 전송 (주기적으로)
+        try:
+            now = time.time()
+            if now - _last_snapshot_ts >= _snapshot_interval_s:
+                # 기존 로컬 저장 로직은 참고용으로 남겨둔다
+                # snapshot = assemble_snapshot(center_list, xyxyxyxy_list, ids, PARKING_ZONES_NORM, w_full, h_full)
+                # save_status_snapshot(snapshot, SNAPSHOT_PATH)
+                # _last_snapshot_ts = now
+
+                # WS 전송 페이로드 생성 및 전송 (CarPositionConsumer는 수신 텍스트를 그대로 브로드캐스트)
+                payload = build_wss_payload_from_result(r, w_full, h_full)
+                msg = json.dumps(payload, ensure_ascii=False)
+                print(">>> Sending via WSS:", msg)
+                try:
+                    ws.send(msg)
+                    print("[WebSocket] 전송 성공")
+                except Exception as e:
+                    print(f"[WebSocket] 전송 실패: {e}. Reconnecting...")
+                    try:
+                        ws.close()
+                    except Exception:
+                        pass
+                    ws = connect_ws()
+                    try:
+                        ws.send(msg)
+                        time.sleep(0.1)
+                        print("[WebSocket] 재전송 성공")
+                    except Exception as e2:
+                        print(f"[WebSocket] 재전송 실패: {e2}")
+
+                _last_snapshot_ts = now
+        except Exception:
+            pass
+        
+
+        # 오버레이 이후 리사이즈 적용
+        h, w = im0.shape[:2]
+        scale = min(max_width / w, max_height / h, 1.0)
+        if scale < 1.0:
+            im_disp = cv2.resize(im0, (int(w * scale), int(h * scale)))
+        else:
+            im_disp = im0
+
+        cv2.imshow(window_name, im_disp)
+        if cv2.waitKey(1) & 0xFF == 27:  # ESC로 종료
+            break
+
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    track_loop()
