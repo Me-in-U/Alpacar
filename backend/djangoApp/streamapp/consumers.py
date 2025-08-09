@@ -7,7 +7,11 @@ import sys
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
+from django.utils import timezone
 from pywebpush import WebPushException, webpush
+
+from events.models import VehicleEvent
+from vehicles.models import Vehicle
 
 # ─── 전역 상태 ───────────────────────────────────────────────────────────
 LATEST_TEXT = "번호판 인식 대기중"
@@ -78,9 +82,10 @@ def send_push(subscription, title, body):
 class PiUploadConsumer(AsyncWebsocketConsumer):
     """
     RPi에서 전송된 이미지/텍스트 수신 및 처리
+    "ws/upload/"
     """
 
-    last_entered = None  # 마지막 입차된 번호판 기록
+    # last_entered = None  # 마지막 입차된 번호판 기록
 
     async def connect(self):
         print(f"[SERVER][PiUploadConsumer] connect: {self.channel_name}")
@@ -96,68 +101,69 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
         LATEST_TEXT = payload.get("text", "").strip()  # 텍스트 추출
         print(f"[SERVER][PiUploadConsumer] received text='{LATEST_TEXT}'")
 
-        # 중복된 번호판: 입차된 차량 메시지 전송 후 종료
-        if LATEST_TEXT == PiUploadConsumer.last_entered:
-            # 화면에만 상태 메시지 갱신(브로드캐스트 그룹으로 전송)
-            await self.channel_layer.group_send(
-                "stream",
-                {
-                    "type": "new_frame",
-                    "frame": b64_img,
-                    "text": f"{LATEST_TEXT} 입차된 차량입니다.",
-                },
-            )
-            return
-
-        # 대기중/유효하지 않은 번호판: 그대로 전송 후 종료
+        # 1) 유효/비유효 메시지는 기존대로 브로드캐스트
         if LATEST_TEXT in ("번호판 인식 대기중", "유효하지 않은 번호판"):
             await self.channel_layer.group_send(
                 "stream",
-                {
-                    "type": "new_frame",
-                    "frame": b64_img,
-                    "text": LATEST_TEXT,
-                },
+                {"type": "new_frame", "frame": b64_img, "text": LATEST_TEXT},
             )
             return
 
-        # DB 조회: 차량→소유자
+        # 2) DB 조회: 차량 존재 여부
         user, exists = await lookup_vehicle_owner(LATEST_TEXT)
-        # 화면 갱신 및 푸시 발송
-        if exists:
-            # 화면에 '입차:번호판' 전송
-            await self.channel_layer.group_send(
-                "stream",
-                {"type": "new_frame", "frame": b64_img, "text": f"입차:{LATEST_TEXT}"},
+
+        # 3) 이벤트 기록: 가장 최근 이벤트 조회
+        now = timezone.now()
+        vehicle = await database_sync_to_async(Vehicle.objects.get)(
+            license_plate=LATEST_TEXT
+        )
+        last_event = await database_sync_to_async(
+            lambda v: VehicleEvent.objects.filter(vehicle=v).order_by("-id").first()
+        )(vehicle)
+
+        # 4) 최근 기록이 없거나 출차 상태일 때만 “입차” 기록
+        created = False
+        if last_event is None or last_event.status == "Exit":
+            ev = await database_sync_to_async(VehicleEvent.objects.create)(
+                vehicle=vehicle,
+                entrance_time=now,
+                parking_time=None,
+                exit_time=None,
+                status="Entrance",
             )
-            # 사용자 푸시 구독 가져와 푸시 발송
+            created = True
+        else:
+            ev = last_event  # 새로 생성된 게 아니면, 최근 이벤트를 사용
+
+        # ev.status 가 현재 상태
+        current_status = ev.status
+
+        # 5) 최종 상태 메시지 전송 (이미지 + 상태)
+        await self.channel_layer.group_send(
+            "stream",
+            {
+                "type": "new_frame",
+                "frame": b64_img,
+                "text": f"{LATEST_TEXT} 상태:{current_status}",
+            },
+        )
+
+        # 6) 푸시는 “입차” 레코드가 생성된 경우에만
+        if exists and created:
             subs = await get_push_subscriptions(user)
             if subs:
                 send_push(
                     subs[0],
-                    title="차량 번호판 감지",
+                    title="차량 입차 기록",
                     body=f"`{LATEST_TEXT}` 차량이 입차되었습니다.",
                 )
-        else:
-            # 등록되지 않은 차량 알림
-            print(f"[DEBUG][receive] 미등록 차량: {LATEST_TEXT}")
-            await self.channel_layer.group_send(
-                "stream",
-                {
-                    "type": "new_frame",
-                    "frame": b64_img,
-                    "text": "등록되지 않은 차량입니다",
-                },
-            )
-
-        # 처리된 번호판 기록
-        PiUploadConsumer.last_entered = LATEST_TEXT
 
 
-# ─── StreamConsumer: 관리 화면용 WebSocket ─────────────────────────────────
+# ─── StreamConsumer: Django → Web ─────────────────────────────────
 class StreamConsumer(AsyncWebsocketConsumer):
     """
     관리자용 실시간 스트림 Consumer
+    "ws/stream/"
     """
 
     async def connect(self):
@@ -193,7 +199,7 @@ class StreamConsumer(AsyncWebsocketConsumer):
         )  # 이벤트 전송
 
 
-# ─── OCRTextConsumer: 텍스트 전용 푸시용 WebSocket ─────────────────────────
+# ─── OCRTextConsumer: Django -> 전광판 ─────────────────────────
 class OCRTextConsumer(AsyncWebsocketConsumer):
     """
     텍스트 전용 푸시용 Consumer

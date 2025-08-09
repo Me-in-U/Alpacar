@@ -105,6 +105,47 @@ class PushSubscription(models.Model):
         return f"Subscription for {self.user.email}"  # 표현 시 사용자 이메일 포함
 
 
+class Notification(models.Model):
+    """
+    사용자 알림 모델
+    - user: 알림을 받을 사용자(FK)
+    - title: 알림 제목
+    - message: 알림 내용
+    - notification_type: 알림 종류 (주차완료, 등급승급, 시스템 등)
+    - data: 추가 데이터 (JSON 형태)
+    - is_read: 읽음 상태
+    - created_at: 생성 시각
+    """
+
+    NOTIFICATION_TYPES = [
+        ("parking_complete", "주차 완료"),
+        ("grade_upgrade", "등급 승급"),
+        ("system", "시스템"),
+        ("maintenance", "점검"),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notifications"
+    )  # 사용자 외래키
+    title = models.CharField("알림 제목", max_length=100)  # 알림 제목
+    message = models.TextField("알림 내용")  # 알림 상세 내용
+    notification_type = models.CharField(
+        "알림 종류", max_length=20, choices=NOTIFICATION_TYPES, default="system"
+    )  # 알림 종류
+    data = models.JSONField("추가 데이터", default=dict, blank=True)  # 추가 정보 JSON
+    is_read = models.BooleanField("읽음 상태", default=False)  # 읽음 여부
+    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 생성 시각
+
+    class Meta:
+        db_table = "accounts_notification"  # 테이블명 지정
+        verbose_name = "알림"
+        verbose_name_plural = "알림"
+        ordering = ["-created_at"]  # 최신순 정렬
+
+    def __str__(self):
+        return f"{self.user.nickname}: {self.title}"  # 표현 시 사용자와 제목 포함
+
+
 class VerificationCode(models.Model):
     """
     이메일 기반 인증 코드 모델

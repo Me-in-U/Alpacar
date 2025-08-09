@@ -7,19 +7,30 @@ It exposes the ASGI callable as a module-level variable named ``application``.
 For more information on this file, see
 https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
-import logging
 import os
 
+# settings 모듈 지정
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "djangoApp.settings")
+
+# Django 앱 초기화
+from django.core.asgi import get_asgi_application
+
+django_asgi_app = get_asgi_application()
+
+# Channels import (이제 models, apps 모두 로드된 이후)
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
-from django.core.asgi import get_asgi_application
 
+# 라우팅 설정
 import streamapp.routing
+import events.routing
+import parking.routing
+
+# 로깅 설정
+import logging
 
 logger = logging.getLogger("channels")
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "djangoApp.settings")
 
 
 async def debug_scope(scope, receive, send):
@@ -32,12 +43,16 @@ async def debug_scope(scope, receive, send):
 
     app = ProtocolTypeRouter(
         {
-            "http": get_asgi_application(),
+            "http": django_asgi_app,
             # "websocket": SessionMiddlewareStack(
             #     URLRouter(ocr_app.routing.websocket_urlpatterns)
             # ),
             "websocket": AuthMiddlewareStack(
-                URLRouter(streamapp.routing.websocket_urlpatterns)
+                URLRouter(
+                    streamapp.routing.websocket_urlpatterns
+                    + events.routing.websocket_urlpatterns
+                    + parking.routing.websocket_urlpatterns
+                )
             ),
         }
     )

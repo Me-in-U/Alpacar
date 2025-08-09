@@ -15,36 +15,94 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='VehicleModel',
+            name="VehicleModel",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('brand', models.CharField(max_length=255, verbose_name='제조사')),
-                ('model_name', models.CharField(max_length=255, verbose_name='모델명')),
-                ('size_class', models.CharField(choices=[('compact', 'Compact'), ('midsize', 'Midsize'), ('suv', 'SUV')], max_length=10, verbose_name='차량 크기 분류')),
-                ('image_url', models.URLField(verbose_name='대표 이미지 URL')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='생성일시')),
-                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='수정일시')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("brand", models.CharField(max_length=255, verbose_name="제조사")),
+                ("model_name", models.CharField(max_length=255, verbose_name="모델명")),
+                (
+                    "size_class",
+                    models.CharField(
+                        choices=[
+                            ("compact", "Compact"),
+                            ("midsize", "Midsize"),
+                            ("suv", "SUV"),
+                        ],
+                        max_length=10,
+                        verbose_name="차량 크기 분류",
+                    ),
+                ),
+                ("image_url", models.URLField(verbose_name="대표 이미지 URL")),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="생성일시"),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="수정일시"),
+                ),
             ],
             options={
-                'verbose_name': '차량 모델',
-                'verbose_name_plural': '차량 모델',
-                'db_table': 'vehicle_model',
+                "verbose_name": "차량 모델",
+                "verbose_name_plural": "차량 모델",
+                "db_table": "vehicle_model",
             },
         ),
         migrations.CreateModel(
-            name='Vehicle',
+            name="Vehicle",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('license_plate', models.CharField(max_length=20, unique=True, verbose_name='차량 번호판')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='등록일시')),
-                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='수정일시')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='vehicles', to=settings.AUTH_USER_MODEL)),
-                ('model', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='vehicles', to='vehicles.vehiclemodel')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "license_plate",
+                    models.CharField(
+                        max_length=20, unique=True, verbose_name="차량 번호판"
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="등록일시"),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="수정일시"),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="vehicles",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "model",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="vehicles",
+                        to="vehicles.vehiclemodel",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '차량',
-                'verbose_name_plural': '차량',
-                'db_table': 'vehicle',
+                "verbose_name": "차량",
+                "verbose_name_plural": "차량",
+                "db_table": "vehicle",
             },
         ),
     ]

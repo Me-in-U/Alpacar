@@ -2,18 +2,17 @@
 	<div class="nav-container" @mouseleave="isOpen = false">
 		<!-- NAVBAR -->
 		<div class="nav-wrapper">
-			<div class="logo" @click="goTo('/admin-main')">
-				<img class="logo-img" src="@/assets/alpaca-logo-small.png" alt="Logo" />
+			<div class="logo" @click="handleMenuClick('/admin-main')">
+				<img class="logo-img" src="@/assets/alpaca-192.png" alt="Logo" />
 			</div>
 
 			<!-- 데스크탑 메뉴 -->
 			<div class="menu desktop-only">
-				<div class="menu-item" @click="goTo('/admin-main')">실시간 주차 현황</div>
-				<div class="menu-item" @click="goTo('/admin-plate-ocr')">실시간 번호판 인식</div>
-				<div class="menu-item" @click="goTo('/admin-parkinglogs')">로그 및 기록</div>
-				<div class="menu-item" @click="goTo('/admin-parkingreassign')">주차 배정 정보 변경</div>
-				<div class="menu-item test-button" @click="$emit('test-modal')">🔒 관리자 인증 테스트</div>
-				<img v-if="showLogout" class="signout" src="@/assets/signout.png" alt="로그아웃" @click="$emit('logout')" />
+				<div class="menu-item" @click="handleMenuClick('/admin-main')">실시간 주차 현황</div>
+				<div class="menu-item" @click="handleMenuClick('/admin-plate-ocr')">실시간 번호판 인식</div>
+				<div class="menu-item" @click="handleMenuClick('/admin-parkinglogs')">로그 및 기록</div>
+				<div class="menu-item" @click="handleMenuClick('/admin-parkingreassign')">주차 배정 정보 변경</div>
+				<img v-if="isLoggedIn" class="signout" src="@/assets/signout.png" alt="로그아웃" title="로그아웃" @click="handleLogout" />
 			</div>
 
 			<!-- 모바일 햄버거 -->
@@ -24,28 +23,97 @@
 
 		<!-- DROPDOWN (navbar 바로 아래에 오버레이) -->
 		<div v-if="isOpen" class="dropdown-menu" @mouseenter="isOpen = true" @mouseleave="isOpen = false">
-			<div class="menu-item" @click="goTo('/admin-main')">실시간 주차 현황</div>
-			<div class="menu-item" @click="goTo('/admin-parkinglogs')">로그 및 기록</div>
-			<div class="menu-item" @click="goTo('/admin-parkingreassign')">주차 배정 정보 변경</div>
-			<div class="menu-item test-button" @click="$emit('test-modal')">🔒 관리자 인증 테스트</div>
-			<img v-if="showLogout" class="signout" src="@/assets/signout.png" alt="로그아웃" @click="$emit('logout')" />
+			<div class="menu-item" @click="handleMenuClick('/admin-main')">실시간 주차 현황</div>
+			<div class="menu-item" @click="handleMenuClick('/admin-plate-ocr')">실시간 번호판 인식</div>
+			<div class="menu-item" @click="handleMenuClick('/admin-parkinglogs')">로그 및 기록</div>
+			<div class="menu-item" @click="handleMenuClick('/admin-parkingreassign')">주차 배정 정보 변경</div>
+			<img v-if="isLoggedIn" class="signout" src="@/assets/signout.png" alt="로그아웃" title="로그아웃" @click="handleLogout" />
 		</div>
+
+		<!-- 관리자 인증 필요 모달 -->
+		<AdminAuthRequiredModal v-if="showAuthModal" @close="showAuthModal = false" />
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { useRouter } from "vue-router";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 
 const router = useRouter();
-const isOpen = ref(false);
+const route = useRoute();
 
-defineProps<{ showLogout: boolean }>();
-defineEmits(["logout", "test-modal"]);
+const isOpen = ref(false);
+const showAuthModal = ref(false);
+const isLoggedIn = ref(false);
+
+const emit = defineEmits<{ (e: "logout"): void }>();
+
+function readAuth(): boolean {
+  const token =
+    localStorage.getItem("access_token") ||  // ← 스샷 기준 키
+    localStorage.getItem("access") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("adminAccess") ||
+    localStorage.getItem("token");
+  if (!token) return false;
+
+  const raw = localStorage.getItem("user");
+  if (!raw) return false;
+
+  try {
+    const user = JSON.parse(raw);
+    return user?.is_staff === true; // ← 여기서 관리자 여부 체크
+  } catch {
+    return false;
+  }
+}
+
+function refreshAuth() {
+  isLoggedIn.value = readAuth();
+}
+
+onMounted(() => {
+  refreshAuth();
+  // 동일 탭에서는 storage 이벤트가 안 떠서, 다른 신호에도 갱신
+  window.addEventListener("focus", refreshAuth);        // 탭 포커스 복귀
+  window.addEventListener("visibilitychange", () => {   // 화면 전환
+    if (!document.hidden) refreshAuth();
+  });
+});
+
+// 라우트가 바뀔 때마다 재평가 (로그인 후 리다이렉트 시)
+watch(() => route.fullPath, () => refreshAuth());
+
+onUnmounted(() => {
+  window.removeEventListener("focus", refreshAuth);
+});
 
 const goTo = (path: string) => {
 	isOpen.value = false;
 	router.push(path);
+};
+
+const handleMenuClick = (path: string) => {
+	if (!isLoggedIn.value) {
+		showAuthModal.value = true;
+		return;
+	}
+	goTo(path);
+};
+
+const handleLogout = () => {
+  // 실제 저장된 키 반영 (스크린샷 기준)
+  [
+    "access_token", "refresh_token",
+    "access", "refresh", "accessToken", "refreshToken",
+    "adminAccess", "adminRefresh", "token",
+    "is_staff", "user",
+  ].forEach((k) => localStorage.removeItem(k));
+
+  refreshAuth(); // 즉시 갱신
+  emit("logout");
+  router.replace("/admin-login");
 };
 </script>
 
@@ -98,19 +166,11 @@ const goTo = (path: string) => {
 .menu-item:hover {
 	background-color: #5f554b;
 }
-.menu-item.test-button {
-	background-color: #fff;
-	color: #776b5d;
-	font-weight: bold;
-}
-.menu-item.test-button:hover {
-	background-color: #ddd;
-}
 
 .signout {
-	height: 32px;
-	width: 32px;
-	cursor: pointer;
+  height: 22px;
+  width: 16px;
+  cursor: pointer;
 }
 
 /* 모바일 전용 햄버거 */

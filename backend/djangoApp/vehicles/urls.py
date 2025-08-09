@@ -8,6 +8,8 @@ from vehicles.views.vehicles import (
     check_license,
     check_vehicle_registration,
     create_simple_vehicle,
+    get_mapping_model,
+    send_push_to_plate,
 )
 
 urlpatterns = [
@@ -37,9 +39,14 @@ urlpatterns = [
     ),
     # 사용자 차량 등록 여부 확인 endpoint
     path(
-        "user/vehicle/check/",
+        "vehicles/check/",
         check_vehicle_registration,  # GET: 사용자 차량 등록 여부 확인
         name="user-vehicle-check",
+    ),
+    path(
+        "vehicles/mapping/",
+        get_mapping_model,
+        name="vehicle-mapping-get",
     ),
     # 간단한 차량 등록 endpoint
     path(
@@ -47,4 +54,5 @@ urlpatterns = [
         create_simple_vehicle,  # POST: license_plate로 간단한 차량 등록
         name="user-vehicle-create",
     ),
+    path("vehicles/send-push/", send_push_to_plate, name="send_push_to_plate"),
 ]

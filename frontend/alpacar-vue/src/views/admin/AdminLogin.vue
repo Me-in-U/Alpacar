@@ -7,7 +7,7 @@
 				<div class="title">관리자 로그인</div>
 
 				<div class="input-box">
-					<input type="text" placeholder="아이디 입력" v-model="adminId" @keyup.enter="handleLogin" />
+					<input type="email" placeholder="관리자 이메일 입력" v-model="adminId" @keyup.enter="handleLogin" />
 				</div>
 
 				<div class="input-box">
@@ -40,16 +40,22 @@ export default defineComponent({
 
 		const handleLogin = async () => {
 			if (!adminId.value || !adminPassword.value) {
-				return alert("아이디와 비밀번호를 모두 입력해주세요.");
+				return alert("이메일과 비밀번호를 모두 입력해주세요.");
 			}
 			try {
-				// 예: userStore.adminLogin 액션이 있는 경우
-				// await userStore.adminLogin(adminId.value, adminPassword.value);
+				// 관리자 로그인 시도
+				console.log("[ADMIN LOGIN] 로그인 시도 중...");
+				await userStore.adminLogin(adminId.value, adminPassword.value);
+				
+				// 로그인 성공 후 사용자 정보 확인
+				console.log("[ADMIN LOGIN] 로그인 성공. 사용자 정보:", userStore.me);
+				console.log("[ADMIN LOGIN] 관리자 여부:", userStore.me?.is_staff);
 
-				// 없으면 일반 login 액션 사용
-				await userStore.login(adminId.value, adminPassword.value);
+				// 약간의 딜레이를 주어 스토어 업데이트 보장
+				await new Promise(resolve => setTimeout(resolve, 100));
 
 				// 로그인 후 관리자 메인 페이지로 이동
+				console.log("[ADMIN LOGIN] 관리자 메인 페이지로 이동");
 				router.push("/admin-main");
 			} catch (err: any) {
 				console.error("관리자 로그인 실패:", err);

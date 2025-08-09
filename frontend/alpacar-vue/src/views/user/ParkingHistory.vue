@@ -113,25 +113,61 @@ const loadParkingData = async () => {
     isLoading.value = true
     error.value = null
     
+    // 토큰 확인
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+    if (!token) {
+      console.error('No access token found')
+      router.push('/login')
+      return
+    }
+    
+    console.log('Loading parking data with token:', token ? 'Present' : 'Missing')
+    
     // 주차 이력 데이터 가져오기
-    const historyResponse = await parkingAPI.getParkingHistory()
-    allRecords.value = historyResponse.data
+    try {
+      const historyResponse = await parkingAPI.getParkingHistory()
+      allRecords.value = historyResponse.data || []
+      console.log('History loaded:', allRecords.value)
+    } catch (historyErr) {
+      console.error('Failed to load history:', historyErr)
+      // 히스토리 로드 실패해도 차트는 시도
+      allRecords.value = []
+    }
     
     // 차트 데이터 가져오기
-    const chartResponse = await parkingAPI.getChartData()
-    chartData.value = chartResponse.data
+    try {
+      const chartResponse = await parkingAPI.getChartData()
+      chartData.value = chartResponse.data || null
+      console.log('Chart data loaded:', chartData.value)
+    } catch (chartErr) {
+      console.error('Failed to load chart data:', chartErr)
+      // 차트 로드 실패해도 계속 진행
+      chartData.value = null
+    }
     
-    console.log('Parking data loaded:', {
-      history: allRecords.value,
-      chartData: chartData.value
-    })
+    // 데이터가 없는 것은 정상적인 상태일 수 있으므로 에러로 처리하지 않음
+    // 실제 네트워크 에러는 catch 블록에서 처리됨
+    
   } catch (err) {
     console.error('Failed to load parking data:', err)
-    error.value = err.message || '데이터를 불러오는데 실패했습니다.'
+    console.error('Error details:', {
+      message: err.message,
+      response: err.response,
+      request: err.request,
+      config: err.config
+    })
+    
+    // 에러 메시지 설정
+    if (err.message) {
+      error.value = err.message
+    } else {
+      error.value = '서버가 응답하지 않습니다. 잠시 후 다시 시도해주세요.'
+    }
     
     // 401 에러인 경우 로그인 페이지로 이동
     if (err.response?.status === 401) {
       localStorage.removeItem('access_token')
+      sessionStorage.removeItem('access_token')
       router.push('/login')
     }
   } finally {
