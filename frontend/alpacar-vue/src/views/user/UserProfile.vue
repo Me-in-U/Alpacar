@@ -187,36 +187,40 @@
       </div>
     </div>
 
-    <!-- 설정 진입 전 비밀번호 인증 모달 (UserSetting의 currentPassword 방식과 동일 컨셉) -->
-    <div v-if="showSettingsAuthModal" class="modal-overlay" @click="closeSettingsAuthModal">
-      <div class="modal modal--password-auth" @click.stop>
-        <h3 class="modal__title">비밀번호 확인</h3>
+		<!-- 설정 진입 전 비밀번호 인증 모달 -->
+		<div v-if="showSettingsAuthModal" class="modal-overlay" @click="closeSettingsAuthModal">
+			<div class="modal modal--password-auth" @click.stop>
+				<h3 class="modal__title">비밀번호 확인</h3>
 
-        <div class="modal__input-field">
-          <input
-            v-model="settingsPassword"
-            type="password"
-            placeholder="현재 비밀번호를 입력하세요"
-            class="modal__input"
-            @keyup.enter="verifySettingsPassword"
-            maxlength="20"
-          />
-        </div>
+				<div class="modal__input-field">
+					<input
+						v-model="settingsPassword"
+						type="password"
+						placeholder="현재 비밀번호를 입력하세요"
+						class="modal__input"
+						@keyup.enter="verifySettingsPassword"
+						maxlength="20"
+					/>
+				</div>
 
-        <div v-if="settingsAuthError" class="error-message" style="margin-top:-10px; margin-bottom:20px;">
-          {{ settingsAuthError }}
-        </div>
+				<div v-if="settingsAuthError" class="error-message" style="margin-top:-10px; margin-bottom:20px;">
+					{{ settingsAuthError }}
+				</div>
 
-        <div class="modal__buttons">
-          <button class="modal__button modal__button--left" @click="verifySettingsPassword" :disabled="!settingsPassword">
-            확인
-          </button>
-          <button class="modal__button modal__button--right" @click="closeSettingsAuthModal">
-            취소
-          </button>
-        </div>
-      </div>
-    </div>
+				<div class="modal__buttons">
+					<button
+						class="modal__button modal__button--left"
+						@click="verifySettingsPassword"
+						:disabled="!settingsPassword || settingsAuthLoading"
+					>
+						{{ settingsAuthLoading ? '확인 중...' : '확인' }}
+					</button>
+					<button class="modal__button modal__button--right" @click="closeSettingsAuthModal" :disabled="settingsAuthLoading">
+						취소
+					</button>
+				</div>
+			</div>
+		</div>
   </div>
 </template>
 
@@ -365,6 +369,7 @@ const handleLogout = () => {
 const showSettingsAuthModal = ref(false);
 const settingsPassword = ref("");
 const settingsAuthError = ref("");
+const settingsAuthLoading = ref(false); 
 
 const openSettingsAuthModal = () => {
   settingsPassword.value = "";
@@ -379,22 +384,51 @@ const closeSettingsAuthModal = () => {
 };
 
 
-const verifySettingsPassword = () => {
-  const current = (userStore as any).currentPassword || ""; // 스토어에 개발용으로 유지 중인 값
+const verifySettingsPassword = async () => {
+  settingsAuthError.value = "";
+
   if (!settingsPassword.value) {
     settingsAuthError.value = "비밀번호를 입력하세요.";
     return;
   }
-  if (!current) {
-    // 스토어에 현재 비밀번호가 없다면(개발 환경 세팅 안됨)
-    settingsAuthError.value = "현재 비밀번호 정보를 찾을 수 없습니다. 서버 검증이 필요합니다.";
+
+  const email = userInfo.value?.email;
+  if (!email) {
+    settingsAuthError.value = "사용자 이메일 정보를 찾을 수 없습니다. 다시 로그인해주세요.";
     return;
   }
-  if (settingsPassword.value === current) {
-    showSettingsAuthModal.value = false;
+
+  settingsAuthLoading.value = true;
+  try {
+    // 현재 이메일 + 입력 비밀번호로 로그인 엔드포인트를 호출해 검증만 수행
+    const res = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({ email, password: settingsPassword.value }),
+    });
+
+    if (!res.ok) {
+      // 서버가 주는 메시지 최대한 노출
+      let msg = "비밀번호가 일치하지 않습니다.";
+      try {
+        const err = await res.json();
+        msg = err.detail || err.message || msg;
+      } catch {}
+      settingsAuthError.value = msg;
+      return;
+    }
+
+    // 성공: 토큰은 저장/갱신하지 않고 바로 폐기(검증 목적)
+    closeSettingsAuthModal();
     router.push("/user-setting");
-  } else {
-    settingsAuthError.value = "비밀번호가 일치하지 않습니다.";
+  } catch (e) {
+    console.error(e);
+    settingsAuthError.value = "네트워크 오류로 인증할 수 없습니다.";
+  } finally {
+    settingsAuthLoading.value = false;
   }
 };
 </script>
