@@ -15,6 +15,7 @@
         <div 
           class="profile-card" 
           :class="{ 'is-flipped': isCardFlipped, 'dragging': isDragging || isMouseDragging }" 
+          :style="holoGradeVars"          
           @click="handleClick"
           @mousedown="handleMouseDown"
           @mousemove="handleMouseMove"
@@ -83,7 +84,7 @@
                 </div>
               </div>
             </div>
-          </div>
+          </div> <!-- /card-inner -->
         </div>
       </div>
 
@@ -136,7 +137,7 @@ const userStore = useUserStore()
 const alpakaInCarImage = new URL('@/assets/alpaka_in_car.png', import.meta.url).href
 
 // 사용자 정보 기반 computed 속성들
-const userScore = computed(() => userStore.me?.score || 0)
+const userScore = computed(() => userStore.me?.score || 90)
 const userName = computed(() => userStore.me?.nickname || 'User')
 const userVehicleNumber = computed(() => {
   // 가장 첫 번째 등록된 차량의 번호를 반환
@@ -156,13 +157,13 @@ const gradeInfo = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return { text: '초급자', color: '#4CAF50' }
+      return { text: '초급자', color: '#80360E' }
     case 'intermediate':
-      return { text: '중급자', color: '#FF9800' }
+      return { text: '중급자', color: '#9A9FA2' }
     case 'advanced':
-      return { text: '상급자', color: '#F44336' }
+      return { text: '상급자', color: '#ECB908' }
     default:
-      return { text: '초급자', color: '#4CAF50' }
+      return { text: '초급자', color: '#80360E' }
   }
 })
 
@@ -185,15 +186,46 @@ const skillIcon = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return new URL('@/assets/handle-beginner.png', import.meta.url).href
+      return new URL('@/assets/handle-bronze.png', import.meta.url).href
     case 'intermediate':
-      return new URL('@/assets/handle-intermediate.png', import.meta.url).href
+      return new URL('@/assets/handle-silver.png', import.meta.url).href
     case 'advanced':
-      return new URL('@/assets/handle-advanced.png', import.meta.url).href
+      return new URL('@/assets/handle-gold.png', import.meta.url).href
     default:
-      return new URL('@/assets/handle-beginner.png', import.meta.url).href
+      return new URL('@/assets/handle-bronze.png', import.meta.url).href
   }
 })
+
+/* ✅ 등급별 테두리/광택 변수 매핑 (로직 변경 아님: 스타일 주입만) */
+const holoGradeVars = computed(() => {
+  switch (userGrade.value) {
+    case 'beginner':
+      return {
+        '--border-color': '#80411E',
+        '--grade-gloss': 0.55,
+        '--header-color': '#80360E'
+      }
+    case 'intermediate':
+      return {
+        '--border-color': '#CECFD1',
+        '--grade-gloss': 0.80,
+        '--header-color': '#9A9FA2'
+      }
+    case 'advanced':
+      return {
+        '--border-color': '#E6BB21',
+        '--grade-gloss': 1.15,
+        '--header-color': '#ECB908'
+      }
+    default:
+      return {
+        '--border-color': '#80411E',
+        '--grade-gloss': 0.55,
+        '--header-color': '#80360E'
+      }
+  }
+})
+
 
 // 주차 히스토리 페이지로 이동
 const goToParkingHistory = async () => {
@@ -232,18 +264,7 @@ const detectMobile = () => {
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0)
   const result = isMobileUA || isTouchDevice
-  
-  console.log('모바일 감지:', {
-    userAgent: navigator.userAgent,
-    isMobileUA,
-    isTouchDevice,
-    maxTouchPoints: navigator.maxTouchPoints,
-    ontouchstart: 'ontouchstart' in window,
-    result
-  })
-  
-  // 터치 이벤트가 있는 모든 기기에서 활성화 (데스크톱 터치스크린 포함)
-  return result || isTouchDevice // 터치 지원 기기에서 모두 활성화
+  return result || isTouchDevice
 }
 
 const isCardFlipped = ref(false)
@@ -253,20 +274,19 @@ const isDragging = ref(false)
 const touchStartTime = ref(0)
 const isMobile = ref(false)
 const initialTouch = ref({ x: 0, y: 0 })
-const touchThreshold = ref(1) // 터치 이동 임계값 (매우 민감하게)
+const touchThreshold = ref(1)
 const isMouseDown = ref(false)
 const initialMouse = ref({ x: 0, y: 0 })
 const isMouseDragging = ref(false)
 const lastTapTime = ref(0)
 const tapCount = ref(0)
-const doubleTapDelay = ref(400) // 더블 탭 인식 시간 (ms) - 조금 더 여유있게
+const doubleTapDelay = ref(400)
 
 const flipCard = () => {
   isCardFlipped.value = !isCardFlipped.value
 }
 
 const handleClick = () => {
-  // 드래그 중이 아닐 때만 카드 뒤집기 (모바일/데스크톱 모두)
   if (!isDragging.value) {
     console.log('Click event - flipping card')
     flipCard()
@@ -275,120 +295,94 @@ const handleClick = () => {
   }
 }
 
-const handleMouseMove = (event: MouseEvent) => {
-  // 마우스 이동 처리 - 드래그 중이면 드래그 핸들러로, 아니면 호버 효과
+function updateShineVars(x: number, y: number, rect: DOMRect) {
   if (!cardRef.value) return
-  
+  const cx = rect.width / 2
+  const cy = rect.height / 2
+  const dx = (x - cx) / cx
+  const dy = (y - cy) / cy
+  const mag = Math.min(1, Math.hypot(dx, dy))             // 중심에서 얼마나 벗어났는지
+  const shineO = (0.22 + 0.38 * mag).toFixed(3)           // 0.22 ~ 0.60 정도로
+  const sx = (x / rect.width) * 100
+  const sy = (y / rect.height) * 100
+
+  cardRef.value.style.setProperty('--shineX', `${sx}%`)
+  cardRef.value.style.setProperty('--shineY', `${sy}%`)
+  cardRef.value.style.setProperty('--shineO', `${shineO}`)
+}
+
+
+const handleMouseMove = (event: MouseEvent) => {
+  if (!cardRef.value) return
   if (isMouseDown.value) {
-    // 드래그 중이면 드래그 핸들러 호출
     handleMouseMoveWhileDragging(event)
     return
   }
-  
-  // 호버 효과 (드래그 중이 아닐 때만)
-  console.log('Mouse hover effect:', { isMobile: isMobile.value, clientX: event.clientX, clientY: event.clientY })
-  
   const rect = cardRef.value.getBoundingClientRect()
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
-  
   const centerX = rect.width / 2
   const centerY = rect.height / 2
-  
-  const rotateX = (y - centerY) / centerY * -10 // -10 to 10 degrees
-  const rotateY = (x - centerX) / centerX * 10 // -10 to 10 degrees
-  
-  // 마우스 호버 시 3D 효과 (카드 뒤집기 상태 고려)
+  const rotateX = (y - centerY) / centerY * -10
+  const rotateY = (x - centerX) / centerX * 10
   if (isCardFlipped.value) {
     cardRef.value.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY + 180}deg)`
   } else {
     cardRef.value.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
   }
-  
   cardRef.value.style.setProperty('--rotate-x', `${rotateX}deg`)
   cardRef.value.style.setProperty('--rotate-y', `${rotateY}deg`)
+  updateShineVars(x, y, rect)
 }
 
 const handleMouseLeave = () => {
-  // 마우스 떠날 시 처리 (모바일 포함)
   if (!cardRef.value) return
-  
-  console.log('Mouse leave event:', { isMobile: isMobile.value, isMouseDown: isMouseDown.value })
-  
-  // 드래그 중이 아닐 때만 호버 효과 초기화
   if (!isMouseDown.value) {
-    // 마우스 떠날 시 초기화 (카드 뒤집기 상태 고려)
     if (isCardFlipped.value) {
       cardRef.value.style.transform = 'rotateX(0deg) rotateY(180deg)'
     } else {
       cardRef.value.style.transform = 'rotateX(0deg) rotateY(0deg)'
     }
-    
     cardRef.value.style.setProperty('--rotate-x', '0deg')
     cardRef.value.style.setProperty('--rotate-y', '0deg')
+    cardRef.value.style.setProperty('--shineX', '50%')
+    cardRef.value.style.setProperty('--shineY', '50%')
+    cardRef.value.style.setProperty('--shineO', '0.28')
   }
 }
 
-// 마우스 드래그 이벤트 핸들러들
 const handleMouseDown = (event: MouseEvent) => {
   console.log('Mouse down event:', { isMobile: isMobile.value, button: event.button })
-  
-  // 좌클릭만 처리
   if (event.button !== 0) return
-  
   isMouseDown.value = true
   isMouseDragging.value = false
   initialMouse.value = { x: event.clientX, y: event.clientY }
-  
-  console.log('Mouse down processed:', { 
-    position: { x: event.clientX, y: event.clientY },
-    isMouseDown: isMouseDown.value
-  })
-  
-  // 마우스 이벤트 차단하여 텍스트 선택 방지
   event.preventDefault()
 }
 
 const handleMouseMoveWhileDragging = (event: MouseEvent) => {
   if (!isMouseDown.value || !cardRef.value) return
-  
   const deltaX = Math.abs(event.clientX - initialMouse.value.x)
   const deltaY = Math.abs(event.clientY - initialMouse.value.y)
-  
-  // 마우스 이동이 조금이라도 있으면 즉시 드래그로 인식
   if (deltaX > 1 || deltaY > 1) {
     isMouseDragging.value = true
-    isDragging.value = true // 전역 드래그 상태도 설정
+    isDragging.value = true
   }
-  
   const rect = cardRef.value.getBoundingClientRect()
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
-  
   const centerX = rect.width / 2
   const centerY = rect.height / 2
-  
-  const rotateX = (y - centerY) / centerY * -20 // -20 to 20 degrees
-  const rotateY = (x - centerX) / centerX * 20 // -20 to 20 degrees
-  
-  console.log('Mouse drag - 3D Animation:', { 
-    mouse: { x: event.clientX, y: event.clientY },
-    rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
-    center: { x: centerX, y: centerY },
-    rotation: { rotateX, rotateY }, 
-    isMouseDragging: isMouseDragging.value,
-    delta: { deltaX, deltaY }
-  })
-  
-  // 즉시 3D 회전 적용 (카드 뒤집기 상태 고려)
+  const rotateX = (y - centerY) / centerY * -20
+  const rotateY = (x - centerX) / centerX * 20
   if (isCardFlipped.value) {
     cardRef.value.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY + 180}deg)`
   } else {
     cardRef.value.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
   }
-  
   cardRef.value.style.setProperty('--rotate-x', `${rotateX}deg`)
   cardRef.value.style.setProperty('--rotate-y', `${rotateY}deg`)
+  updateShineVars(x, y, rect)
 }
 
 const handleMouseUp = () => {
@@ -396,160 +390,94 @@ const handleMouseUp = () => {
     isMouseDown: isMouseDown.value, 
     isMouseDragging: isMouseDragging.value 
   })
-  
   isMouseDown.value = false
-  
-  // 마우스 드래그가 끝나면 전역 드래그 상태도 해제
   if (isMouseDragging.value) {
     isDragging.value = false
     console.log('Mouse drag completed')
   }
-  
   isMouseDragging.value = false
-  
-  // 마우스 드래그 종료 후 상태에 따른 초기화
   if (!cardRef.value) return
-  
   if (isCardFlipped.value) {
     cardRef.value.style.transform = 'rotateX(0deg) rotateY(180deg)'
   } else {
     cardRef.value.style.transform = 'rotateX(0deg) rotateY(0deg)'
   }
-  
   cardRef.value.style.setProperty('--rotate-x', '0deg')
   cardRef.value.style.setProperty('--rotate-y', '0deg')
+  cardRef.value.style.setProperty('--shineX', '50%')
+  cardRef.value.style.setProperty('--shineY', '50%')
+  cardRef.value.style.setProperty('--shineO', '0.28')
 }
 
 const handleTouchStart = (event: TouchEvent) => {
   console.log('Touch start event triggered!', { isMobile: isMobile.value, touches: event.touches.length })
-  
   const touch = event.touches[0]
   initialTouch.value = { x: touch.clientX, y: touch.clientY }
-  
   isTouching.value = true
   isDragging.value = false
   touchStartTime.value = Date.now()
-  
-  console.log('Touch start processed:', { 
-    position: { x: touch.clientX, y: touch.clientY },
-    isMobile: isMobile.value,
-    isTouching: isTouching.value
-  })
-  
-  // 터치 시작 시 즉시 3D 애니메이션 준비 상태로 설정
-  if (cardRef.value) {
-    console.log('카드 3D 애니메이션 준비됨 - 터치 시작, 다음 move에서 즉시 활성화됨')
-  }
-  
-  // Vue의 prevent 모디파이어로 처리됨
 }
 
 const handleTouchMove = (event: TouchEvent) => {
   console.log('Touch move event triggered!', { isMobile: isMobile.value, isTouching: isTouching.value })
-  
-  // 터치 이벤트가 활성화되어 있지 않으면 리턴
   if (!isTouching.value || !cardRef.value) {
     console.log('Touch move blocked:', { isTouching: isTouching.value, cardRef: !!cardRef.value })
     return
   }
-  
   const touch = event.touches[0]
   const deltaX = Math.abs(touch.clientX - initialTouch.value.x)
   const deltaY = Math.abs(touch.clientY - initialTouch.value.y)
-  
-  // 더블 탭과 구분하기 위해 최소한의 이동이 있을 때만 드래그로 인식
   if (deltaX > 3 || deltaY > 3) {
     isDragging.value = true
-    // 드래그 시작되면 탭 카운트 리셋
     tapCount.value = 0
     lastTapTime.value = 0
     console.log('드래그 감지 - 탭 카운트 리셋')
   }
-  
-  // Vue의 prevent 모디파이어로 처리됨
-  
-  // 드래그 중일 때만 3D 애니메이션 적용
   if (isDragging.value) {
     const rect = cardRef.value.getBoundingClientRect()
     const x = touch.clientX - rect.left
     const y = touch.clientY - rect.top
-    
     const centerX = rect.width / 2
     const centerY = rect.height / 2
-    
-    const rotateX = (y - centerY) / centerY * -20 // -20 to 20 degrees
-    const rotateY = (x - centerX) / centerX * 20 // -20 to 20 degrees
-    
-    console.log('Touch drag - 3D Animation ACTIVE:', { 
-      touch: { x: touch.clientX, y: touch.clientY },
-      rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
-      center: { x: centerX, y: centerY },
-      rotation: { rotateX, rotateY }, 
-      isDragging: isDragging.value,
-      delta: { deltaX, deltaY }
-    })
-    
-    // 즉시 3D 회전 적용 (카드 뒤집기 상태 고려)
+    const rotateX = (y - centerY) / centerY * -20
+    const rotateY = (x - centerX) / centerX * 20
+    console.log('Touch drag - 3D Animation ACTIVE:', { rotation: { rotateX, rotateY }})
     if (isCardFlipped.value) {
       cardRef.value.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY + 180}deg)`
     } else {
       cardRef.value.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
     }
-    
     cardRef.value.style.setProperty('--rotate-x', `${rotateX}deg`)
     cardRef.value.style.setProperty('--rotate-y', `${rotateY}deg`)
+    updateShineVars(x, y, rect)
   }
 }
 
 const handleTouchEnd = () => {
   console.log('Touch end event triggered!')
-  
   const touchDuration = Date.now() - touchStartTime.value
   const currentTime = Date.now()
-  
-  console.log('Touch end:', { 
-    duration: touchDuration, 
-    isDragging: isDragging.value,
-    isMobile: isMobile.value,
-    isTouching: isTouching.value,
-    tapCount: tapCount.value
-  })
-  
-  // 드래그하지 않았고 빠른 탭일 때만 탭으로 처리
+  console.log('Touch end:', { duration: touchDuration, isDragging: isDragging.value })
+
   if (!isDragging.value && touchDuration < 250) {
     const timeSinceLastTap = currentTime - lastTapTime.value
-    
     if (timeSinceLastTap < doubleTapDelay.value) {
-      // 더블 탭 감지
       tapCount.value++
-      console.log(`탭 카운트: ${tapCount.value}`)
-      
       if (tapCount.value >= 2) {
         console.log('더블 탭 감지! 카드 뒤집기')
-        
-        // 시각적 피드백 추가
         if (cardRef.value) {
           cardRef.value.classList.add('double-tap-feedback')
-          setTimeout(() => {
-            if (cardRef.value) {
-              cardRef.value.classList.remove('double-tap-feedback')
-            }
-          }, 300)
+          setTimeout(() => { cardRef.value && cardRef.value.classList.remove('double-tap-feedback') }, 300)
         }
-        
         flipCard()
-        tapCount.value = 0 // 카운트 리셋
+        tapCount.value = 0
         lastTapTime.value = 0
       }
     } else {
-      // 첫 번째 탭 또는 시간 초과로 새로운 탭 시퀀스 시작
       tapCount.value = 1
       console.log('첫 번째 탭 감지, 더블 탭 대기 중...')
     }
-    
     lastTapTime.value = currentTime
-    
-    // 더블 탭 대기 시간 후 자동으로 카운트 리셋
     setTimeout(() => {
       if (tapCount.value === 1) {
         console.log('더블 탭 시간 초과, 단일 탭으로 처리')
@@ -557,22 +485,16 @@ const handleTouchEnd = () => {
         lastTapTime.value = 0
       }
     }, doubleTapDelay.value)
-    
   } else if (isDragging.value) {
     console.log('Touch end - drag completed')
-    // 드래그 종료 시 탭 카운트 리셋
     tapCount.value = 0
     lastTapTime.value = 0
   }
-  
+
   isTouching.value = false
   isDragging.value = false
-  
-  // 터치 종료 후 상태에 따른 초기화
+
   if (!cardRef.value) return
-  
-  // CSS 클래스로 transition 관리하므로 별도 설정 불필요
-  
   if (isCardFlipped.value) {
     cardRef.value.style.transform = 'rotateX(0deg) rotateY(180deg)'
   } else {
@@ -580,54 +502,43 @@ const handleTouchEnd = () => {
   }
   cardRef.value.style.setProperty('--rotate-x', '0deg')
   cardRef.value.style.setProperty('--rotate-y', '0deg')
+  cardRef.value.style.setProperty('--shineX', '50%')
+  cardRef.value.style.setProperty('--shineY', '50%')
+  cardRef.value.style.setProperty('--shineO', '0.28')
 }
-
 
 onMounted(async () => {
   isMobile.value = detectMobile()
   console.log('모바일 감지 결과:', isMobile.value)
-  
-  // 사용자 정보 및 차량 정보 로드
   try {
     const token = localStorage.getItem('access_token')
     if (token) {
-      // 사용자 정보가 없으면 다시 불러오기
-      if (!userStore.me) {
-        await userStore.fetchMe(token)
-      }
-      // 차량 정보 불러오기
-      if (userStore.vehicles.length === 0) {
-        await userStore.fetchMyVehicles()
-      }
+      if (!userStore.me) { await userStore.fetchMe(token) }
+      if (userStore.vehicles.length === 0) { await userStore.fetchMyVehicles() }
     }
   } catch (error) {
     console.error('사용자 정보 로드 실패:', error)
   }
-  
-  // 전역 마우스 이벤트 리스너 추가 (카드 영역 밖에서 마우스 업 감지)
+
   const handleGlobalMouseUp = () => {
     if (isMouseDown.value) {
       console.log('Global mouse up - ending drag')
       handleMouseUp()
     }
   }
-  
   const handleGlobalMouseMove = (event: MouseEvent) => {
     if (isMouseDown.value && cardRef.value) {
       handleMouseMoveWhileDragging(event)
     }
   }
-  
   document.addEventListener('mouseup', handleGlobalMouseUp)
   document.addEventListener('mousemove', handleGlobalMouseMove)
-  
-  // 컴포넌트 언마운트 시 이벤트 리스너 정리
+
   onUnmounted(() => {
     document.removeEventListener('mouseup', handleGlobalMouseUp)
     document.removeEventListener('mousemove', handleGlobalMouseMove)
   })
-  
-  // 터치 이벤트 리스너 상태 확인
+
   if (cardRef.value) {
     console.log('카드 요소 이벤트 바인딩 상태 확인:', {
       touchstart: cardRef.value.ontouchstart,
@@ -638,13 +549,9 @@ onMounted(async () => {
       mouseup: cardRef.value.onmouseup
     })
   }
-  
-  // 3초 후 테스트 메시지
-  setTimeout(() => {
-    console.log('이벤트 테스트: 카드를 터치하거나 마우스로 드래그해보세요!')
-    console.log('더블 탭 테스트: 카드를 두 번 연속 빠르게 터치하면 뒷면으로 전환됩니다!')
-  }, 3000)
 })
+
+
 </script>
 
 <style scoped>
@@ -700,24 +607,58 @@ onMounted(async () => {
   --rotate-x: 0deg;
   --rotate-y: 0deg;
   --card-width: 280px;
+  --card-radius: 12px;
+  --card-border: 2px; 
+  border-radius: var(--card-radius);
+  border: var(--card-border) solid var(--border-color);
+  background: transparent;
   width: var(--card-width);
-  aspect-ratio: 5 / 7; /* 운전면허증 비율 */
+  aspect-ratio: 5 / 7;
   position: relative;
   cursor: pointer;
   transform-style: preserve-3d;
-  transition: transform 0.9s ease-in-out; /* 50% 느리게 조정 */
-  touch-action: none; /* 모바일에서 스크롤 방지 */
-  user-select: none; /* 텍스트 선택 방지 */
-  
-  /* 터치 영역 보장 */
+  transition: transform 0.9s ease-in-out;
+  touch-action: none;
+  user-select: none;
+
   min-height: 200px;
   min-width: 150px;
+
+  /* 홀로그램 팔레트 */
+  --c1: rgb(134, 243, 255);
+  --c2: rgb(255, 145, 244);
+
+  /* 🔸 script에서 주입됨 */
+  --border-color: #80411E;
+  --grade-gloss: 0.7;
+  --lp: 50%;
+  --tp: 50%;
+  --px_s: 50%;
+  --py_s: 50%;
+  --opc: 0.75;
+
+  background: transparent;
+  box-sizing: border-box;
+  background-clip: padding-box; 
 }
 
+.profile-card::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  z-index: -1;
+  background: transparent;
+}
+
+/* 기존 호버효과 유지 */
 .profile-card:hover {
   transition: transform 0.1s ease-out;
 }
 
+/* 플립 클래스는 기존대로 유지 */
 .profile-card.is-flipped {
   transform: rotateY(180deg);
 }
@@ -734,16 +675,82 @@ onMounted(async () => {
 .card-front,
 .card-back {
   position: absolute;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   backface-visibility: hidden;
-  border-radius: 12px;
+  border-radius: calc(var(--card-radius) - var(--card-border));
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   transition: box-shadow 0.3s ease;
-  pointer-events: auto; /* 터치 이벤트 활성화 */
+  box-sizing: border-box;
+  /* ✅ 각 면에 홀로그램을 붙이기 위해 기준 지정 */
+  isolation: isolate;
 }
 
+/* 🟡 움직이는 샤인(빛 하이라이트) 레이어: 마우스/터치 위치를 따라감 */
+.card-front::before,
+.card-back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  /* 하이라이트 중심 좌표 & 세기(스크립트에서 갱신) */
+  --shineX: 50%;
+  --shineY: 50%;
+  --shineO: 0.28;
+  /* 레퍼런스 느낌의 radial + 약한 스윕 조합 */
+  background:
+    radial-gradient(
+      circle at var(--shineX) var(--shineY),
+      rgba(255,255,255, calc(var(--shineO) * 0.95)) 0%,
+      rgba(255,255,255, calc(var(--shineO) * 0.60)) 16%,
+      rgba(255,255,255, calc(var(--shineO) * 0.25)) 32%,
+      rgba(255,255,255, 0) 60%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255,255,255, calc(var(--shineO) * 0.3)) 0%,
+      rgba(255,255,255, 0) 60%
+    );
+  mix-blend-mode: screen;           /* 밝은 면에서 더 잘 보이게 */
+  transition: background-position 60ms linear, opacity 120ms ease;
+  opacity: 1;                       /* 필요 시 0~1로 애니메이션 가능 */
+}
+
+/* ✅ 홀로그램 레이어를 '각 면'의 ::after 로 이동 */
+.card-front::after,
+.card-back::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: color-dodge;
+  border-radius: inherit;
+
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(
+      125deg,
+      #ff008450 15%,
+      #fca40040 30%,
+      #ffff0030 40%,
+      #00ff8a20 60%,
+      #00cfff40 70%,
+      #cc4cfa50 85%
+    );
+      background-size: 160%;
+  background-position: var(--px_s) var(--py_s);
+  background-blend-mode: overlay;
+
+  /* 등급에 따른 광택 강도 */
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  filter:
+    brightness(calc(1 + 0.25 * var(--grade-gloss)))
+    contrast(calc(1 + 0.15 * var(--grade-gloss)));
+}
+
+/* hover 시 상자 그림자 */
 .profile-card:hover .card-front,
 .profile-card:hover .card-back {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
@@ -753,16 +760,19 @@ onMounted(async () => {
   background: #FFFFFF;
 }
 
+/* ✅ 뒷면 안쪽 테두리도 등급색으로 동기화(원하면 이 줄만 삭제 가능) */
 .card-back {
   background: #EBE3D5;
-  border: 1px solid #B3B3B3;
+  border: 1px solid var(--border-color);
   transform: rotateY(180deg);
 }
 
 /* Front Side Styles */
 .profile-header {
   height: 50px;
-  background: #776B5D;
+  background: var(--header-color);
+  border-top-left-radius: calc(var(--card-radius) - var(--card-border));
+  border-top-right-radius: calc(var(--card-radius) - var(--card-border));
 }
 
 .profile-content {
@@ -878,7 +888,9 @@ onMounted(async () => {
 /* Back Side Styles */
 .back-header {
   height: 50px;
-  background: #776B5D;
+  background: var(--header-color);
+  border-top-left-radius: calc(var(--card-radius) - var(--card-border));
+  border-top-right-radius: calc(var(--card-radius) - var(--card-border));
 }
 
 .back-content {
@@ -931,7 +943,6 @@ onMounted(async () => {
   height: 30px;
   transition: left 0.3s ease;
   z-index: 2;
-  /* 마커가 grade-bar 영역을 벗어나지 않도록 제한 */
   max-width: calc(100% - 10px);
 }
 
@@ -1070,7 +1081,7 @@ onMounted(async () => {
   pointer-events: none !important;
 }
 
-/* 터치 영역 확장 */
+/* 🔸 기존 터치 영역 확장: 그대로 둠(홀로그램은 ::after 사용하므로 충돌 없음) */
 .profile-card::before {
   content: '';
   position: absolute;
@@ -1100,7 +1111,6 @@ onMounted(async () => {
     transition: none;
   }
   
-  /* 터치 시 시각적 피드백 제거 */
   .profile-card:active {
     /* transform 제거하여 JavaScript 제어와 충돌 방지 */
   }
