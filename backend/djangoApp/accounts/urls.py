@@ -32,7 +32,12 @@ from accounts.views.notifications import (
     notification_delete, 
     notification_delete_all, 
     notification_mark_all_read, 
-    notification_unread_count
+    notification_unread_count,
+    test_push_notification,
+    test_vehicle_entry_notification,
+    test_parking_complete_notification,
+    test_grade_upgrade_notification,
+    test_all_notifications
 )
 
 urlpatterns = [
@@ -167,4 +172,29 @@ urlpatterns = [
         notification_unread_count,
         name="notification-unread-count",
     ),  # GET: 읽지 않은 알림 개수
+    path(
+        "notifications/test-push/",
+        test_push_notification,
+        name="test-push-notification",
+    ),  # POST: 테스트 푸시 알림 전송
+    path(
+        "notifications/test-entry/",
+        test_vehicle_entry_notification,
+        name="test-vehicle-entry-notification",
+    ),  # POST: 테스트 입차 알림 전송
+    path(
+        "notifications/test-parking/",
+        test_parking_complete_notification,
+        name="test-parking-complete-notification",
+    ),  # POST: 테스트 주차 완료 알림 전송
+    path(
+        "notifications/test-grade/",
+        test_grade_upgrade_notification,
+        name="test-grade-upgrade-notification",
+    ),  # POST: 테스트 등급 승급 알림 전송
+    path(
+        "notifications/test-all/",
+        test_all_notifications,
+        name="test-all-notifications",
+    ),  # POST: 모든 알림 타입 순차 테스트
 ]
