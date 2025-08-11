@@ -6,9 +6,9 @@
 			<div class="title-wrapper">
 				<p class="title">주차 이벤트 로그</p>
 				<div class="push-control">
-					<input v-model="pushPlate" placeholder="차량번호 입력" />
-					<button @click="manualEntrance">수동입차</button>
-					<button @click="sendPush">푸시 발송</button>
+					<input v-model="pushPlate" placeholder="차량번호 입력" class="push-input" />
+					<button class="btn btn--primary" @click="manualEntrance">수동입차</button>
+					<button class="btn btn--outline" @click="sendPush">푸시 발송</button>
 				</div>
 			</div>
 
@@ -18,27 +18,43 @@
 						<thead>
 							<tr>
 								<th>차량 번호</th>
-								<th>주차 위치(임시 모델)</th>
+								<th>배정/주차 정보</th>
 								<th>입차 시각</th>
 								<th>주차 시각</th>
 								<th>출차 시각</th>
 								<th>상태</th>
 								<th>액션</th>
-								<!-- 추가 -->
 							</tr>
 						</thead>
 						<tbody>
-							<tr v-for="evt in logs" :key="evt.id">
-								<td>{{ evt.license_plate }}</td>
-								<td>{{ evt.location }}</td>
+							<tr v-for="evt in logs" :key="evt.id" class="log-row">
+								<td class="mono">{{ evt.license_plate }}</td>
+								<td>
+									<template v-if="evt.assigned_space">
+										{{ evt.assigned_space.label }}
+										<small class="slot-status" v-if="evt.assigned_space.status"> · {{ evt.assigned_space.status }} </small>
+									</template>
+									<template v-else>배정안됨</template>
+								</td>
 								<td>{{ formatDate(evt.entrance_time) }}</td>
 								<td>{{ formatDate(evt.parking_time) }}</td>
 								<td>{{ formatDate(evt.exit_time) }}</td>
 
-								<td>{{ evt.status }}</td>
 								<td>
-									<button @click="manualParking(evt.vehicle_id)">주차완료</button>
-									<button @click="manualExit(evt.vehicle_id)">출차</button>
+									<span
+										class="status-badge"
+										:class="{
+											'is-entrance': evt.status === 'Entrance',
+											'is-parking': evt.status === 'Parking',
+											'is-exit': evt.status === 'Exit',
+										}"
+									>
+										{{ evt.status }}
+									</span>
+								</td>
+								<td class="actions">
+									<button class="btn btn--ghost" @click="manualParking(evt.vehicle_id)">주차완료</button>
+									<button class="btn btn--danger" @click="manualExit(evt.vehicle_id)">출차</button>
 								</td>
 							</tr>
 						</tbody>
@@ -182,6 +198,7 @@ export default defineComponent({
 		onMounted(async () => {
 			await fetchPage();
 
+			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
 			ws.onopen = () => {
 				console.log("[WebSocket] ✅ Connected");
@@ -245,6 +262,7 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* ───────── Layout ───────── */
 .page-wrapper {
 	display: flex;
 	flex-direction: column;
@@ -262,42 +280,91 @@ export default defineComponent({
 	align-items: flex-start;
 }
 
-.title {
-	font-size: 36px;
-	font-weight: 700;
-	font-family: "Inter-Bold", Helvetica;
-	color: #333333;
-	margin-bottom: 32px;
-}
-
 .title-wrapper {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	width: 100%;
 }
+
+.title {
+	font-size: 36px;
+	font-weight: 700;
+	color: #333333;
+}
+
+/* ───────── Push Control ───────── */
 .push-control {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-}
-.push-control input {
-	padding: 6px 8px;
-	border: 1px solid #ccc;
-	border-radius: 4px;
-}
-.push-control button {
-	padding: 6px 12px;
-	background-color: #a29280;
-	color: #fff;
-	border: none;
-	border-radius: 4px;
-	cursor: pointer;
-}
-.push-control button:hover {
-	background-color: #6e6257;
+	gap: 10px;
 }
 
+.push-input {
+	height: 36px;
+	padding: 0 12px;
+	border: 1px solid #d8d0c7;
+	border-radius: 8px;
+	outline: none;
+	transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.push-input:focus {
+	border-color: #a29280;
+	box-shadow: 0 0 0 3px rgba(162, 146, 128, 0.18);
+}
+
+/* ───────── Buttons ───────── */
+.btn {
+	appearance: none;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	padding: 8px 14px;
+	font-weight: 700;
+	cursor: pointer;
+	transition: transform 0.08s ease, background-color 0.2s ease, border-color 0.2s ease;
+	user-select: none;
+}
+.btn:active {
+	transform: translateY(1px);
+}
+
+.btn--primary {
+	background-color: #a29280;
+	color: #fff;
+}
+.btn--primary:hover {
+	background-color: #8e7f6f;
+}
+
+.btn--outline {
+	background-color: transparent;
+	color: #6e6257;
+	border: 1px solid #cfc6ba;
+}
+.btn--outline:hover {
+	background-color: #efe9e2;
+	border-color: #b8aa9a;
+}
+
+.btn--ghost {
+	background: #ffffff;
+	color: #6e6257;
+	border: 1px solid #e6dfd6;
+}
+.btn--ghost:hover {
+	background: #f4efe9;
+	border-color: #d5c9bb;
+}
+
+.btn--danger {
+	background: #c36a6a;
+	color: #fff;
+}
+.btn--danger:hover {
+	background: #b25858;
+}
+
+/* ───────── Card ───────── */
 .card {
 	background-color: #faf8f5;
 	width: 100%;
@@ -308,9 +375,13 @@ export default defineComponent({
 	box-sizing: border-box;
 }
 
+/* ───────── Log Table ───────── */
 .log-table-wrapper {
 	width: 100%;
-	overflow-x: auto;
+	overflow: auto;
+	border: 1px solid #e6dfd6;
+	border-radius: 12px;
+	background: #ffffff;
 }
 
 .log-table {
@@ -318,59 +389,117 @@ export default defineComponent({
 	border-collapse: collapse;
 }
 
-.log-table th {
-	text-align: left;
-	padding: 12px;
-	font-weight: 600;
-	color: #333333;
-	border-bottom: 1px solid #ccc;
+.log-table thead th {
+	position: sticky;
+	top: 0;
+	background: linear-gradient(180deg, #fbfaf8 0%, #f6f3ef 100%);
+	z-index: 1;
+	font-size: 16px;
+	letter-spacing: 0.2px;
+	color: #5a5249;
+	border-bottom: 1px solid #e6dfd6;
 }
 
+.log-table th,
 .log-table td {
-	padding: 12px;
-	color: #666666;
-	border: none;
+	padding: 12px 14px;
+	font-size: 15px;
+	vertical-align: middle;
+	text-align: center; /* 가운데 정렬 */
 }
 
-.pagination {
-	margin-top: auto; /* 위쪽 여백을 자동으로 채워서 맨 아래로 */
+.log-table tbody tr:nth-child(odd) {
+	background: #faf7f3;
+}
+.log-table tbody tr:hover {
+	background: #f2ede7;
+}
+
+.mono {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-variant-numeric: tabular-nums;
+}
+
+td.actions {
 	display: flex;
-	justify-content: center; /* 중앙 정렬 */
-	padding-top: 16px;
-	border-top: 1px solid #e0e0e0; /* 분리선 */
+	justify-content: center; /* 버튼도 가운데 */
+	gap: 8px;
 }
 
+/* ───────── Status Badges ───────── */
+.status-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 800;
+	letter-spacing: 0.2px;
+	border: 1px solid transparent;
+}
+.status-badge.is-entrance {
+	color: #24577a;
+	background: #e6f4ff;
+	border-color: #cde7fb;
+}
+.status-badge.is-parking {
+	color: #2f6b4f;
+	background: #e9f7ef;
+	border-color: #cfeadb;
+}
+.status-badge.is-exit {
+	color: #7a2a2a;
+	background: #ffefef;
+	border-color: #f3d4d4;
+}
+
+/* ───────── Pagination ───────── */
+.pagination {
+	margin-top: auto;
+	display: flex;
+	justify-content: center;
+	padding-top: 16px;
+	border-top: 1px solid #e0e0e0;
+	gap: 12px; /* 버튼 사이 간격 */
+}
 .pagination button {
-	margin: 0 8px;
-	padding: 8px 16px;
-	border: none;
-	border-radius: 4px;
+	all: unset;
+	padding: 8px 14px;
+	border-radius: 8px;
 	background-color: #a29280;
 	color: #ffffff;
-	font-weight: 600;
+	font-weight: 700;
 	cursor: pointer;
-	transition: background-color 0.3s;
+	transition: background-color 0.2s ease, transform 0.08s ease;
 }
-
+.pagination button:hover {
+	background-color: #8e7f6f;
+}
+.pagination button:active {
+	transform: translateY(1px);
+}
 .pagination button:disabled {
-	background-color: #cccccc;
+	background-color: #d7cec4;
+	color: #fff;
 	cursor: not-allowed;
+	transform: none;
 }
 
-.pagination button:not(:disabled):hover {
-	background-color: #6e6257;
-}
-/* Mobile 대응 */
+/* ───────── Responsive ───────── */
 @media (max-width: 768px) {
 	.container {
 		padding: 32px 24px;
 	}
 	.title {
 		font-size: 28px;
-		margin-bottom: 24px;
 	}
 	.card {
 		padding: 24px;
 	}
+}
+.slot-status {
+	margin-left: 4px;
+	font-size: 12px;
+	color: #6b7280; /* slate-500 느낌 */
 }
 </style>

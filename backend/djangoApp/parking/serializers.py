@@ -4,6 +4,13 @@ from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
 from vehicles.models import Vehicle
 
 
+# 수동 배정 요청 시리얼라이저
+class AssignRequestSerializer(serializers.Serializer):
+    license_plate = serializers.CharField()
+    zone = serializers.CharField()
+    slot_number = serializers.IntegerField()
+
+
 class ParkingSpaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParkingSpace
@@ -11,18 +18,29 @@ class ParkingSpaceSerializer(serializers.ModelSerializer):
 
 
 class VehicleSimpleSerializer(serializers.ModelSerializer):
-    """차량 간단 정보 시리얼라이저"""
+    """차량 간단 정보 시리얼라이저 (FK 모델 이름/브랜드 안전 접근)"""
+
+    brand = serializers.SerializerMethodField()
+    model_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Vehicle
-        fields = ["id", "license_plate", "make", "model"]
+        fields = ["id", "license_plate", "brand", "model_name"]
+
+    def get_brand(self, obj):
+        # Vehicle.model.brand 가 없으면 None 반환
+        return getattr(getattr(obj, "model", None), "brand", None)
+
+    def get_model_name(self, obj):
+        # Vehicle.model.model_name 가 없으면 None 반환
+        return getattr(getattr(obj, "model", None), "model_name", None)
 
 
 class ParkingAssignmentSerializer(serializers.ModelSerializer):
-    """주차 배정 시리얼라이저"""
-
     space_display = serializers.CharField(source="space", read_only=True)
     vehicle = VehicleSimpleSerializer(read_only=True)
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    space = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = ParkingAssignment

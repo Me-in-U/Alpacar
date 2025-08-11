@@ -3,15 +3,16 @@
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
+from events.broadcast import broadcast_active_vehicles
+from parking.models import ParkingAssignment
 from vehicles.models import Vehicle
 
 from .models import VehicleEvent
 from .serializers import VehicleEventSerializer
-
-from rest_framework.pagination import PageNumberPagination
 
 
 class VehicleEventPagination(PageNumberPagination):
@@ -21,7 +22,7 @@ class VehicleEventPagination(PageNumberPagination):
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def list_vehicle_events(request):
-    qs = VehicleEvent.objects.select_related("vehicle").order_by("-id")
+    qs = VehicleEvent.objects.select_related("vehicle").order_by("-id")  # 번호판 용
     paginator = VehicleEventPagination()
     page = paginator.paginate_queryset(qs, request)
     serializer = VehicleEventSerializer(page, many=True)
@@ -57,11 +58,14 @@ def manual_entrance(request):
             exit_time=None,
             status="Entrance",
         )
+        # 입차 목록 갱신 트리거
+        broadcast_active_vehicles()
         ser = VehicleEventSerializer(ev)
         return Response(ser.data, status=status.HTTP_201_CREATED)
 
     # 이미 Entrance/Parking 등 진행 중이면 그 이벤트 그대로 반환
     ser = VehicleEventSerializer(last_event)
+    broadcast_active_vehicles()
     return Response(ser.data, status=status.HTTP_200_OK)
 
 
@@ -90,7 +94,26 @@ def manual_parking_complete(request, vehicle_id):
     ev.parking_time = now
     ev.status = "Parking"
     ev.save()
+    broadcast_active_vehicles()
+    #  이 입차 이벤트에 대한 배정이 있으면 슬롯도 occupied 처리
+    try:
+        pa = ParkingAssignment.objects.select_related("space").get(
+            entrance_event=ev, status="ASSIGNED"
+        )
+        space = pa.space
+        if space:
+            space.status = "occupied"
+            space.save(update_fields=["status", "updated_at"])
 
+            # 슬롯 상태 브로드캐스트(색/상태 반영)
+            from parking.views import _broadcast_space
+
+            _broadcast_space(space)
+    except ParkingAssignment.DoesNotExist:
+        pass
+
+    # 입차 차량 패널 실시간 갱신 트리거
+    broadcast_active_vehicles()
     return Response(VehicleEventSerializer(ev).data, status=200)
 
 
@@ -120,5 +143,59 @@ def manual_exit(request, vehicle_id):
     ev.exit_time = now
     ev.status = "Exit"
     ev.save()
+    broadcast_active_vehicles()
+    #  배정이 있으면 완료 처리 + 슬롯 해제
+    try:
+        pa = ParkingAssignment.objects.select_related("space").get(
+            entrance_event=ev, status="ASSIGNED"
+        )
+        pa.status = "COMPLETED"
+        pa.end_time = now
+        pa.save(update_fields=["status", "end_time", "updated_at"])
 
-    return Response(VehicleEventSerializer(ev).data, status=status.HTTP_200_OK)
+        space = pa.space
+        if space:
+            space.status = "free"
+            space.current_vehicle = None
+            space.save(update_fields=["status", "current_vehicle", "updated_at"])
+            from parking.views import _broadcast_space
+
+            _broadcast_space(space)
+    except ParkingAssignment.DoesNotExist:
+        pass
+
+    return Response(VehicleEventSerializer(ev).data, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def active_vehicle_events(request):
+    qs = (
+        VehicleEvent.objects.select_related("vehicle", "vehicle__model")
+        .filter(exit_time__isnull=True)
+        .order_by("-id")
+    )
+
+    data = []
+    for ev in qs:
+        # FK: ParkingAssignment.entrance_event = ev
+        assignment = getattr(ev, "assignment", None)  # OneToOne 역참조
+        assigned = None
+        if assignment and assignment.space:
+            assigned = {
+                "zone": assignment.space.zone,
+                "slot_number": assignment.space.slot_number,
+                "label": f"{assignment.space.zone}{assignment.space.slot_number}",
+            }
+
+        data.append(
+            {
+                "id": ev.id,
+                "vehicle_id": ev.vehicle_id,
+                "license_plate": ev.vehicle.license_plate,
+                "entrance_time": ev.entrance_time,
+                "status": ev.status,
+                "assigned_space": assigned,  # ← 추가!
+            }
+        )
+    return Response({"results": data})
