@@ -18,7 +18,7 @@
 						<thead>
 							<tr>
 								<th>차량 번호</th>
-								<th>주차 위치(임시 모델)</th>
+								<th>배정/주차 정보</th>
 								<th>입차 시각</th>
 								<th>주차 시각</th>
 								<th>출차 시각</th>
@@ -29,7 +29,13 @@
 						<tbody>
 							<tr v-for="evt in logs" :key="evt.id" class="log-row">
 								<td class="mono">{{ evt.license_plate }}</td>
-								<td>{{ evt.location }}</td>
+								<td>
+									<template v-if="evt.assigned_space">
+										{{ evt.assigned_space.label }}
+										<small class="slot-status" v-if="evt.assigned_space.status"> · {{ evt.assigned_space.status }} </small>
+									</template>
+									<template v-else>배정안됨</template>
+								</td>
 								<td>{{ formatDate(evt.entrance_time) }}</td>
 								<td>{{ formatDate(evt.parking_time) }}</td>
 								<td>{{ formatDate(evt.exit_time) }}</td>
@@ -192,7 +198,8 @@ export default defineComponent({
 		onMounted(async () => {
 			await fetchPage();
 
-			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
+			// ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
+			ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
 			ws.onopen = () => {
 				console.log("[WebSocket] ✅ Connected");
 			};
@@ -489,5 +496,10 @@ td.actions {
 	.card {
 		padding: 24px;
 	}
+}
+.slot-status {
+	margin-left: 4px;
+	font-size: 12px;
+	color: #6b7280; /* slate-500 느낌 */
 }
 </style>

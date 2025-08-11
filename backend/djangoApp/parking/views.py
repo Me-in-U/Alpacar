@@ -10,7 +10,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
-from events.broadcast import broadcast_active_vehicles
+from events.broadcast import broadcast_active_vehicles, broadcast_parking_log_event
 from events.models import VehicleEvent
 from vehicles.models import Vehicle
 
@@ -322,6 +322,8 @@ def assign_space(request):
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
         _broadcast_space(new_space)
     broadcast_active_vehicles()
+    # ✅ VehicleEvent 단건도 즉시 브로드캐스트 (로그 화면 실시간 반영)
+    broadcast_parking_log_event(pa.entrance_event)
     return Response(
         ParkingAssignmentSerializer(pa).data, status=201 if created else 200
     )

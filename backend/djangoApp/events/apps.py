@@ -3,7 +3,9 @@ from django.apps import AppConfig
 
 
 class EventsConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
     name = "events"
 
     def ready(self):
-        import events.signals  # 시그널 등록
+        # 시그널 연결
+        import events.signals  # noqa

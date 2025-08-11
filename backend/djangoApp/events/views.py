@@ -22,7 +22,7 @@ class VehicleEventPagination(PageNumberPagination):
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def list_vehicle_events(request):
-    qs = VehicleEvent.objects.select_related("vehicle").order_by("-id")
+    qs = VehicleEvent.objects.select_related("vehicle").order_by("-id")  # 번호판 용
     paginator = VehicleEventPagination()
     page = paginator.paginate_queryset(qs, request)
     serializer = VehicleEventSerializer(page, many=True)
