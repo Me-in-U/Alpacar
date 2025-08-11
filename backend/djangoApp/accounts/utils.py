@@ -40,9 +40,12 @@ def create_notification(user, title, message, notification_type='system', data=N
         if hasattr(user, 'push_enabled') and user.push_enabled:
             try:
                 send_push_notification(user, title, message, data)
+                print(f"[PUSH] 푸시 알림 전송 요청: {user.email} - {title}")
             except Exception as push_error:
                 print(f"[PUSH ERROR] 푸시 전송 실패: {str(push_error)}")
                 # 푸시 전송 실패해도 알림 생성은 성공으로 처리
+        else:
+            print(f"[PUSH] 푸시 알림 비활성화됨: {user.email} (push_enabled={getattr(user, 'push_enabled', 'N/A')})")
         
         return notification
         
@@ -69,6 +72,7 @@ def send_push_notification(user, title, message, data=None):
         subscriptions = PushSubscription.objects.filter(user=user)
         
         if not subscriptions.exists():
+            print(f"[PUSH] 구독 정보 없음: {user.email} - 프론트엔드에서 service worker 구독 등록 필요")
             return
         
     except Exception as e:
@@ -117,7 +121,7 @@ def send_push_notification(user, title, message, data=None):
                 vapid_private_key=vapid_private_key,
                 vapid_claims=vapid_claims
             )
-            pass  # 성공 시 로그 생략
+            print(f"[PUSH SUCCESS] 푸시 전송 성공: {user.email}")
         except WebPushException as ex:
             if ex.response.status_code in [404, 410]:
                 subscription.delete()
