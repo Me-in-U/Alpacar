@@ -38,8 +38,8 @@
 					<!-- 차량 오버레이: 탑뷰 트래킹 (서버 fps에 맞춰 갱신) -->
 					<svg class="overlay" :width="layout.mapW" :height="layout.mapH">
 						<g v-for="obj in vehicles" :key="obj.track_id">
-							<polygon :points="toPoints(obj.corners)" fill="none" stroke="#ff0" stroke-width="2" />
-							<text :x="obj.center[0]" :y="obj.center[1]" font-size="36" fill="#ff0" text-anchor="middle">
+							<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" stroke="#ff0" stroke-width="2" />
+							<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="36" fill="#ff0" text-anchor="middle">
 								{{ obj.track_id }}
 							</text>
 						</g>
@@ -47,7 +47,13 @@
 
 					<!-- 레이아웃 행 반복: 왼쪽/차도/오른쪽 -->
 					<template v-for="(row, idx) in layout.rows" :key="'row-' + idx">
-						<div class="row">
+						<!-- 행별 좌우 오프셋 적용 -->
+						<div
+							class="row"
+							:style="{
+								marginLeft: (idx === 0 ? layout.offsetTopX : layout.offsetBottomX) + 'px',
+							}"
+						>
 							<!-- 왼쪽 슬롯들 -->
 							<template v-for="spot in row.left" :key="'L-' + spot">
 								<div class="slot" :id="spot" :class="statusClass(spot)">
@@ -63,9 +69,10 @@
 							<!-- 중앙 차도 -->
 							<div class="aisle"></div>
 
-							<!-- 오른쪽 슬롯들 -->
+							<!-- 오른쪽 슬롯들 (x 는 보이지 않는 placeholder 로 공간만 유지) -->
 							<template v-for="spot in row.right" :key="'R-' + spot">
-								<div class="slot" :id="spot" :class="statusClass(spot)">
+								<div v-if="spot === 'x'" class="slot slot--placeholder" aria-hidden="true"></div>
+								<div v-else class="slot" :id="spot" :class="statusClass(spot)" :style="idx === 0 ? { height: layout.topRightSlotH + 'px' } : undefined">
 									<span class="slot-label">{{ spot }}</span>
 									<div class="slot-actions">
 										<button class="btn-mini" @click.stop="setSlot(spot, 'free')">F</button>
@@ -111,17 +118,25 @@ export default defineComponent({
 		const layout = reactive({
 			mapW: 900, // 지도 가로(px)
 			mapH: 550, // 지도 세로(px)
-			slotW: 90, // 슬롯 가로(px)
+			slotW: 85, // 슬롯 가로(px)
 			slotH: 150, // 슬롯 세로(px)
 			slotGap: 6, // 슬롯 간격(px)
-			aisleW: 36, // 중앙 차도 폭(px)
+			aisleW: 28, // 중앙 차도 폭(px)
 			dividerMargin: 110, // 행/행 사이 분리선 여백(px)
 			showDivider: true, // 첫 행/둘째 행 사이 분리선 표시 여부
 			bgColor: "#4c4c4c", // 지도 배경색
+			// 차량 좌표 오프셋 (웹소켓 수신 좌표에 일괄 적용)
+			carOffsetX: 5,
+			carOffsetY: 0,
+			// 좌우 오프셋 (px) - 첫 번째(상단) / 두 번째(하단) 행
+			offsetTopX: 0,
+			offsetBottomX: 0,
+			// 상단 행 right 슬롯 전용 높이(기본 slotH 보다 작게 설정 가능)
+			topRightSlotH: 135,
 			// 행 구성(왼쪽/오른쪽):
 			rows: [
-				{ left: ["A5", "A4", "A3"], right: ["A2", "A1"] },
-				{ left: ["B3", "B2", "B1"], right: ["C3", "C2", "C1"] },
+				{ left: ["B1", "B2", "B3"], right: ["C1", "C2", "C3"] },
+				{ left: ["A1", "A2", "A3"], right: ["A4", "A5", "x"] },
 			],
 		});
 
@@ -133,6 +148,7 @@ export default defineComponent({
 		function initStatusMap() {
 			layout.rows.forEach((row) => {
 				[...row.left, ...row.right].forEach((spot) => {
+					if (spot === "x") return; // placeholder 제외
 					if (!(spot in statusMap)) statusMap[spot] = "free";
 				});
 			});
@@ -221,10 +237,10 @@ export default defineComponent({
 		/* =========================================================
        5) 도우미(좌표 변환, 슬롯 변경)
        ========================================================= */
-		function toPoints(c: number[]) {
-			// [x1,y1,x2,y2,…] → "x1,y1 x2,y2 …"
+		function toPoints(c: number[], offsetX = 0, offsetY = 0) {
+			// [x1,y1,x2,y2,…] → "x1,y1 x2,y2 …" (오프셋 적용)
 			const pts: string[] = [];
-			for (let i = 0; i < c.length; i += 2) pts.push(`${c[i]},${c[i + 1]}`);
+			for (let i = 0; i < c.length; i += 2) pts.push(`${c[i] + offsetX},${c[i + 1] + offsetY}`);
 			return pts.join(" ");
 		}
 
@@ -480,5 +496,10 @@ export default defineComponent({
 }
 .btn-mini:hover {
 	opacity: 1;
+}
+.slot--placeholder {
+	visibility: hidden;
+	border: 0;
+	background: transparent;
 }
 </style>
