@@ -7,6 +7,7 @@
 				<p class="title">주차 이벤트 로그</p>
 				<div class="push-control">
 					<input v-model="pushPlate" placeholder="차량번호 입력" />
+					<button @click="manualEntrance">수동입차</button>
 					<button @click="sendPush">푸시 발송</button>
 				</div>
 			</div>
@@ -101,6 +102,40 @@ export default defineComponent({
 				second: "2-digit",
 				hour12: false,
 			});
+		};
+		const manualEntrance = async () => {
+			const plate = pushPlate.value.trim();
+			if (!plate) {
+				alert("차량번호를 입력하세요");
+				return;
+			}
+			const token = localStorage.getItem("access_token");
+			try {
+				const res = await fetch(`${BACKEND_BASE_URL}/vehicles/manual-entrance/`, {
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ license_plate: plate }),
+				});
+				if (!res.ok) {
+					const err = await res.json().catch(() => ({}));
+					alert("수동입차 실패: " + (err.detail || err.message || res.status));
+					return;
+				}
+				const data = await res.json();
+
+				// 목록 갱신: 같은 id 있으면 교체, 없으면 맨 앞 삽입
+				const idx = logs.value.findIndex((e) => e.id === data.id);
+				if (idx >= 0) logs.value.splice(idx, 1, data);
+				else logs.value.unshift(data);
+
+				alert(res.status === 201 ? "입차 이벤트가 생성되었습니다." : "이미 진행 중인 이벤트를 반환했습니다.");
+			} catch (e) {
+				console.error(e);
+				alert("수동입차 처리 중 오류가 발생했습니다.");
+			}
 		};
 
 		const manualParking = async (vehicleId: number) => {
@@ -203,6 +238,7 @@ export default defineComponent({
 			goPrev,
 			pushPlate,
 			sendPush,
+			manualEntrance,
 		};
 	},
 });
