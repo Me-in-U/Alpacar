@@ -39,6 +39,13 @@ from accounts.views.notifications import (
     test_grade_upgrade_notification,
     test_all_notifications
 )
+from accounts.views.notification_test import (
+    create_custom_notification,
+    send_batch_notifications,
+    simulate_scenario,
+    test_status,
+    clear_test_notifications
+)
 
 urlpatterns = [
     # ─ 회원가입 / 로그인 / 토큰갱신 ──────────────────────────────────────────
@@ -197,4 +204,30 @@ urlpatterns = [
         test_all_notifications,
         name="test-all-notifications",
     ),  # POST: 모든 알림 타입 순차 테스트
+    # ── 고급 알림 테스트 기능 ──────────────────────────────────────────────
+    path(
+        "notifications/test-custom/",
+        create_custom_notification,
+        name="create-custom-notification",
+    ),  # POST: 사용자 정의 알림 생성
+    path(
+        "notifications/test-batch/",
+        send_batch_notifications,
+        name="send-batch-notifications",
+    ),  # POST: 배치 알림 전송
+    path(
+        "notifications/test-scenario/",
+        simulate_scenario,
+        name="simulate-scenario",
+    ),  # POST: 시나리오 시뮬레이션
+    path(
+        "notifications/test-status/",
+        test_status,
+        name="test-status",
+    ),  # GET: 테스트 상태 조회
+    path(
+        "notifications/test-clear/",
+        clear_test_notifications,
+        name="clear-test-notifications",
+    ),  # DELETE: 테스트 알림 삭제
 ]
