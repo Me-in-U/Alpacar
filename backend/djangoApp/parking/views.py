@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from events.broadcast import broadcast_active_vehicles, broadcast_parking_log_event
 from events.models import VehicleEvent
 from vehicles.models import Vehicle
+from accounts.utils import create_notification
 
 from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
 from .serializers import (
@@ -301,6 +302,26 @@ def assign_space(request):
         new_space.current_vehicle = vehicle
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
         _broadcast_space(new_space)
+        
+        # 푸시 알림 전송 - 주차 구역 배정 알림
+        try:
+            assignment_data = {
+                'plate_number': vehicle.license_plate,
+                'assigned_space': f'{new_space.zone}{new_space.slot_number}',
+                'assignment_time': timezone.now().isoformat(),
+                'admin_action': True
+            }
+            create_notification(
+                user=vehicle.user,
+                title="🅿️ 주차 구역 배정",
+                message=f"{vehicle.license_plate} 차량에 {new_space.zone}{new_space.slot_number} 구역이 배정되었습니다. 안내에 따라 주차해 주세요.",
+                notification_type='parking_assignment',
+                data=assignment_data
+            )
+            print(f"[ADMIN] 주차 배정 알림 전송됨: {vehicle.license_plate} -> {new_space.zone}{new_space.slot_number}")
+        except Exception as e:
+            print(f"[ADMIN ERROR] 주차 배정 알림 전송 실패: {str(e)}")
+            
     else:
         # 이미 배정이 있다 → 재배정(공간 교체)
         if pa.space_id == new_space.id:
@@ -321,6 +342,27 @@ def assign_space(request):
         new_space.current_vehicle = vehicle
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
         _broadcast_space(new_space)
+        
+        # 푸시 알림 전송 - 주차 구역 재배정 알림
+        try:
+            reassignment_data = {
+                'plate_number': vehicle.license_plate,
+                'old_space': f'{old_space.zone}{old_space.slot_number}' if old_space else None,
+                'new_space': f'{new_space.zone}{new_space.slot_number}',
+                'reassignment_time': timezone.now().isoformat(),
+                'admin_action': True
+            }
+            create_notification(
+                user=vehicle.user,
+                title="🔄 주차 구역 재배정",
+                message=f"{vehicle.license_plate} 차량의 주차 구역이 {new_space.zone}{new_space.slot_number}로 변경되었습니다.",
+                notification_type='parking_reassignment',
+                data=reassignment_data
+            )
+            print(f"[ADMIN] 주차 재배정 알림 전송됨: {vehicle.license_plate} -> {new_space.zone}{new_space.slot_number}")
+        except Exception as e:
+            print(f"[ADMIN ERROR] 주차 재배정 알림 전송 실패: {str(e)}")
+            
     broadcast_active_vehicles()
     # ✅ VehicleEvent 단건도 즉시 브로드캐스트 (로그 화면 실시간 반영)
     broadcast_parking_log_event(pa.entrance_event)
