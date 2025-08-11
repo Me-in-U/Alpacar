@@ -15,6 +15,48 @@ from ..utils import create_notification, send_vehicle_entry_notification, send_p
 from vehicles.models import Vehicle
 
 
+def _handle_notification_error(error, user, function_name, error_message=None):
+    """공통 알림 에러 처리 함수"""
+    import traceback
+    error_trace = traceback.format_exc()
+    print(f"[ERROR] {function_name}: {str(error)}")
+    
+    if not error_message:
+        error_message = f'알림 전송 실패: {str(error)}'
+    
+    return Response({
+        'error': error_message,
+        'error_type': type(error).__name__,
+        'debug': {
+            'user_id': user.id,
+            'user_email': user.email,
+            'push_enabled': getattr(user, 'push_enabled', 'Unknown'),
+            'function': function_name
+        }
+    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _check_user_push_settings(user):
+    """사용자 푸시 설정 확인 공통 함수"""
+    if not hasattr(user, 'push_enabled'):
+        return Response({
+            'error': '사용자 푸시 설정을 확인할 수 없습니다.',
+            'debug': 'User model does not have push_enabled field'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return None
+
+
+def _get_user_vehicle_info(user):
+    """사용자 차량 정보 조회 공통 함수"""
+    try:
+        user_vehicle = Vehicle.objects.filter(user=user).first()
+        plate_number = user_vehicle.license_plate if user_vehicle else 'TEST차량'
+        return user_vehicle, plate_number
+    except Exception as e:
+        print(f"[WARN] 사용자 차량 조회 실패: {str(e)}")
+        return None, 'TEST차량'
+
+
 class NotificationPagination(PageNumberPagination):
     """
     알림 목록 페이지네이션
@@ -140,11 +182,9 @@ def test_push_notification(request):
     user = request.user
     
     # 사용자 푸시 설정 확인
-    if not hasattr(user, 'push_enabled'):
-        return Response({
-            'error': '사용자 푸시 설정을 확인할 수 없습니다.',
-            'debug': 'User model does not have push_enabled field'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    error_response = _check_user_push_settings(user)
+    if error_response:
+        return error_response
     
     # 테스트 알림 데이터
     test_data = {
@@ -178,21 +218,7 @@ def test_push_notification(request):
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"[ERROR] test_push_notification: {str(e)}")
-        print(f"[TRACE] {error_trace}")
-        
-        return Response({
-            'error': f'푸시 알림 전송 실패: {str(e)}',
-            'error_type': type(e).__name__,
-            'debug': {
-                'user_id': user.id,
-                'user_email': user.email,
-                'push_enabled': getattr(user, 'push_enabled', 'Unknown'),
-                'trace': error_trace.split('\n')[-3:-1]  # 마지막 몇 줄만
-            }
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _handle_notification_error(e, user, 'test_push_notification', f'푸시 알림 전송 실패: {str(e)}')
 
 
 @api_view(["POST"])
@@ -204,20 +230,12 @@ def test_vehicle_entry_notification(request):
     user = request.user
     
     # 사용자 푸시 설정 확인
-    if not hasattr(user, 'push_enabled'):
-        return Response({
-            'error': '사용자 푸시 설정을 확인할 수 없습니다.',
-            'debug': 'User model does not have push_enabled field'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    error_response = _check_user_push_settings(user)
+    if error_response:
+        return error_response
     
     # 사용자 차량 정보 조회
-    user_vehicle = None
-    try:
-        user_vehicle = Vehicle.objects.filter(user=user).first()
-        plate_number = user_vehicle.license_plate if user_vehicle else 'TEST차량'
-    except Exception as e:
-        print(f"[WARN] 사용자 차량 조회 실패: {str(e)}")
-        plate_number = 'TEST차량'
+    user_vehicle, plate_number = _get_user_vehicle_info(user)
     
     # 테스트 입차 데이터 (실제 차량번호 및 현재 시간 사용)
     entry_data = {
@@ -254,21 +272,7 @@ def test_vehicle_entry_notification(request):
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"[ERROR] test_vehicle_entry_notification: {str(e)}")
-        print(f"[TRACE] {error_trace}")
-        
-        return Response({
-            'error': f'입차 알림 전송 실패: {str(e)}',
-            'error_type': type(e).__name__,
-            'debug': {
-                'user_id': user.id,
-                'user_email': user.email,
-                'push_enabled': getattr(user, 'push_enabled', 'Unknown'),
-                'trace': error_trace.split('\n')[-3:-1]  # 마지막 몇 줄만
-            }
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _handle_notification_error(e, user, 'test_vehicle_entry_notification', f'입차 알림 전송 실패: {str(e)}')
 
 
 @api_view(["POST"])
@@ -280,20 +284,12 @@ def test_parking_complete_notification(request):
     user = request.user
     
     # 사용자 푸시 설정 확인
-    if not hasattr(user, 'push_enabled'):
-        return Response({
-            'error': '사용자 푸시 설정을 확인할 수 없습니다.',
-            'debug': 'User model does not have push_enabled field'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    error_response = _check_user_push_settings(user)
+    if error_response:
+        return error_response
     
     # 사용자 차량 정보 조회
-    user_vehicle = None
-    try:
-        user_vehicle = Vehicle.objects.filter(user=user).first()
-        plate_number = user_vehicle.license_plate if user_vehicle else 'TEST차량'
-    except Exception as e:
-        print(f"[WARN] 사용자 차량 조회 실패: {str(e)}")
-        plate_number = 'TEST차량'
+    user_vehicle, plate_number = _get_user_vehicle_info(user)
     
     # 테스트 주차 완료 데이터 (실제 차량번호 및 현재 시간 사용)
     parking_data = {
@@ -336,21 +332,7 @@ def test_parking_complete_notification(request):
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"[ERROR] test_parking_complete_notification: {str(e)}")
-        print(f"[TRACE] {error_trace}")
-        
-        return Response({
-            'error': f'주차 완료 알림 전송 실패: {str(e)}',
-            'error_type': type(e).__name__,
-            'debug': {
-                'user_id': user.id,
-                'user_email': user.email,
-                'push_enabled': getattr(user, 'push_enabled', 'Unknown'),
-                'trace': error_trace.split('\n')[-3:-1]  # 마지막 몇 줄만
-            }
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _handle_notification_error(e, user, 'test_parking_complete_notification', f'주차 완료 알림 전송 실패: {str(e)}')
 
 
 @api_view(["POST"])
@@ -362,11 +344,9 @@ def test_grade_upgrade_notification(request):
     user = request.user
     
     # 사용자 푸시 설정 확인
-    if not hasattr(user, 'push_enabled'):
-        return Response({
-            'error': '사용자 푸시 설정을 확인할 수 없습니다.',
-            'debug': 'User model does not have push_enabled field'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    error_response = _check_user_push_settings(user)
+    if error_response:
+        return error_response
     
     # 테스트 등급 승급 데이터
     grade_levels = [
@@ -411,81 +391,9 @@ def test_grade_upgrade_notification(request):
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"[ERROR] test_grade_upgrade_notification: {str(e)}")
-        print(f"[TRACE] {error_trace}")
-        
-        return Response({
-            'error': f'등급 승급 알림 전송 실패: {str(e)}',
-            'error_type': type(e).__name__,
-            'debug': {
-                'user_id': user.id,
-                'user_email': user.email,
-                'push_enabled': getattr(user, 'push_enabled', 'Unknown'),
-                'trace': error_trace.split('\n')[-3:-1]  # 마지막 몇 줄만
-            }
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _handle_notification_error(e, user, 'test_grade_upgrade_notification', f'등급 승급 알림 전송 실패: {str(e)}')
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def test_all_notifications(request):
-    """
-    모든 알림 타입을 순차적으로 테스트하는 API
-    """
-    user = request.user
-    results = []
-    
-    try:
-        # 1. 입차 알림
-        entry_data = {
-            'plate_number': '220로1284',
-            'parking_lot': 'SSAFY 주차장',
-            'entry_time': '2025-01-08T10:30:00Z',
-            'test': True
-        }
-        send_vehicle_entry_notification(user, entry_data)
-        results.append({'type': 'vehicle_entry', 'status': 'success'})
-        
-        # 2. 주차 완료 알림 (3초 후)
-        import time
-        time.sleep(3)
-        
-        parking_data = {
-            'plate_number': '220로1284',
-            'parking_space': 'A5',
-            'parking_time': '2025-01-08T10:45:00Z',
-            'score': 85,
-            'test': True
-        }
-        send_parking_complete_notification(user, parking_data)
-        results.append({'type': 'parking_complete', 'status': 'success'})
-        
-        # 3. 등급 승급 알림 (3초 후)
-        time.sleep(3)
-        
-        grade_data = {
-            'old_grade': '중급자',
-            'new_grade': '고급자',
-            'current_score': user.score + 25,
-            'upgrade_time': '2025-01-08T11:00:00Z',
-            'test': True
-        }
-        send_grade_upgrade_notification(user, grade_data)
-        results.append({'type': 'grade_upgrade', 'status': 'success'})
-        
-        return Response({
-            'message': '모든 알림이 순차적으로 전송되었습니다.',
-            'results': results,
-            'total_sent': len(results)
-        }, status=status.HTTP_201_CREATED)
-        
-    except Exception as e:
-        return Response({
-            'error': f'알림 전송 실패: {str(e)}',
-            'results': results
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["GET"])
