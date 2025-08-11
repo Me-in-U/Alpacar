@@ -408,11 +408,26 @@ export default defineComponent({
         let success = false
         let apiUsed = ''
 
+        // 사용자 차량번호 가져오기 (있는 경우)
+        const getUserLicensePlate = async () => {
+          try {
+            const vehicleResponse = await apiCall('/vehicles/', 'GET')
+            if (vehicleResponse?.results?.length > 0) {
+              return vehicleResponse.results[0].license_plate
+            }
+          } catch (error) {
+            console.log('사용자 차량 정보 조회 실패:', error)
+          }
+          return 'TEST123' // 기본값
+        }
+
+        const licensePlate = await getUserLicensePlate()
+
         // 우선순위: 전용 테스트 API → 차량 API
         const testApis = [
           { url: '/notifications/test-push/', name: '테스트 API' },
           { url: '/vehicles/send-push/', name: '차량 API', body: { 
-            license_plate: 'TEST123', 
+            license_plate: licensePlate, 
             message: '🔔 푸시 알림 테스트입니다!' 
           }}
         ]
@@ -447,36 +462,64 @@ export default defineComponent({
         loading.value = true
         loadingMessage.value = '주차 플로우 테스트 중...'
 
+        // 사용자 차량번호 가져오기 (있는 경우)
+        const getUserLicensePlate = async () => {
+          try {
+            const vehicleResponse = await apiCall('/vehicles/', 'GET')
+            if (vehicleResponse?.results?.length > 0) {
+              return vehicleResponse.results[0].license_plate
+            }
+          } catch (error) {
+            console.log('사용자 차량 정보 조회 실패:', error)
+          }
+          return 'TEST123' // 기본값
+        }
+
+        const licensePlate = await getUserLicensePlate()
+
         // 입차 알림
+        let entrySuccess = false
         try {
-          await apiCall('/notifications/test-entry/')
+          await apiCall('/notifications/test-entry/', 'POST')
           addResult(true, '입차 알림이 전송되었습니다.', '테스트 API')
+          entrySuccess = true
         } catch (error) {
-          // 폴백: 차량 API
-          await apiCall('/vehicles/send-push/', 'POST', {
-            license_plate: 'TEST123',
-            message: '🚗 차량 입차가 감지되었습니다.'
-          })
-          addResult(true, '입차 알림이 전송되었습니다.', '차량 API')
+          try {
+            // 폴백: 차량 API
+            await apiCall('/vehicles/send-push/', 'POST', {
+              license_plate: licensePlate,
+              message: '🚗 차량 입차가 감지되었습니다.'
+            })
+            addResult(true, '입차 알림이 전송되었습니다.', '차량 API')
+            entrySuccess = true
+          } catch (fallbackError) {
+            addResult(false, `입차 알림 실패: ${fallbackError}`)
+          }
         }
 
-        // 3초 대기
-        await new Promise(resolve => setTimeout(resolve, 3000))
+        if (entrySuccess) {
+          // 3초 대기
+          await new Promise(resolve => setTimeout(resolve, 3000))
 
-        // 주차 완료 알림
-        try {
-          await apiCall('/notifications/test-parking/')
-          addResult(true, '주차 완료 알림이 전송되었습니다.', '테스트 API')
-        } catch (error) {
-          // 폴백: 차량 API
-          await apiCall('/vehicles/send-push/', 'POST', {
-            license_plate: 'TEST123',
-            message: '🅿️ 주차가 완료되었습니다. 점수: 90점'
-          })
-          addResult(true, '주차 완료 알림이 전송되었습니다.', '차량 API')
+          // 주차 완료 알림
+          try {
+            await apiCall('/notifications/test-parking/', 'POST')
+            addResult(true, '주차 완료 알림이 전송되었습니다.', '테스트 API')
+          } catch (error) {
+            try {
+              // 폴백: 차량 API
+              await apiCall('/vehicles/send-push/', 'POST', {
+                license_plate: licensePlate,
+                message: '🅿️ 주차가 완료되었습니다. 점수: 90점'
+              })
+              addResult(true, '주차 완료 알림이 전송되었습니다.', '차량 API')
+            } catch (fallbackError) {
+              addResult(false, `주차 완료 알림 실패: ${fallbackError}`)
+            }
+          }
+
+          addResult(true, '주차 플로우 테스트가 완료되었습니다!')
         }
-
-        addResult(true, '주차 플로우 테스트가 완료되었습니다!')
 
       } catch (error) {
         addResult(false, `주차 플로우 테스트 실패: ${error}`)
@@ -491,22 +534,78 @@ export default defineComponent({
         loading.value = true
         loadingMessage.value = '시스템 테스트 중...'
 
+        // 사용자 차량번호 가져오기 (폴백 API용)
+        const getUserLicensePlate = async () => {
+          try {
+            const vehicleResponse = await apiCall('/vehicles/', 'GET')
+            if (vehicleResponse?.results?.length > 0) {
+              return vehicleResponse.results[0].license_plate
+            }
+          } catch (error) {
+            console.log('사용자 차량 정보 조회 실패:', error)
+          }
+          return 'TEST123' // 기본값
+        }
+
+        const licensePlate = await getUserLicensePlate()
+
         const tests = [
-          { url: '/notifications/test-push/', name: '기본 푸시' },
-          { url: '/notifications/test-entry/', name: '입차 알림' },
-          { url: '/notifications/test-parking/', name: '주차 완료' },
-          { url: '/notifications/test-grade/', name: '등급 승급' }
+          { 
+            url: '/notifications/test-push/', 
+            name: '기본 푸시',
+            fallback: { 
+              url: '/vehicles/send-push/', 
+              body: { license_plate: licensePlate, message: '🔔 기본 푸시 테스트' }
+            }
+          },
+          { 
+            url: '/notifications/test-entry/', 
+            name: '입차 알림',
+            fallback: { 
+              url: '/vehicles/send-push/', 
+              body: { license_plate: licensePlate, message: '🚗 입차 알림 테스트' }
+            }
+          },
+          { 
+            url: '/notifications/test-parking/', 
+            name: '주차 완료',
+            fallback: { 
+              url: '/vehicles/send-push/', 
+              body: { license_plate: licensePlate, message: '🅿️ 주차 완료 테스트' }
+            }
+          },
+          { 
+            url: '/notifications/test-grade/', 
+            name: '등급 승급',
+            fallback: { 
+              url: '/vehicles/send-push/', 
+              body: { license_plate: licensePlate, message: '🎉 등급 승급 테스트' }
+            }
+          }
         ]
 
         let successCount = 0
         for (const test of tests) {
+          let testSuccess = false
+          
+          // 기본 API 시도
           try {
-            await apiCall(test.url)
+            await apiCall(test.url, 'POST')
             addResult(true, `${test.name} 테스트 성공`, '테스트 API')
+            testSuccess = true
             successCount++
           } catch (error) {
-            addResult(false, `${test.name} 테스트 실패`, 'API 없음')
+            // 폴백 API 시도
+            try {
+              await apiCall(test.fallback.url, 'POST', test.fallback.body)
+              addResult(true, `${test.name} 테스트 성공`, '차량 API')
+              testSuccess = true
+              successCount++
+            } catch (fallbackError) {
+              addResult(false, `${test.name} 테스트 실패: ${fallbackError}`)
+            }
           }
+          
           await new Promise(resolve => setTimeout(resolve, 1000))
         }
 
@@ -551,10 +650,25 @@ export default defineComponent({
         loading.value = true
         loadingMessage.value = `배치 알림 ${batchSettings.count}개 전송 중...`
 
+        // 사용자 차량번호 가져오기 (있는 경우)
+        const getUserLicensePlate = async () => {
+          try {
+            const vehicleResponse = await apiCall('/vehicles/', 'GET')
+            if (vehicleResponse?.results?.length > 0) {
+              return vehicleResponse.results[0].license_plate
+            }
+          } catch (error) {
+            console.log('사용자 차량 정보 조회 실패:', error)
+          }
+          return 'TEST123' // 기본값
+        }
+
+        const licensePlate = await getUserLicensePlate()
+
         for (let i = 0; i < batchSettings.count; i++) {
           try {
             await apiCall('/vehicles/send-push/', 'POST', {
-              license_plate: 'TEST123',
+              license_plate: licensePlate,
               message: `🔔 배치 테스트 알림 #${i + 1}`
             })
             addResult(true, `배치 알림 #${i + 1} 전송 성공`)
