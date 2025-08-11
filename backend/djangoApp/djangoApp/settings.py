@@ -129,6 +129,9 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "django.contrib.messages",
     "channels",
+    # Celery
+    "django_celery_results",
+    "django_celery_beat",
     # Custom 앱
     "accounts",
     "streamapp",
@@ -281,6 +284,9 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
     },
 }
+
+# ===== 푸시 알림 설정 =====
+# VAPID 키는 상단에 정의됨
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -309,7 +315,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Seoul"
 
 USE_I18N = True
 

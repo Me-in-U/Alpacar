@@ -10,7 +10,8 @@ from rest_framework.response import Response
 from events.broadcast import broadcast_active_vehicles
 from parking.models import ParkingAssignment, ParkingSpace
 from vehicles.models import Vehicle
-from accounts.utils import send_vehicle_entry_notification, send_parking_complete_notification, create_notification
+from accounts.notification_helpers import send_vehicle_entry_notification, send_parking_complete_notification, send_vehicle_exit_notification
+from accounts.utils import create_notification
 
 from .models import VehicleEvent
 from .serializers import VehicleEventSerializer
@@ -144,37 +145,23 @@ def manual_parking_complete(request, vehicle_id):
             # parking_assignment 테이블의 status를 COMPLETED로 업데이트 (아직 안 함 - 출차할 때 함)
             # 주차 완료 시에는 아직 ASSIGNED 상태 유지
             
-            # 푸시 알림 전송 - 주차 완료 알림 (정확한 DB 조회)
+            # 푸시 알림 전송 - 주차 완료 알림 (Celery 큐잉)
             try:
-                # parking_assignment 테이블에서 space_id 조회
-                current_assignment = ParkingAssignment.objects.select_related('space').get(
-                    entrance_event=ev, status="ASSIGNED"
-                )
-                space_id = current_assignment.space.id
-                
-                # parking_space 테이블에서 id값으로 zone, slot_number 조회
-                parking_space_detail = ParkingSpace.objects.get(id=space_id)
-                zone = parking_space_detail.zone
-                slot_number = parking_space_detail.slot_number
-                
-                print(f"[DB QUERY] parking_assignment 주차완료: assignment_id={current_assignment.id} -> space_id={space_id}")
-                print(f"[DB QUERY] parking_space 주차구역: id={space_id} -> zone={zone}, slot_number={slot_number}")
-                
-                # 간단한 점수 계산 (실제 구현에서는 더 복잡할 수 있음)
+                # 간단한 점수 계산
                 import random
                 score = random.randint(70, 95)
                 
                 parking_data = {
                     'plate_number': vehicle.license_plate,
-                    'parking_space': f'{zone}{slot_number}',
+                    'parking_space': space_label or '배정된 구역',
                     'parking_time': now.isoformat(),
                     'score': score,
                     'admin_action': True
                 }
-                send_parking_complete_notification(vehicle.user, parking_data)
-                print(f"[ADMIN] 주차 완료 알림 전송됨: {vehicle.license_plate} -> {zone}{slot_number} ({score}점, space_id: {space_id})")
+                result = send_parking_complete_notification(vehicle.user, parking_data)
+                print(f"[ADMIN] 주차 완료 알림 큐잉: {vehicle.license_plate} -> {space_label} ({score}점, task: {result.get('task_id', 'sync')})")
             except Exception as e:
-                print(f"[ADMIN ERROR] 주차 완료 알림 전송 실패: {str(e)}")
+                print(f"[ADMIN ERROR] 주차 완료 알림 큐잉 실패: {str(e)}")
                 
     except ParkingAssignment.DoesNotExist:
         # 배정이 없는 경우에도 기본 주차 완료 알림 전송
@@ -186,8 +173,8 @@ def manual_parking_complete(request, vehicle_id):
                 'score': None,
                 'admin_action': True
             }
-            send_parking_complete_notification(vehicle.user, parking_data)
-            print(f"[ADMIN] 주차 완료 알림 전송됨 (배정 없음): {vehicle.license_plate}")
+            result = send_parking_complete_notification(vehicle.user, parking_data)
+            print(f"[ADMIN] 주차 완료 알림 전송 (배정 없음): {vehicle.license_plate} (알림 ID: {result.id if hasattr(result, 'id') else 'N/A'})")
         except Exception as e:
             print(f"[ADMIN ERROR] 주차 완료 알림 전송 실패 (배정 없음): {str(e)}")
 
@@ -258,65 +245,34 @@ def manual_exit(request, vehicle_id):
             else:
                 parking_duration = f"{minutes}분"
         
-        # 푸시 알림 전송 - 출차 완료 알림 (정확한 DB 조회)
+        # 푸시 알림 전송 - 출차 완료 알림 (Celery 큐잉)
         try:
-            # parking_assignment 테이블의 status가 COMPLETED로 업데이트된 후 정확한 주차 구역 정보 조회
-            completed_assignment = ParkingAssignment.objects.select_related('space').get(
-                entrance_event=ev, status="COMPLETED"
-            )
-            space_id = completed_assignment.space.id
-            
-            # parking_space 테이블에서 id값으로 zone, slot_number 조회
-            parking_space_detail = ParkingSpace.objects.get(id=space_id)
-            zone = parking_space_detail.zone
-            slot_number = parking_space_detail.slot_number
-            
-            print(f"[DB QUERY] parking_assignment 출차완료: assignment_id={completed_assignment.id} -> space_id={space_id} (status: COMPLETED)")
-            print(f"[DB QUERY] parking_space 출차구역: id={space_id} -> zone={zone}, slot_number={slot_number}")
-            
             exit_data = {
                 'plate_number': vehicle.license_plate,
-                'parking_space': f'{zone}{slot_number}',
+                'parking_space': space_label or '주차 구역',
                 'exit_time': now.isoformat(),
                 'parking_duration': parking_duration,
-                'admin_action': True,
-                'action_url': '/parking-recommend',  # 알림 터치 시 parking-recommend페이지로 이동
-                'action_type': 'navigate'
+                'admin_action': True
             }
-            create_notification(
-                user=vehicle.user,
-                title="🚗 출차 완료",
-                message=f"{vehicle.license_plate} 차량이 {zone}{slot_number} 구역에서 출차 완료되었습니다." + 
-                       (f" 주차 시간: {parking_duration}" if parking_duration else ""),
-                notification_type='vehicle_exit',
-                data=exit_data
-            )
-            print(f"[ADMIN] 출차 완료 알림 전송됨: {vehicle.license_plate} -> {zone}{slot_number} (space_id: {space_id})" + 
-                 (f" ({parking_duration})" if parking_duration else ""))
+            result = send_vehicle_exit_notification(vehicle.user, exit_data)
+            print(f"[ADMIN] 출차 알림 전송: {vehicle.license_plate} -> {space_label} ({parking_duration}, 알림 ID: {result.id if hasattr(result, 'id') else 'N/A'})")
         except Exception as e:
-            print(f"[ADMIN ERROR] 출차 완료 알림 전송 실패: {str(e)}")
+            print(f"[ADMIN ERROR] 출차 알림 전송 실패: {str(e)}")
             
     except ParkingAssignment.DoesNotExist:
         # 배정이 없는 경우에도 기본 출차 알림 전송
         try:
             exit_data = {
                 'plate_number': vehicle.license_plate,
-                'parking_space': '주차장',
+                'parking_space': '주차 구역',
                 'exit_time': now.isoformat(),
-                'admin_action': True,
-                'action_url': '/parking-recommend',  # 알림 터치 시 parking-recommend페이지로 이동
-                'action_type': 'navigate'
+                'parking_duration': None,
+                'admin_action': True
             }
-            create_notification(
-                user=vehicle.user,
-                title="🚗 출차 완료",
-                message=f"{vehicle.license_plate} 차량이 주차장에서 출차 완료되었습니다.",
-                notification_type='vehicle_exit',
-                data=exit_data
-            )
-            print(f"[ADMIN] 출차 완료 알림 전송됨 (배정 없음): {vehicle.license_plate}")
+            result = send_vehicle_exit_notification(vehicle.user, exit_data)
+            print(f"[ADMIN] 출차 알림 전송 (배정 없음): {vehicle.license_plate} (알림 ID: {result.id if hasattr(result, 'id') else 'N/A'})")
         except Exception as e:
-            print(f"[ADMIN ERROR] 출차 완료 알림 전송 실패 (배정 없음): {str(e)}")
+            print(f"[ADMIN ERROR] 출차 알림 전송 실패 (배정 없음): {str(e)}")
 
     return Response(VehicleEventSerializer(ev).data, status=200)
 
