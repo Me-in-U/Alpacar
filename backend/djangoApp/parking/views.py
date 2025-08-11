@@ -1,18 +1,22 @@
 # parking/views.py
+from datetime import datetime, timedelta
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Q
-from datetime import datetime, timedelta
-from django.utils import timezone
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 
+from events.broadcast import broadcast_active_vehicles
 from events.models import VehicleEvent
+from vehicles.models import Vehicle
 
 from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
 from .serializers import (
+    AssignRequestSerializer,
     ParkingAssignmentSerializer,
     ParkingHistorySerializer,
     ParkingScoreHistorySerializer,
@@ -152,7 +156,8 @@ def complete_parking(request, assignment_id):
         # 주차 공간 해제
         assignment.space.status = "free"
         assignment.space.save(update_fields=["status"])
-
+        _broadcast_space(assignment.space)
+        broadcast_active_vehicles()
         return Response(
             {
                 "message": "주차가 완료되었습니다.",
@@ -191,17 +196,7 @@ def set_space_status(request):
 
     ps.status = new_status
     ps.save(update_fields=["status"])
-
-    # 웹소켓 구독자에게 즉시 반영
-    channel_layer = get_channel_layer()
-    payload = {
-        f"{ps.zone}{ps.slot_number}": {"status": ps.status, "size": ps.size_class}
-    }
-    async_to_sync(channel_layer.group_send)(
-        "parking_space",
-        {"type": "parking_space.update", "payload": payload},
-    )
-
+    _broadcast_space(ps)
     return Response({"ok": True})
 
 
@@ -232,4 +227,101 @@ def parking_stats_today(request):
             "reserved": reserved,
             "date": str(today),
         }
+    )
+
+
+def _broadcast_space(space: ParkingSpace):
+    channel_layer = get_channel_layer()
+    payload = {
+        f"{space.zone}{space.slot_number}": {
+            "status": space.status,
+            "size": space.size_class,
+            "vehicle_id": getattr(space, "current_vehicle_id", None),
+            "license_plate": (
+                getattr(space.current_vehicle, "license_plate", None)
+                if getattr(space, "current_vehicle", None)
+                else None
+            ),
+        }
+    }
+    async_to_sync(channel_layer.group_send)(
+        "parking_space",
+        {"type": "parking_space.update", "payload": payload},
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def assign_space(request):
+    # 1) 입력 검증
+    req = AssignRequestSerializer(data=request.data)
+    req.is_valid(raise_exception=True)
+    plate = req.validated_data["license_plate"].strip()
+    zone = req.validated_data["zone"].strip()
+    slot_number = req.validated_data["slot_number"]
+
+    # 2) 엔티티 조회
+    try:
+        vehicle = Vehicle.objects.select_related("user").get(license_plate=plate)
+    except Vehicle.DoesNotExist:
+        return Response({"detail": "차량을 찾을 수 없습니다."}, status=404)
+
+    # “현재 입차중(미출차)” 이벤트
+    ev = (
+        VehicleEvent.objects.filter(vehicle=vehicle, exit_time__isnull=True)
+        .order_by("-id")
+        .first()
+    )
+    if not ev:
+        return Response({"detail": "현재 입차 중인 기록이 없습니다."}, status=400)
+
+    try:
+        new_space = ParkingSpace.objects.get(zone=zone, slot_number=slot_number)
+    except ParkingSpace.DoesNotExist:
+        return Response({"detail": "주차공간을 찾을 수 없습니다."}, status=404)
+
+    if new_space.status != "free":
+        return Response({"detail": "해당 슬롯이 비어있지 않습니다."}, status=400)
+
+    # 3) 기존 배정 여부 확인(이 입차 기록에 대해)
+    pa, created = ParkingAssignment.objects.get_or_create(
+        entrance_event=ev,
+        defaults={
+            "user": vehicle.user,
+            "vehicle": vehicle,
+            "space": new_space,
+            "start_time": timezone.now(),
+            "status": "ASSIGNED",
+        },
+    )
+
+    if created:
+        # 새로 만들었으니 새 공간만 reserved
+        new_space.status = "reserved"
+        new_space.current_vehicle = vehicle
+        new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
+        _broadcast_space(new_space)
+    else:
+        # 이미 배정이 있다 → 재배정(공간 교체)
+        if pa.space_id == new_space.id:
+            return Response(ParkingAssignmentSerializer(pa).data, status=200)
+
+        old_space = pa.space
+        pa.space = new_space
+        pa.save(update_fields=["space", "updated_at"])
+
+        # 공간 상태 갱신(이전 free, 새 reserved)
+        if old_space and old_space.status != "free":
+            old_space.status = "free"
+            old_space.current_vehicle = None
+            old_space.save(update_fields=["status", "current_vehicle", "updated_at"])
+            _broadcast_space(old_space)
+
+        new_space.status = "reserved"
+        new_space.current_vehicle = vehicle
+        new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
+        _broadcast_space(new_space)
+    broadcast_active_vehicles()
+    return Response(
+        ParkingAssignmentSerializer(pa).data, status=201 if created else 200
     )
