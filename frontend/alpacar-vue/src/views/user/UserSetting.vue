@@ -104,6 +104,25 @@
         <div class="notification-item">
           <div class="notification-item__content">
             <div class="notification-item__label">
+              알림 테스트
+            </div>
+            <div class="notification-item__desc">
+              푸시 알림 작동 테스트
+            </div>
+          </div>
+          <div class="notification-item__toggle">
+            <button
+              class="test-button"
+              @click="showNotificationTester = true"
+            >
+              테스트
+            </button>
+          </div>
+        </div>
+
+        <div class="notification-item">
+          <div class="notification-item__content">
+            <div class="notification-item__label">
               앱 설치하기
             </div>
             <div class="notification-item__desc">
@@ -382,12 +401,36 @@
         </div>
       </div>
     </div>
+
+    <!-- 알림 테스터 모달 -->
+    <div
+      v-if="showNotificationTester"
+      class="modal-overlay"
+      @click="showNotificationTester = false"
+    >
+      <div
+        class="modal modal--notification-tester"
+        @click.stop
+      >
+        <div class="tester-header">
+          <h3 class="modal__title">푸시 알림 테스트</h3>
+          <button 
+            class="close-button"
+            @click="showNotificationTester = false"
+          >
+            ✕
+          </button>
+        </div>
+        <UnifiedNotificationTester />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
+import UnifiedNotificationTester from "@/components/UnifiedNotificationTester.vue";
 import { ref, computed, onMounted } from "vue";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
@@ -687,6 +730,7 @@ const verifyEmailCode = async () => {
 /* ====== 알림(PWA) ====== */
 const isNotificationEnabled = ref(false);
 const canInstallPWA = ref(false);
+const showNotificationTester = ref(false);
 let deferredPrompt: any = null;
 
 const toggleNotifications = async () => {
@@ -964,6 +1008,23 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   cursor: not-allowed;
 }
 
+.test-button {
+  padding: 8px 16px;
+  border: 2px solid #2196f3;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #2196f3;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 60px;
+}
+
+.test-button:hover {
+  background: rgba(33, 150, 243, 0.1);
+}
+
 /* ── 모달 공통 ── */
 .modal-overlay {
   position: fixed;
@@ -1027,6 +1088,46 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 
 .modal__button--success {
   background: #4caf50;
+}
+
+/* 알림 테스터 모달 */
+.modal--notification-tester {
+  width: 95%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 0;
+  background: #f8f9fa;
+}
+
+.tester-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  border-radius: 10px 10px 0 0;
+}
+
+.tester-header .modal__title {
+  margin: 0;
+  font-size: 20px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background: rgba(108, 117, 125, 0.1);
 }
 
 /* 비밀번호 유효성 안내 */

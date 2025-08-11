@@ -107,16 +107,51 @@ def send_push_notification(user, title, message, data=None):
             print(f"[PUSH] 예상치 못한 오류: {user.email} - {ex}")
 
 
+def send_vehicle_entry_notification(user, entry_data):
+    """
+    입차 알림 전송
+    
+    Args:
+        user: 알림을 받을 사용자
+        entry_data: 입차 정보 (차량번호, 주차장명 등)
+    """
+    plate_number = entry_data.get('plate_number', '차량')
+    parking_lot = entry_data.get('parking_lot', 'SSAFY 주차장')
+    
+    title = "🚗 입차 알림"
+    message = f"{plate_number} 차량이 {parking_lot}에 입차하였습니다. 알림을 클릭하면 추천 주차자리를 안내드리겠습니다."
+    
+    # 입차 알림 데이터에 페이지 라우팅 정보 추가
+    entry_data['action_url'] = '/parking-recommend'
+    entry_data['action_type'] = 'navigate'
+    
+    create_notification(
+        user=user,
+        title=title,
+        message=message,
+        notification_type='vehicle_entry',
+        data=entry_data
+    )
+
+
 def send_parking_complete_notification(user, parking_data):
     """
     주차 완료 알림 전송
     
     Args:
         user: 알림을 받을 사용자
-        parking_data: 주차 정보 (시간, 위치 등)
+        parking_data: 주차 정보 (시간, 위치, 점수 등)
     """
-    title = "주차 완료 알림"
-    message = f"주차 일시: {parking_data.get('parking_time', '')}\n주차 공간: {parking_data.get('parking_space', '')}"
+    plate_number = parking_data.get('plate_number', '차량')
+    parking_space = parking_data.get('parking_space', 'A5')
+    score = parking_data.get('score')
+    
+    title = "🅿️ 주차 완료"
+    
+    if score is not None:
+        message = f"{plate_number} 차량이 {parking_space} 구역에 주차를 완료했습니다. 이번 주차의 점수는 {score}점입니다."
+    else:
+        message = f"{plate_number} 차량이 {parking_space} 구역에 주차를 완료했습니다."
     
     create_notification(
         user=user,
@@ -135,10 +170,12 @@ def send_grade_upgrade_notification(user, grade_data):
         user: 알림을 받을 사용자
         grade_data: 등급 정보 (이전 등급, 새 등급 등)
     """
-    title = "등급 승급 알림"
-    old_grade = grade_data.get('old_grade', '')
-    new_grade = grade_data.get('new_grade', '')
-    message = f"주차 등급이 {old_grade}에서 {new_grade}로 승급되었습니다"
+    title = "🎉 등급 승급 축하!"
+    old_grade = grade_data.get('old_grade', '이전 등급')
+    new_grade = grade_data.get('new_grade', '새 등급')
+    current_score = grade_data.get('current_score', user.score)
+    
+    message = f"축하드립니다! 주차 등급이 {old_grade}에서 {new_grade}로 승급되었습니다. (현재 점수: {current_score}점)"
     
     create_notification(
         user=user,
