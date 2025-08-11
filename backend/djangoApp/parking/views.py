@@ -303,22 +303,36 @@ def assign_space(request):
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
         _broadcast_space(new_space)
         
-        # 푸시 알림 전송 - 주차 구역 배정 알림
+        # 푸시 알림 전송 - 주차 구역 배정 알림 (정확한 DB 조회)
         try:
+            # parking_assignment 테이블에서 space_id 조회
+            assignment_with_space = ParkingAssignment.objects.select_related('space', 'user').get(id=pa.id)
+            space_id = assignment_with_space.space.id
+            
+            # parking_space 테이블에서 id값으로 zone, slot_number 조회
+            parking_space_info = ParkingSpace.objects.get(id=space_id)
+            zone = parking_space_info.zone
+            slot_number = parking_space_info.slot_number
+            
+            print(f"[DB QUERY] parking_assignment 테이블: assignment_id={pa.id} -> space_id={space_id}")
+            print(f"[DB QUERY] parking_space 테이블: id={space_id} -> zone={zone}, slot_number={slot_number}")
+            
             assignment_data = {
                 'plate_number': vehicle.license_plate,
-                'assigned_space': f'{new_space.zone}{new_space.slot_number}',
+                'assigned_space': f'{zone}{slot_number}',
                 'assignment_time': timezone.now().isoformat(),
-                'admin_action': True
+                'admin_action': True,
+                'action_url': '/parking-recommend',  # 알림 터치 시 parking-recommend페이지로 이동
+                'action_type': 'navigate'
             }
             create_notification(
                 user=vehicle.user,
                 title="🅿️ 주차 구역 배정",
-                message=f"{vehicle.license_plate} 차량에 {new_space.zone}{new_space.slot_number} 구역이 배정되었습니다. 안내에 따라 주차해 주세요.",
+                message=f"{vehicle.license_plate} 차량에 {zone}{slot_number} 구역이 배정되었습니다. 안내에 따라 주차해 주세요.",
                 notification_type='parking_assignment',
                 data=assignment_data
             )
-            print(f"[ADMIN] 주차 배정 알림 전송됨: {vehicle.license_plate} -> {new_space.zone}{new_space.slot_number}")
+            print(f"[ADMIN] 주차 배정 알림 전송됨: {vehicle.license_plate} -> {zone}{slot_number} (space_id: {space_id})")
         except Exception as e:
             print(f"[ADMIN ERROR] 주차 배정 알림 전송 실패: {str(e)}")
             
@@ -343,23 +357,37 @@ def assign_space(request):
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
         _broadcast_space(new_space)
         
-        # 푸시 알림 전송 - 주차 구역 재배정 알림
+        # 푸시 알림 전송 - 주차 구역 재배정 알림 (정확한 DB 조회)
         try:
+            # parking_assignment 테이블에서 업데이트된 space_id 조회
+            updated_assignment = ParkingAssignment.objects.select_related('space').get(id=pa.id)
+            new_space_id = updated_assignment.space.id
+            
+            # parking_space 테이블에서 새로운 구역 정보 조회
+            new_parking_space = ParkingSpace.objects.get(id=new_space_id)
+            new_zone = new_parking_space.zone
+            new_slot_number = new_parking_space.slot_number
+            
+            print(f"[DB QUERY] parking_assignment 재배정: assignment_id={pa.id} -> new_space_id={new_space_id}")
+            print(f"[DB QUERY] parking_space 새 구역: id={new_space_id} -> zone={new_zone}, slot_number={new_slot_number}")
+            
             reassignment_data = {
                 'plate_number': vehicle.license_plate,
                 'old_space': f'{old_space.zone}{old_space.slot_number}' if old_space else None,
-                'new_space': f'{new_space.zone}{new_space.slot_number}',
+                'new_space': f'{new_zone}{new_slot_number}',
                 'reassignment_time': timezone.now().isoformat(),
-                'admin_action': True
+                'admin_action': True,
+                'action_url': '/parking-recommend',  # 알림 터치 시 parking-recommend페이지로 이동
+                'action_type': 'navigate'
             }
             create_notification(
                 user=vehicle.user,
                 title="🔄 주차 구역 재배정",
-                message=f"{vehicle.license_plate} 차량의 주차 구역이 {new_space.zone}{new_space.slot_number}로 변경되었습니다.",
+                message=f"{vehicle.license_plate} 차량의 주차 구역이 {new_zone}{new_slot_number}로 변경되었습니다.",
                 notification_type='parking_reassignment',
                 data=reassignment_data
             )
-            print(f"[ADMIN] 주차 재배정 알림 전송됨: {vehicle.license_plate} -> {new_space.zone}{new_space.slot_number}")
+            print(f"[ADMIN] 주차 재배정 알림 전송됨: {vehicle.license_plate} -> {new_zone}{new_slot_number} (space_id: {new_space_id})")
         except Exception as e:
             print(f"[ADMIN ERROR] 주차 재배정 알림 전송 실패: {str(e)}")
             
