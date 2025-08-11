@@ -139,10 +139,8 @@
 					<span v-else-if="plateStatus === 'ok'" class="status ok">✔ 사용 가능</span>
 					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량</span>
 					<span v-else-if="plateStatus === 'error'" class="status error">검증 실패, 다시 시도</span>
-					<span v-else-if="!isVehicleNumberValid" class="status error">형식이 올바르지 않습니다</span>
+					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요</span>
 				</div>
-
-				<div v-if="vehicleNumber && !isVehicleNumberValid" class="error-message">올바른 차량번호 형식으로 입력해주세요</div>
 
 				<button class="modal__button" @click="addVehicle" :disabled="!canAddVehicle">등록완료</button>
 			</div>
