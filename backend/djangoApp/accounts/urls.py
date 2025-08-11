@@ -37,7 +37,8 @@ from accounts.views.notifications import (
     test_vehicle_entry_notification,
     test_parking_complete_notification,
     test_grade_upgrade_notification,
-    test_all_notifications
+    test_all_notifications,
+    notification_system_diagnostic
 )
 from accounts.views.notification_test import (
     create_custom_notification,
@@ -230,4 +231,9 @@ urlpatterns = [
         clear_test_notifications,
         name="clear-test-notifications",
     ),  # DELETE: 테스트 알림 삭제
+    path(
+        "notifications/diagnostic/",
+        notification_system_diagnostic,
+        name="notification-system-diagnostic",
+    ),  # GET: 푸시 알림 시스템 진단
 ]

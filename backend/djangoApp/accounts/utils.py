@@ -23,20 +23,46 @@ def create_notification(user, title, message, notification_type='system', data=N
     if data is None:
         data = {}
     
-    # 알림 생성
-    notification = Notification.objects.create(
-        user=user,
-        title=title,
-        message=message,
-        notification_type=notification_type,
-        data=data
-    )
-    
-    # 푸시 알림 전송 (사용자가 푸시 알림을 허용한 경우에만)
-    if user.push_enabled:
-        send_push_notification(user, title, message, data)
-    
-    return notification
+    try:
+        # 알림 생성
+        notification = Notification.objects.create(
+            user=user,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            data=data
+        )
+        
+        # Unicode-safe logging
+        try:
+            print(f"[NOTIFICATION] 알림 생성 성공: {notification.id} - {repr(title)}")
+        except UnicodeEncodeError:
+            print(f"[NOTIFICATION] 알림 생성 성공: {notification.id} - ID:{notification_type}")
+        
+        # 푸시 알림 전송 (사용자가 푸시 알림을 허용한 경우에만)
+        if hasattr(user, 'push_enabled') and user.push_enabled:
+            try:
+                send_push_notification(user, title, message, data)
+                print(f"[PUSH] 푸시 알림 전송 시도 완료: {user.email}")
+            except Exception as push_error:
+                try:
+                    print(f"[PUSH ERROR] 푸시 전송 실패하지만 알림은 생성됨: {repr(str(push_error))}")
+                except UnicodeEncodeError:
+                    print("[PUSH ERROR] 푸시 전송 실패하지만 알림은 생성됨: Unicode error")
+                # 푸시 전송 실패해도 알림 생성은 성공으로 처리
+        else:
+            print(f"[PUSH] 푸시 알림 비활성화 또는 설정 없음: {user.email}")
+        
+        return notification
+        
+    except Exception as e:
+        try:
+            print(f"[ERROR] 알림 생성 실패: {repr(str(e))}")
+            print(f"[DEBUG] user={user.id}, title={repr(title)}, type={notification_type}")
+        except UnicodeEncodeError:
+            print(f"[ERROR] 알림 생성 실패: Unicode error")
+            print(f"[DEBUG] user={user.id}, type={notification_type}")
+        raise e
 
 
 def send_push_notification(user, title, message, data=None):
@@ -51,12 +77,19 @@ def send_push_notification(user, title, message, data=None):
     """
     if data is None:
         data = {}
-        
-    # 사용자의 모든 구독 정보 조회
-    subscriptions = PushSubscription.objects.filter(user=user)
     
-    if not subscriptions.exists():
-        print(f"[PUSH] 사용자 {user.email}의 구독 정보가 없습니다.")
+    try:
+        # 사용자의 모든 구독 정보 조회
+        subscriptions = PushSubscription.objects.filter(user=user)
+        
+        if not subscriptions.exists():
+            print(f"[PUSH] 사용자 {user.email}의 구독 정보가 없습니다.")
+            return
+        
+        print(f"[PUSH] 구독 정보 {subscriptions.count()}개 찾음: {user.email}")
+        
+    except Exception as e:
+        print(f"[PUSH ERROR] 구독 정보 조회 실패: {str(e)}")
         return
     
     # 푸시 알림 페이로드 구성
@@ -70,15 +103,23 @@ def send_push_notification(user, title, message, data=None):
         'data': data
     }
     
-    # VAPID 설정
-    vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
-    vapid_public_key = getattr(settings, 'VAPID_PUBLIC_KEY', None)
-    vapid_claims = {
-        'sub': 'mailto:admin@i13e102.p.ssafy.io'
-    }
-    
-    if not vapid_private_key or not vapid_public_key:
-        print("[PUSH] VAPID 키가 설정되지 않았습니다.")
+    try:
+        # VAPID 설정
+        vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
+        vapid_public_key = getattr(settings, 'VAPID_PUBLIC_KEY', None)
+        vapid_claims = {
+            'sub': 'mailto:admin@i13e102.p.ssafy.io'
+        }
+        
+        if not vapid_private_key or not vapid_public_key:
+            print("[PUSH] VAPID 키가 설정되지 않았습니다.")
+            print(f"[PUSH DEBUG] private_key_exists: {bool(vapid_private_key)}, public_key_exists: {bool(vapid_public_key)}")
+            return
+            
+        print(f"[PUSH] VAPID 설정 확인됨")
+        
+    except Exception as e:
+        print(f"[PUSH ERROR] VAPID 설정 확인 중 오류: {str(e)}")
         return
     
     # 각 구독 정보에 푸시 알림 전송
