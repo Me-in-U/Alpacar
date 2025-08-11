@@ -1,5 +1,7 @@
 # parking/urls.py
 from django.urls import path
+
+from events.views import active_vehicle_events
 from . import views
 
 urlpatterns = [
@@ -17,8 +19,6 @@ urlpatterns = [
     ),
     # 차트 데이터 조회
     path("parking/chart-data/", views.parking_chart_data, name="parking-chart-data"),
-    # 주차 배정 생성
-    path("parking/assign/", views.create_parking_assignment, name="parking-assign"),
     # 주차 완료 처리
     path(
         "parking/complete/<int:assignment_id>/",
@@ -27,4 +27,7 @@ urlpatterns = [
     ),
     path("parking/space/set-status/", views.set_space_status, name="set-space-status"),
     path("parking/stats/today/", views.parking_stats_today, name="parking-stats-today"),
+    path("vehicle-events/active/", active_vehicle_events),
+    # 주차 배정 생성
+    path("parking/assign/", views.assign_space),
 ]
