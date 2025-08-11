@@ -19,7 +19,7 @@ from ultralytics import YOLO
 # =============================
 
 VIDEO_PATH = "data/video_part_2.mp4"
-MODEL_PATH = "last.pt"
+MODEL_PATH = "last (2).pt"
 TRACKER_CFG_NAME = "bytetrack.yaml"  # located next to this file
 WSS_URL = "wss://i13e102.p.ssafy.io/ws/car-position/"
 
@@ -510,18 +510,37 @@ def build_wss_payload_from_result(
             tid = ids_list[i]
             if tid is None:
                 continue
+            # draw_boxes와 동일한 방식으로 중심/각도/코너를 계산한다
+            # 1) 중심: 폴리곤 평균값 사용 (draw_boxes와 동일)
             try:
-                cx = float(xywhr[i][0].item())
-                cy = float(xywhr[i][1].item())
+                pts = corners[i].cpu().numpy().reshape(-1, 2)
+            except Exception:
+                pts = np.array(corners[i]).reshape(-1, 2)
+            cx = float(np.mean(pts[:, 0]))
+            cy = float(np.mean(pts[:, 1]))
+
+            # 2) 각도: xywhr에서 angle 사용, w<h이면 +pi/2 보정 (draw_boxes 로직과 동일)
+            try:
+                w_px = float(xywhr[i][2].item())
+                h_px = float(xywhr[i][3].item())
+                theta = float(xywhr[i][4].item())
             except Exception:
                 arr = (
                     xywhr[i].cpu().numpy().tolist() if hasattr(xywhr[i], "cpu") else list(xywhr[i])
                 )
-                cx, cy = float(arr[0]), float(arr[1])
-            try:
-                c8 = corners[i].cpu().numpy().flatten().tolist()
-            except Exception:
-                c8 = np.array(corners[i]).reshape(-1).tolist()
+                w_px, h_px, theta = float(arr[2]), float(arr[3]), float(arr[4])
+            if w_px < h_px:
+                theta += math.pi / 2.0
+
+            # 3) 고정 박스 크기 적용 (draw_boxes의 기본값과 동일: 250x100)
+            w_box, h_box = 250.0, 100.0
+            box_corners = np.array(
+                [[-w_box / 2.0, -h_box / 2.0], [w_box / 2.0, -h_box / 2.0], [w_box / 2.0, h_box / 2.0], [-w_box / 2.0, h_box / 2.0]]
+            )
+            rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+            rotated = box_corners @ rot.T
+            rotated += np.array([cx, cy])
+            c8 = rotated.reshape(-1).tolist()
 
             if frame_w and frame_h:
                 s = min(
