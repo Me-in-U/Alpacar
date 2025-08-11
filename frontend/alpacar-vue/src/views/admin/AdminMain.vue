@@ -148,9 +148,10 @@ import { BACKEND_BASE_URL } from "@/utils/api";
   - WS: 배포 환경에 맞춰 wss:// 로 교체
 */
 const WSS_CAR_URL = `wss://i13e102.p.ssafy.io/ws/car-position/`;
-// const WSS_SPACE_URL = `wss://i13e102.p.ssafy.io/ws/parking-space/`;
-const WSS_SPACE_URL = `ws://localhost:8000/ws/parking-space/`;
-const WSS_ACTIVE_VEHICLES = `ws://localhost:8000/ws/active-vehicles/`;
+const WSS_SPACE_URL = `wss://i13e102.p.ssafy.io/ws/parking-space/`;
+// const WSS_SPACE_URL = `ws://localhost:8000/ws/parking-space/`;
+const WSS_ACTIVE_VEHICLES = `wss://i13e102.p.ssafy.io/ws/active-vehicles/`;
+// const WSS_ACTIVE_VEHICLES = `ws://localhost:8000/ws/active-vehicles/`;
 
 export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },

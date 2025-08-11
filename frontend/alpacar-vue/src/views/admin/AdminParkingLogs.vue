@@ -198,8 +198,8 @@ export default defineComponent({
 		onMounted(async () => {
 			await fetchPage();
 
-			// ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
-			ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
+			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
+			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
 			ws.onopen = () => {
 				console.log("[WebSocket] ✅ Connected");
 			};
