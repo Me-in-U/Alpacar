@@ -198,14 +198,6 @@ class ParkingManager:
                 slot[zid_upper] = "free"
         return slot
 
-    def vehicle_state(self, track_id: Optional[int]) -> str:
-        if track_id is None:
-            return "running"
-        for st in self.state.values():
-            if st.occupant_id == int(track_id):
-                return "parked"
-        return "running"
-
 
 # =============================
 # WebSocket Wrapper
@@ -443,8 +435,6 @@ def extract_track_ids(result: Any) -> Optional[List[int]]:
         ids_tensor = None
         if hasattr(result, "obb") and result.obb is not None:
             ids_tensor = getattr(result.obb, "id", None)
-        if ids_tensor is None and hasattr(result, "boxes") and result.boxes is not None:
-            ids_tensor = getattr(result.boxes, "id", None)
         if ids_tensor is None:
             return None
         if hasattr(ids_tensor, "cpu"):
@@ -472,23 +462,78 @@ def get_detections_with_ids(result: Any) -> List[Dict[str, float]]:
                         continue
                 if detections:
                     return detections
-        if hasattr(result, "boxes") and result.boxes is not None:
-            ids_t = getattr(result.boxes, "id", None)
-            xyxy = getattr(result.boxes, "xyxy", None)
-            if ids_t is not None and xyxy is not None:
-                ids = ids_t.cpu().numpy().tolist() if hasattr(ids_t, "cpu") else list(ids_t)
-                arr = xyxy.cpu().numpy() if hasattr(xyxy, "cpu") else np.array(xyxy)
-                for i, tid in enumerate(ids):
-                    try:
-                        x1, y1, x2, y2 = arr[i]
-                        cx = float((x1 + x2) / 2.0)
-                        cy = float((y1 + y2) / 2.0)
-                        detections.append({"cx": cx, "cy": cy, "id": int(tid)})
-                    except Exception:
-                        continue
     except Exception:
         return []
     return detections
+
+
+def build_logging_snapshot(
+    payload: List[Dict[str, Any]],
+    plate_mgr: PlateManager,
+    parking: "ParkingManager",
+    reserved_upper: set[str],
+) -> Dict[str, Any]:
+    slot_map = parking.assemble_slot_status(reserved_upper)
+
+    # 점유 중인 구역 역방향 맵: track_id -> ZONE_ID(UPPER)
+    occupant_to_zone_upper: Dict[int, str] = {}
+    for zone in parking.zones_norm:
+        zid = zone["id"]
+        state = parking.state[zid]
+        if state.occupant_id is not None:
+            occupant_to_zone_upper[int(state.occupant_id)] = zid.upper()
+
+    # 추천 구역 선택을 위한 리스트 (구성 순서 유지)
+    reserved_free_upper: List[str] = []
+    free_upper: List[str] = []
+    for zone in parking.zones_norm:
+        zid_upper = zone["id"].upper()
+        status = slot_map.get(zid_upper, "free")
+        if status == "reserved":
+            # 예약이면서 현재 점유가 아니면 추천 후보
+            if parking.state[zone["id"]].occupant_id is None:
+                reserved_free_upper.append(zid_upper)
+        elif status == "free":
+            free_upper.append(zid_upper)
+
+    vehicles_log: List[Dict[str, Any]] = []
+    for det in payload:
+        tid = int(det.get("track_id"))
+        plate = plate_mgr.get(tid) or f"ID:{tid}"
+        cx, cy = det.get("center", [0.0, 0.0])
+        c8 = det.get("corners", [])
+        corners_pairs: List[List[float]] = []
+        if isinstance(c8, list) and len(c8) >= 8:
+            corners_pairs = [
+                [float(c8[0]), float(c8[1])],
+                [float(c8[2]), float(c8[3])],
+                [float(c8[4]), float(c8[5])],
+                [float(c8[6]), float(c8[7])],
+            ]
+
+        is_parked = tid in occupant_to_zone_upper
+        state_str = "parked" if is_parked else "running"
+
+        if is_parked:
+            suggested_zone = occupant_to_zone_upper[tid]
+        else:
+            suggested_zone = (
+                reserved_free_upper[0]
+                if reserved_free_upper
+                else (free_upper[0] if free_upper else "")
+            )
+
+        vehicles_log.append(
+            {
+                "plate": plate,
+                "center": {"x": float(cx), "y": float(cy)},
+                "corners": corners_pairs,
+                "state": state_str,
+                "suggested": suggested_zone,
+            }
+        )
+
+    return {"slot": slot_map, "vehicles": vehicles_log}
 
 
 def build_wss_payload_from_result(
@@ -633,6 +678,11 @@ class TrackerApp:
                 try:
                     if now_ts - self._last_snapshot_ts >= SNAPSHOT_INTERVAL_S:
                         payload = build_wss_payload_from_result(r, w_full, h_full)
+                        # 요청 포맷으로 로깅 출력
+                        log_obj = build_logging_snapshot(
+                            payload, self.plate_mgr, self.parking, RESERVED_ZONES_UPPER
+                        )
+                        print(json.dumps(log_obj, ensure_ascii=False, indent=4))
                         self.ws.send_json(payload)
                         self._last_snapshot_ts = now_ts
                 except Exception:
