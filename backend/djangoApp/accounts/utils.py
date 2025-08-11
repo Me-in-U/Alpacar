@@ -151,7 +151,7 @@ def send_vehicle_entry_notification(user, entry_data):
         user=user,
         title=title,
         message=message,
-        notification_type='vehicle_entry',
+        notification_type='entry',
         data=entry_data
     )
 
@@ -179,7 +179,7 @@ def send_parking_complete_notification(user, parking_data):
         user=user,
         title=title,
         message=message,
-        notification_type='parking_complete',
+        notification_type='general',
         data=parking_data
     )
 
@@ -203,6 +203,6 @@ def send_grade_upgrade_notification(user, grade_data):
         user=user,
         title=title,
         message=message,
-        notification_type='grade_upgrade',
+        notification_type='general',
         data=grade_data
     )
