@@ -6,6 +6,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
+from vehicles.models import Vehicle
+
 from .models import VehicleEvent
 from .serializers import VehicleEventSerializer
 
@@ -24,6 +26,43 @@ def list_vehicle_events(request):
     page = paginator.paginate_queryset(qs, request)
     serializer = VehicleEventSerializer(page, many=True)
     return paginator.get_paginated_response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def manual_entrance(request):
+    plate = (request.data.get("license_plate") or "").strip()
+    if not plate:
+        return Response(
+            {"detail": "license_plate가 필요합니다."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        vehicle = Vehicle.objects.get(license_plate=plate)
+    except Vehicle.DoesNotExist:
+        return Response(
+            {"detail": "해당 차량을 찾을 수 없습니다."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    last_event = VehicleEvent.objects.filter(vehicle=vehicle).order_by("-id").first()
+
+    # 최근 이벤트가 없거나 출차였다면 새 입차 생성
+    if last_event is None or last_event.status == "Exit":
+        ev = VehicleEvent.objects.create(
+            vehicle=vehicle,
+            entrance_time=timezone.now(),
+            parking_time=None,
+            exit_time=None,
+            status="Entrance",
+        )
+        ser = VehicleEventSerializer(ev)
+        return Response(ser.data, status=status.HTTP_201_CREATED)
+
+    # 이미 Entrance/Parking 등 진행 중이면 그 이벤트 그대로 반환
+    ser = VehicleEventSerializer(last_event)
+    return Response(ser.data, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
