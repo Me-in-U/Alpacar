@@ -288,7 +288,7 @@ def manual_exit(request, vehicle_id):
                 title="🚗 출차 완료",
                 message=f"{vehicle.license_plate} 차량이 {zone}{slot_number} 구역에서 출차 완료되었습니다." + 
                        (f" 주차 시간: {parking_duration}" if parking_duration else ""),
-                notification_type='vehicle_exit',
+                notification_type='exit',
                 data=exit_data
             )
             print(f"[ADMIN] 출차 완료 알림 전송됨: {vehicle.license_plate} -> {zone}{slot_number} (space_id: {space_id})" + 
@@ -311,7 +311,7 @@ def manual_exit(request, vehicle_id):
                 user=vehicle.user,
                 title="🚗 출차 완료",
                 message=f"{vehicle.license_plate} 차량이 주차장에서 출차 완료되었습니다.",
-                notification_type='vehicle_exit',
+                notification_type='exit',
                 data=exit_data
             )
             print(f"[ADMIN] 출차 완료 알림 전송됨 (배정 없음): {vehicle.license_plate}")

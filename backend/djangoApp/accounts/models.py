@@ -118,14 +118,12 @@ class Notification(models.Model):
     """
 
     NOTIFICATION_TYPES = [
-        ("vehicle_entry", "입차 알림"),
-        ("parking_assignment", "주차 배정"),
-        ("parking_reassignment", "주차 재배정"),
-        ("parking_complete", "주차 완료"),
-        ("vehicle_exit", "출차 완료"),
-        ("grade_upgrade", "등급 승급"),
         ("system", "시스템"),
-        ("maintenance", "점검"),
+        ("parking", "주차 배정"),
+        ("entry", "입차 알림"),
+        ("exit", "출차 완료"),
+        ("warning", "경고"),
+        ("general", "일반"),
     ]
 
     user = models.ForeignKey(
