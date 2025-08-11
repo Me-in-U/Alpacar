@@ -37,15 +37,9 @@ from accounts.views.notifications import (
     test_vehicle_entry_notification,
     test_parking_complete_notification,
     test_grade_upgrade_notification,
-    test_all_notifications
+    notification_system_diagnostic
 )
-from accounts.views.notification_test import (
-    create_custom_notification,
-    send_batch_notifications,
-    simulate_scenario,
-    test_status,
-    clear_test_notifications
-)
+# 고급 테스트 기능들은 단순화를 위해 제거됨
 
 urlpatterns = [
     # ─ 회원가입 / 로그인 / 토큰갱신 ──────────────────────────────────────────
@@ -199,35 +193,10 @@ urlpatterns = [
         test_grade_upgrade_notification,
         name="test-grade-upgrade-notification",
     ),  # POST: 테스트 등급 승급 알림 전송
+    # ── 고급 테스트 기능들은 단순화를 위해 제거됨 ──
     path(
-        "notifications/test-all/",
-        test_all_notifications,
-        name="test-all-notifications",
-    ),  # POST: 모든 알림 타입 순차 테스트
-    # ── 고급 알림 테스트 기능 ──────────────────────────────────────────────
-    path(
-        "notifications/test-custom/",
-        create_custom_notification,
-        name="create-custom-notification",
-    ),  # POST: 사용자 정의 알림 생성
-    path(
-        "notifications/test-batch/",
-        send_batch_notifications,
-        name="send-batch-notifications",
-    ),  # POST: 배치 알림 전송
-    path(
-        "notifications/test-scenario/",
-        simulate_scenario,
-        name="simulate-scenario",
-    ),  # POST: 시나리오 시뮬레이션
-    path(
-        "notifications/test-status/",
-        test_status,
-        name="test-status",
-    ),  # GET: 테스트 상태 조회
-    path(
-        "notifications/test-clear/",
-        clear_test_notifications,
-        name="clear-test-notifications",
-    ),  # DELETE: 테스트 알림 삭제
+        "notifications/diagnostic/",
+        notification_system_diagnostic,
+        name="notification-system-diagnostic",
+    ),  # GET: 푸시 알림 시스템 진단
 ]
