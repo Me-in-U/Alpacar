@@ -118,6 +118,7 @@ class Notification(models.Model):
     """
 
     NOTIFICATION_TYPES = [
+        ("vehicle_entry", "입차 알림"),
         ("parking_complete", "주차 완료"),
         ("grade_upgrade", "등급 승급"),
         ("system", "시스템"),

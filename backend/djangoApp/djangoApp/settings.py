@@ -150,7 +150,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "vehicles",
     "parking",
-    "events",
+    "events.apps.EventsConfig",  # 시그널 연결
     "drf_yasg",
 ]
 SWAGGER_SETTINGS = {

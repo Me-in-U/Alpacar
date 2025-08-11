@@ -32,5 +32,6 @@ class VehicleEvent(models.Model):
         db_table = "vehicle_event"
 
     def __str__(self):
-        # 문자열 표현: "번호판 — 이벤트종류 @ 시각"
-        return f"{self.vehicle.license_plate} — {self.get_event_type_display()} @ {self.entrance_time}"
+        # status의 display 사용
+        ts = self.entrance_time or self.parking_time or self.exit_time
+        return f"{self.vehicle.license_plate} — {self.get_status_display()} @ {ts}"

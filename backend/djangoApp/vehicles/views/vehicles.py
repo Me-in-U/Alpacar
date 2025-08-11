@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework.permissions import AllowAny
 
 
 class VehicleModelListAPIView(generics.ListAPIView):
@@ -177,13 +178,16 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     },
 )
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def check_license(request):
     """
     GET /api/vehicles/check-license/?license=12가3456
-    → { "exists": true } or { "exists": false }
+    -> { "exists": true } or { "exists": false }
     """
-    lp = request.query_params.get("license")
+    # 파라미터 키 혼동 방지: license 또는 license_plate 모두 허용
+    lp = request.query_params.get("license") or request.query_params.get(
+        "license_plate"
+    )
     if not lp:
         return Response(
             {"detail": "license 파라미터가 필요합니다."},
@@ -312,11 +316,24 @@ def send_push_to_plate(request):
         return Response({"error": "차량을 찾을 수 없음"}, status=404)
 
     user = vehicle.user
+    
+    # 사용자 푸시 알림 설정 확인
+    if not hasattr(user, 'push_enabled') or not user.push_enabled:
+        return Response({"error": "사용자가 푸시 알림을 비활성화했습니다"}, status=400)
+    
     subs = PushSubscription.objects.filter(user=user)
     if not subs:
         return Response({"error": "푸시 구독 없음"}, status=404)
 
-    payload = {"title": "관리자 알림", "body": f"{plate} 차량 관련 안내입니다."}
+    # 메시지가 전달된 경우 사용, 그렇지 않으면 기본 메시지
+    message = request.data.get("message", f"{plate} 차량 관련 안내입니다.")
+    payload = {
+        "title": "관리자 알림", 
+        "body": message,
+        "icon": "/favicon-32x32.png",
+        "badge": "/favicon-16x16.png",
+        "tag": "vehicle-notification"
+    }
     for s in subs:
         try:
             webpush(
@@ -330,5 +347,7 @@ def send_push_to_plate(request):
             )
         except WebPushException as e:
             print(f"[PUSH ERROR] {e}")
+        except Exception as e:
+            print(f"[PUSH ERROR] 알 수 없는 오류: {e}")
 
-    return Response({"success": True})
+    return Response({"success": True, "message": f"{plate} 차량에 푸시 알림을 전송했습니다."})
