@@ -11,6 +11,7 @@ from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Callable, Awaitable, Type
+import logging
 
 import cv2
 import numpy as np
@@ -22,6 +23,9 @@ try:
 except Exception:
     recommend_best_zone = None  # type: ignore
     load_model = None  # type: ignore
+
+# Module logger
+logger = logging.getLogger(__name__)
 
 # =============================
 # Configuration
@@ -230,7 +234,7 @@ class WSClient:
 
     def _on_open(self, ws) -> None: 
         self._connected.set()
-        print(f"[WebSocket] Connected to {self.url}")
+        logger.info(f"[WebSocket] Connected to {self.url}")
 
     def _on_message(self, ws, message: str) -> None: 
         try:
@@ -239,11 +243,11 @@ class WSClient:
             pass
 
     def _on_error(self, ws, error) -> None: 
-        print(f"[WebSocket] error: {error}")
+        logger.error(f"[WebSocket] error: {error}")
 
     def _on_close(self, ws, code, msg) -> None: 
         self._connected.clear()
-        print(f"[WebSocket] closed code={code} msg={msg}")
+        logger.warning(f"[WebSocket] closed code={code} msg={msg}")
 
     def _run_forever_loop(self) -> None:
         while not self._stop_flag.is_set():
@@ -257,9 +261,9 @@ class WSClient:
                 )
                 self.wsapp.run_forever(ping_interval=20, ping_timeout=10)
             except Exception as e:
-                print(f"[WebSocket] run_forever error: {e}")
+                logger.exception(f"[WebSocket] run_forever error: {e}")
             if not self._stop_flag.is_set():
-                print("[WebSocket] Reconnecting in 1s...")
+                logger.info("[WebSocket] Reconnecting in 1s...")
                 time.sleep(1)
 
     def _start_background(self) -> None:
@@ -277,7 +281,7 @@ class WSClient:
             else:
                 raise RuntimeError("socket not connected")
         except Exception as e:
-            print(f"[WebSocket] send failed: {e}")
+            logger.error(f"[WebSocket] send failed: {e}")
 
 
 
@@ -717,7 +721,6 @@ class TrackerApp:
         self._last_zone_to_tid: Dict[str, int] = {}
 
         self.recommender_model = None
-        # in-file EventBus (lightweight)
         self._event_queue: "asyncio.Queue[Dict[str, Any]]" = asyncio.Queue()
         self._event_handlers: Dict[str, List[Callable[[Dict[str, Any]], Awaitable[None]]]] = {}
         self._event_loop_task: Optional[asyncio.Task] = None
@@ -727,11 +730,11 @@ class TrackerApp:
                 model_path = Path(os.getenv("RECOMMENDER_MODEL_PATH", str(default_path)))
                 if model_path.exists():
                     self.recommender_model = load_model(str(model_path))
-                    print(f"[Recommender] 모델 로드: {model_path}")
+                    logger.info(f"[Recommender] 모델 로드: {model_path}")
                 else:
-                    print(f"[Recommender] 모델 파일 없음: {model_path}")
+                    logger.info(f"[Recommender] 모델 파일 없음: {model_path}")
         except Exception as e:
-            print(f"[Recommender] 모델 로드 실패: {e}")
+            logger.exception(f"[Recommender] 모델 로드 실패: {e}")
 
     # ============ In-file EventBus ============
     def _on(self, message_type: str, handler: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
@@ -749,13 +752,13 @@ class TrackerApp:
                 try:
                     await handler(payload)
                 except Exception as e:
-                    print(f"[EventBus] handler error for {msg_type}: {e}")
+                    logger.exception(f"[EventBus] handler error for {msg_type}: {e}")
 
     async def _send_ws(self, payload: Dict[str, Any]) -> None:
         await asyncio.to_thread(self.ws.send_json, payload)
 
-    def _calculate_parking_score(self, occupant_tid: int, zone_id_lower: str) -> float:
-        """주차 완료 시 점수를 계산한다."""
+    # --- Score strategy injection ---
+    def _default_score(self, occupant_tid: int, zone_id_lower: str) -> float:
         angle_rad = float(self._last_angle_by_id.get(occupant_tid, 0.0))
         angle_deg = abs(math.degrees(angle_rad)) % 180.0
         if angle_deg > 90.0:
@@ -779,6 +782,13 @@ class TrackerApp:
 
         score = clamp(base + time_adj, 0.0, 100.0)
         return float(round(score, 1))
+
+    def set_score_strategy(self, fn: Callable[[int, str], float]) -> None:
+        self._score_strategy = fn
+
+    def _calculate_parking_score(self, occupant_tid: int, zone_id_lower: str) -> float:
+        fn = getattr(self, "_score_strategy", None) or self._default_score
+        return float(fn(occupant_tid, zone_id_lower))
 
     def _build_features_for_free_zones(self, size_class: Optional[str], slot_map: Dict[str, str]) -> List[Dict]:
         # size_class 문자열을 (폭[m], 길이[m])로 파싱
@@ -865,7 +875,7 @@ class TrackerApp:
                 if not isinstance(data, dict):
                     continue
                 if data.get("message_type") == "request_assignment":
-                    print(f"서버에서 주차 할당 요청: {data}")
+                    logger.info(f"assignment request: {data}")
                     slot_map = self._get_slot_map()
 
                     license_plate = str(data.get("license_plate") or "")
@@ -881,12 +891,12 @@ class TrackerApp:
                     if self.recommender_model is not None and recommend_best_zone is not None:
                         try:
                             feats = self._build_features_for_free_zones(size_class, slot_map)
-                            print(f"[Recommender] 추천 구역 예측: {feats}")
+                            logger.debug(f"[Recommender] features: {feats}")
                             best = recommend_best_zone(self.recommender_model, feats)
                             if best and isinstance(best, dict):
                                 suggested_zone = str(best.get("zone_id") or "")
                         except Exception as e:
-                            print(f"[Recommender] 예측 실패: {e}")
+                            logger.exception(f"[Recommender] 예측 실패: {e}")
 
                     assigned_zone_upper = self._choose_zone_for_assignment(slot_map, size_class)
 
@@ -914,9 +924,9 @@ class TrackerApp:
             for zid_upper, cur in sorted(slot_map_now.items()):
                 prev = self._last_slot_map.get(zid_upper)
                 if prev is None and cur is not None:
-                    print(f"[Slot] {zid_upper}: None -> {cur}")
+                     logger.info(f"[Slot] {zid_upper}: None -> {cur}")
                 elif prev is not None and prev != cur:
-                    print(f"[Slot] {zid_upper}: {prev} -> {cur}")
+                     logger.info(f"[Slot] {zid_upper}: {prev} -> {cur}")
         except Exception:
             pass
 
@@ -996,7 +1006,7 @@ class TrackerApp:
         self._completed_zones.discard(assigned_zone_upper)
         if license_plate:
             self._assigned_by_plate[license_plate] = assigned_zone_upper
-        print(f"[Reservation] 예약 생성: plate={license_plate} zone={assigned_zone_upper}")
+        logger.info(f"[Reservation] created: plate={license_plate} zone={assigned_zone_upper}")
         await self._send_snapshot(None, 0, 0)
 
     async def _handle_parking_completion(self) -> None:
@@ -1027,7 +1037,7 @@ class TrackerApp:
                     self._assigned_by_plate.pop(assigned_vehicle, None)
                     self._size_class_by_plate.pop(assigned_vehicle, None)
                     self._completed_zones.add(zid_upper)
-                    print(f"[ParkingCompleted] plate={assigned_vehicle} zone={zid_upper}")
+                    logger.info(f"[ParkingCompleted] plate={assigned_vehicle} zone={zid_upper}")
                     await self._send_snapshot(None, 0, 0)
 
         except Exception:
@@ -1045,8 +1055,8 @@ class TrackerApp:
                     continue
                 if actual_zone_upper != assigned_zone_upper:
                     self._reserved_upper.discard(assigned_zone_upper)
-                    print(
-                        f"[Reservation] 다른 구역 주차로 예약 해제: plate={plate} zone={assigned_zone_upper} actual={actual_zone_upper}"
+                    logger.info(
+                        f"[Reservation] release by mispark: plate={plate} zone={assigned_zone_upper} actual={actual_zone_upper}"
                     )
                     vehicles_to_release.append(plate)
             for plate in vehicles_to_release:
@@ -1072,7 +1082,7 @@ class TrackerApp:
                         self._assigned_by_plate.pop(assigned_plate, None)
                         self._size_class_by_plate.pop(assigned_plate, None)
 
-                    print(
+                    logger.info(
                         f"[Preempted] zone={zid_upper} by={occupant_plate or occupant_tid} (assigned={assigned_plate or ''})"
                     )
                     if assigned_plate:
@@ -1087,7 +1097,7 @@ class TrackerApp:
                                 "license_plate": assigned_plate,
                                 "assignment": new_zone_upper,
                             })
-                            print(f"[Reservation] 재할당: plate={assigned_plate} -> {new_zone_upper}")
+                            logger.info(f"[Reservation] re-assigned: plate={assigned_plate} -> {new_zone_upper}")
         except Exception:
             pass
 
@@ -1113,8 +1123,11 @@ class TrackerApp:
             verbose=False,
         )
 
+        # UI 분리: headless 모드 지원
+        headless = os.getenv("HEADLESS", "0") == "1"
         window_name = "Tracking"
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        if not headless:
+            cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         prev_ts = time.time()
         fps_ema = 0.0
 
@@ -1145,8 +1158,9 @@ class TrackerApp:
 
                     await self._handle_exit_events()
 
-                    self.vis.draw_parking_zones(im0)
-                    self.vis.draw_status_panel(im0, (10, 10), self._reserved_upper)
+                    if not headless:
+                        self.vis.draw_parking_zones(im0)
+                        self.vis.draw_status_panel(im0, (10, 10), self._reserved_upper)
                     try:
                         self._last_angle_by_id.update(extract_angles_by_id(r))
                     except Exception:
@@ -1166,19 +1180,21 @@ class TrackerApp:
                     prev_ts = cur
                     inst_fps = 1.0 / dt
                     fps_ema = inst_fps if fps_ema == 0.0 else (0.9 * fps_ema + 0.1 * inst_fps)
-                    cv2.putText(im0, f"FPS: {fps_ema:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
+                    if not headless:
+                        cv2.putText(im0, f"FPS: {fps_ema:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
 
-                    im_disp = self._resize_for_display(im0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
-                    cv2.imshow(window_name, im_disp)
-                    if cv2.waitKey(1) & 0xFF == 27:
-                        break
-                    try:
-                        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                    if not headless:
+                        im_disp = self._resize_for_display(im0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+                        cv2.imshow(window_name, im_disp)
+                        if cv2.waitKey(1) & 0xFF == 27:
                             break
-                    except Exception:
-                        pass
+                        try:
+                            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                                break
+                        except Exception:
+                            pass
                 except Exception as loop_err:
-                    print(f"[RunLoop] error: {loop_err}")
+                    logger.exception(f"[RunLoop] error: {loop_err}")
                 finally:
                     await asyncio.sleep(0)
         finally:
@@ -1195,7 +1211,8 @@ class TrackerApp:
                 self.ws.close()
             except Exception:
                 pass
-            cv2.destroyAllWindows()
+            if not headless:
+                cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     ws = WSClient(WSS_URL)
