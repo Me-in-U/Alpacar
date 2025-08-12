@@ -1,22 +1,44 @@
-# events/signals.py (추가/보강)
-from django.db.models.signals import post_save
+# events/signals.py
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
-from jetson.broadcast import send_request_assignment
+from events.models import VehicleEvent
+from parking.models import ParkingAssignment, ParkingSpace
 
-from .models import VehicleEvent
+from jetson.feed import (
+    broadcast_parking_space,
+    broadcast_active_vehicles,
+)
 
 
 @receiver(post_save, sender=VehicleEvent)
-def request_assignment_on_event_created(
-    sender, instance: VehicleEvent, created, **kwargs
-):
-    # 입차 이벤트가 새로 생성될 때만 젯슨에 요청을 보낸다.
-    if not created:
-        return
-    vehicle = instance.vehicle
-    model = getattr(vehicle, "model", None)
-    size_class = getattr(model, "size_class", None)
-    if not size_class:
-        return
-    send_request_assignment(vehicle.license_plate, size_class)
+def vehicle_event_saved(sender, instance: VehicleEvent, created, **kwargs):
+    # 입차/상태변경 시 → 활성차량 스냅샷 push
+    broadcast_active_vehicles()
+
+
+@receiver(post_save, sender=ParkingAssignment)
+def assignment_saved(sender, instance: ParkingAssignment, created, **kwargs):
+    # 배정 생성/재배정/상태변경 → 관련 슬롯/활성차량 동기화
+    labels = []
+    if instance.space_id and instance.space:
+        labels.append(f"{instance.space.zone}{instance.space.slot_number}")
+    broadcast_parking_space(labels or None)  # 해당 슬롯만 빠르게 갱신(없으면 전체)
+    broadcast_active_vehicles()
+
+
+@receiver(post_delete, sender=ParkingAssignment)
+def assignment_deleted(sender, instance: ParkingAssignment, **kwargs):
+    labels = []
+    if instance.space_id and instance.space:
+        labels.append(f"{instance.space.zone}{instance.space.slot_number}")
+    broadcast_parking_space(labels or None)
+    broadcast_active_vehicles()
+
+
+@receiver(post_save, sender=ParkingSpace)
+def space_saved(sender, instance: ParkingSpace, **kwargs):
+    # 슬롯 상태 변경 시 → 슬롯/활성차량 동기화
+    label = f"{instance.zone}{instance.slot_number}"
+    broadcast_parking_space([label])
+    broadcast_active_vehicles()

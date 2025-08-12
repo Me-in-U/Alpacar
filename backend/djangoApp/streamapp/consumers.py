@@ -226,11 +226,17 @@ class OCRTextConsumer(AsyncWebsocketConsumer):
             is_valid_plate = bool(
                 plate_pattern.match(LATEST_TEXT)
             )  # 번호판 유효성 검사
-            if is_valid_plate:
-                returned_text = f"입차: {LATEST_TEXT}"
+            if not is_valid_plate:
+                # 날짜/시간 포맷
+                now = timezone.now()
+                returned_text = (
+                    "<ALPACAR 주차장>\n"
+                    f"{now.strftime('%Y년 %m월 %d일')}\n"
+                    f"{now.strftime('%H:%M:%S')}"
+                )
             else:
-                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                returned_text = f"<ALPACAR>\n{now_str}"
+                returned_text = "<ALPACAR 주차장>\n" f"입차: {LATEST_TEXT}\n" "어서오슈"
+
             payload = json.dumps(
                 {"text": returned_text}, ensure_ascii=False
             )  # JSON 페이로드 생성
