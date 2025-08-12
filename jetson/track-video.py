@@ -679,6 +679,7 @@ class TrackerApp:
         except Exception as e:
             print(f"[Recommender] 모델 로드 실패: {e} (fallback 사용)")
 
+    # TODO: 추후 특징 추가 필요
     def _build_features_for_free_zones(self, size_class: Optional[str], slot_map: Dict[str, str]) -> List[Dict]:
         # 최소 특징: zone_id, size_class, 시간 기반 특징
         now = time.localtime()
@@ -718,15 +719,6 @@ class TrackerApp:
                         self.plate_mgr.enqueue_plate(license_plate)
                     size_class = str(data.get("size_class") or "")
 
-                    # 1) 서버가 구역을 지정해온 경우 우선 사용
-                    server_zone = str(
-                        data.get("assignment")
-                        or data.get("zone")
-                        or data.get("zone_id")
-                        or data.get("requested_zone")
-                        or ""
-                    ).strip().upper()
-
                     # 2) ML 추천 시도
                     suggested_zone = ""
                     if self.recommender_model is not None and recommend_best_zone is not None:
@@ -739,7 +731,7 @@ class TrackerApp:
                             print(f"[Recommender] 예측 실패: {e} (fallback 사용)")
 
                     # 3) 예약 대상 구역 선정 (서버 지정 > ML > 첫 free)
-                    assigned_zone_upper = self._choose_zone_for_assignment(slot_map, server_zone, size_class)
+                    assigned_zone_upper = self._choose_zone_for_assignment(slot_map, size_class)
 
                     # 4) 예약 상태 반영
                     await self._reserve_zone(license_plate, assigned_zone_upper, slot_map)
@@ -797,11 +789,9 @@ class TrackerApp:
         return self.parking.occupant_to_zone_upper()
 
     def _choose_zone_for_assignment(
-        self, slot_map: Dict[str, str], server_zone_upper: str, size_class: Optional[str]
+        self, slot_map: Dict[str, str], size_class: Optional[str]
     ) -> str:
-        # 우선순위: 서버 지정 > ML 추천 > 첫 번째 free
-        if server_zone_upper:
-            return server_zone_upper
+        # 우선순위: ML 추천 > 첫 번째 free
         suggested_zone = ""
         if self.recommender_model is not None and recommend_best_zone is not None:
             try:
@@ -883,16 +873,15 @@ class TrackerApp:
                     # 재할당 시도
                     if assigned_plate:
                         slot_map_now = self._get_slot_map()
-                        new_zone_upper = self._choose_zone_for_assignment(slot_map_now, "", None)
+                        new_zone_upper = self._choose_zone_for_assignment(slot_map_now, None)
                         if new_zone_upper and slot_map_now.get(new_zone_upper) == "free":
                             self._reserved_upper.add(new_zone_upper)
                             self._assigned_by_plate[assigned_plate] = new_zone_upper
                             await self.ws.send_json_async(
                                 {
-                                    "message_type": "assignment",
+                                    "message_type": "re-assignment",
                                     "license_plate": assigned_plate,
                                     "assignment": new_zone_upper,
-                                    "reason": "reassign_after_preempted",
                                 }
                             )
                             print(f"[Reservation] 재할당: plate={assigned_plate} -> {new_zone_upper}")
@@ -939,7 +928,7 @@ class TrackerApp:
                         continue
                     # Avoid extra copy; draw in-place
                     angles = self.vis.draw_direction_arrows(im0, r)
-                    polys, centers = self.vis.draw_boxes(im0, r, angles)
+                    _, centers = self.vis.draw_boxes(im0, r, angles)
                     ids = extract_track_ids(r) or []
                     self.plate_mgr.ensure_mapping(ids)
 
