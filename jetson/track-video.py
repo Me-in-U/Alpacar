@@ -2,26 +2,35 @@ from __future__ import annotations
 
 import json
 import math
-import random
 import time
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+import asyncio
+import json
+import os
 
 import cv2
 import numpy as np
 import websocket
 from ultralytics import YOLO
+try:
+    from ml.recommender import recommend_best_zone
+    from ml.step_predictor import load_model
+except Exception:
+    recommend_best_zone = None  # type: ignore
+    load_model = None  # type: ignore
 
 # =============================
 # Configuration
 # =============================
 
-VIDEO_PATH = "data/video_part_2.mp4"
+VIDEO_PATH = "data/video_part_1.mp4"
 MODEL_PATH = "last (2).pt"
 TRACKER_CFG_NAME = "bytetrack.yaml"  # located next to this file
-WSS_URL = "wss://i13e102.p.ssafy.io/ws/car-position/"
+# WSS_URL = "wss://i13e102.p.ssafy.io/ws/car-position/"
+WSS_URL = "ws://localhost:8000/ws/car-position/"
 
 OUTPUT_WIDTH = 900
 OUTPUT_HEIGHT = 550
@@ -53,7 +62,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
 
 RESERVED_ZONES_UPPER: set[str] = set()
 
-ENG_PLATE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+## 번호판 랜덤 생성 제거: 서버 제공 데이터 사용
 
 # =============================
 # Utilities
@@ -77,39 +86,33 @@ def point_in_norm_rect(
 # =============================
 
 class PlateManager:
-    def __init__(self, queues: int = 20, preload_each: int = 10) -> None:
-        self.license_queues: List[deque[str]] = [
-            deque(self._generate_plate() for _ in range(preload_each))
-            for _ in range(queues)
-        ]
-        self._rr_index = 0
+    def __init__(self) -> None:
+        # 서버에서 수신한 번호판을 보관하는 큐
+        self.plate_queue: deque[str] = deque()
+        # 트랙 ID → 번호판 매핑
         self.track_to_plate: Dict[int, str] = {}
 
-    def _generate_plate(self) -> str:
-        letters = "".join(random.choices(ENG_PLATE_LETTERS, k=3))
-        digits = random.randint(1000, 9999)
-        return f"{letters}-{digits}"
-
-    def _next_from_queues(self) -> str:
-        n = len(self.license_queues)
-        for i in range(n):
-            idx = (self._rr_index + i) % n
-            if self.license_queues[idx]:
-                plate = self.license_queues[idx].popleft()
-                self._rr_index = (idx + 1) % n
-                return plate
-        return self._generate_plate()
+    def enqueue_plate(self, plate: str) -> None:
+        if not plate:
+            return
+        self.plate_queue.append(plate)
 
     def ensure_mapping(self, ids: Optional[Iterable[int]]) -> None:
         if not ids:
             return
         for tid in ids:
             tid_int = int(tid)
-            if tid_int not in self.track_to_plate:
-                self.track_to_plate[tid_int] = self._next_from_queues()
+            if tid_int not in self.track_to_plate and self.plate_queue:
+                self.track_to_plate[tid_int] = self.plate_queue.popleft()
 
     def get(self, tid: int) -> Optional[str]:
         return self.track_to_plate.get(int(tid))
+
+    def get_track_id_by_plate(self, plate: str) -> Optional[int]:
+        for track_id, mapped_plate in self.track_to_plate.items():
+            if mapped_plate == plate:
+                return int(track_id)
+        return None
 
 
 # =============================
@@ -198,6 +201,15 @@ class ParkingManager:
                 slot[zid_upper] = "free"
         return slot
 
+    def occupant_to_zone_upper(self) -> Dict[int, str]:
+        mapping: Dict[int, str] = {}
+        for zone in self.zones_norm:
+            zid = zone["id"]
+            st = self.state.get(zid)
+            if st and st.occupant_id is not None:
+                mapping[int(st.occupant_id)] = zid.upper()
+        return mapping
+
 
 # =============================
 # WebSocket Wrapper
@@ -251,6 +263,24 @@ class WSClient:
         except Exception:
             pass
 
+    async def send_json_async(self, obj: Any) -> None:
+        await asyncio.to_thread(self.send_json, obj)
+
+    async def recv(self) -> str:
+        def _blocking_recv() -> str:
+            assert self.ws is not None
+            return self.ws.recv()
+
+        return await asyncio.to_thread(_blocking_recv)
+
+    def recv_text(self, timeout: float | None = None) -> str:
+        assert self.ws is not None
+        if timeout is not None:
+            self.ws.settimeout(timeout)
+        return self.ws.recv()  # blocking
+
+    async def recv_async(self, timeout: float | None = None) -> str:
+        return await asyncio.to_thread(self.recv_text, timeout)
 
 # =============================
 # Drawing / Visualization
@@ -381,30 +411,53 @@ class Visualizer:
             cv2.putText(frame, label, org, font, 0.8, (0, 0, 0), 4, cv2.LINE_AA)
             cv2.putText(frame, label, org, font, 0.8, color, 2, cv2.LINE_AA)
 
-    def draw_status_panel(self, frame: np.ndarray, anchor: Tuple[int, int] = (10, 10)) -> None:
+    def draw_status_panel(
+        self,
+        frame: np.ndarray,
+        anchor: Tuple[int, int] = (10, 10),
+        reserved_upper: Optional[set[str]] = None,
+    ) -> None:
         try:
             font = cv2.FONT_HERSHEY_SIMPLEX
             zone_ids = [z["id"] for z in self.prk.zones_norm]
+            slot_map = self.prk.assemble_slot_status(reserved_upper or set())
+            reserved_list: List[str] = []
             occupied: List[Tuple[str, int]] = []
             free: List[str] = []
             for zid in zone_ids:
-                occ = self.prk.state[zid].occupant_id
-                (free if occ is None else occupied).append(zid if occ is None else (zid, occ))
+                status = slot_map.get(zid.upper(), "free")
+                if status == "reserved":
+                    reserved_list.append(zid)
+                elif status == "occupied":
+                    occ = self.prk.state[zid].occupant_id
+                    occupied.append((zid, occ if occ is not None else -1))
+                else:
+                    free.append(zid)
 
             lines: List[str] = []
             lines.append("Parking Status")
-            lines.append(f"Occupied: {len(occupied)}  Free: {len(free)}")
+            lines.append(f"Reserved: {len(reserved_list)}  Occupied: {len(occupied)}  Free: {len(free)}")
             if free:
                 lines.append(
                     "Free: " + ", ".join(free[:8]) + ("..." if len(free) > 8 else "")
                 )
+            if reserved_list:
+                lines.append(
+                    "Reserved: " + ", ".join(reserved_list[:8]) + ("..." if len(reserved_list) > 8 else "")
+                )
             for zid in zone_ids[:10]:
-                occ = self.prk.state[zid].occupant_id
-                if occ is None:
-                    lines.append(f"{zid}: Free")
+                status = slot_map.get(zid.upper(), "free")
+                if status == "reserved":
+                    lines.append(f"{zid}: Reserved")
+                elif status == "occupied":
+                    occ = self.prk.state[zid].occupant_id
+                    if occ is None:
+                        lines.append(f"{zid}: Occupied")
+                    else:
+                        plate = self.pm.get(occ)
+                        lines.append(f"{zid}: {plate if plate else f'ID {occ}'}")
                 else:
-                    plate = self.pm.get(occ)
-                    lines.append(f"{zid}: {plate if plate else f'ID {occ}'}")
+                    lines.append(f"{zid}: Free")
 
             sizes = [cv2.getTextSize(t, font, 0.9, 2)[0] for t in lines]
             line_h = max(h for (_, h) in sizes) + 6
@@ -483,19 +536,6 @@ def build_logging_snapshot(
         if state.occupant_id is not None:
             occupant_to_zone_upper[int(state.occupant_id)] = zid.upper()
 
-    # 추천 구역 선택을 위한 리스트 (구성 순서 유지)
-    reserved_free_upper: List[str] = []
-    free_upper: List[str] = []
-    for zone in parking.zones_norm:
-        zid_upper = zone["id"].upper()
-        status = slot_map.get(zid_upper, "free")
-        if status == "reserved":
-            # 예약이면서 현재 점유가 아니면 추천 후보
-            if parking.state[zone["id"]].occupant_id is None:
-                reserved_free_upper.append(zid_upper)
-        elif status == "free":
-            free_upper.append(zid_upper)
-
     vehicles_log: List[Dict[str, Any]] = []
     for det in payload:
         tid = int(det.get("track_id"))
@@ -513,16 +553,8 @@ def build_logging_snapshot(
 
         is_parked = tid in occupant_to_zone_upper
         state_str = "parked" if is_parked else "running"
-
-        if is_parked:
-            suggested_zone = occupant_to_zone_upper[tid]
-        else:
-            suggested_zone = (
-                reserved_free_upper[0]
-                if reserved_free_upper
-                else (free_upper[0] if free_upper else "")
-            )
-
+        suggested_zone = occupant_to_zone_upper.get(tid, "")
+        
         vehicles_log.append(
             {
                 "plate": plate,
@@ -555,8 +587,7 @@ def build_wss_payload_from_result(
             tid = ids_list[i]
             if tid is None:
                 continue
-            # draw_boxes와 동일한 방식으로 중심/각도/코너를 계산한다
-            # 1) 중심: 폴리곤 평균값 사용 (draw_boxes와 동일)
+
             try:
                 pts = corners[i].cpu().numpy().reshape(-1, 2)
             except Exception:
@@ -622,14 +653,106 @@ def build_wss_payload_from_result(
 # =============================
 
 class TrackerApp:
-    def __init__(self) -> None:
-        self.model = YOLO(MODEL_PATH)
+    def __init__(self, ws: WSClient) -> None:
+        self.model = None
         self.tracker_cfg = str(Path(__file__).with_name(TRACKER_CFG_NAME))
-        self.ws = WSClient(WSS_URL)
+        self.ws = ws
         self.plate_mgr = PlateManager()
         self.parking = ParkingManager(PARKING_ZONES_NORM)
         self.vis = Visualizer(self.plate_mgr, self.parking)
         self._last_snapshot_ts = 0.0
+        self._reserved_upper: set[str] = set()
+        self._assigned_by_plate: Dict[str, str] = {}
+        self._last_slot_map: Dict[str, str] = {}
+
+        # 추천 모델 로딩 (선택적)
+        self.recommender_model = None
+        try:
+            if load_model is not None:
+                default_path = Path(__file__).parents[1] / "ml" / "artifacts" / "best_step_model.joblib"
+                model_path = Path(os.getenv("RECOMMENDER_MODEL_PATH", str(default_path)))
+                if model_path.exists():
+                    self.recommender_model = load_model(str(model_path))
+                    print(f"[Recommender] 모델 로드: {model_path}")
+                else:
+                    print(f"[Recommender] 모델 파일 없음: {model_path} (fallback 사용)")
+        except Exception as e:
+            print(f"[Recommender] 모델 로드 실패: {e} (fallback 사용)")
+
+    def _build_features_for_free_zones(self, size_class: Optional[str], slot_map: Dict[str, str]) -> List[Dict]:
+        # 최소 특징: zone_id, size_class, 시간 기반 특징
+        now = time.localtime()
+        hour = now.tm_hour
+        dow = now.tm_wday
+        features: List[Dict] = []
+        for z in self.parking.zones_norm:
+            zid = z["id"].upper()
+            if slot_map.get(zid) == "free":
+                feat = {
+                    "zone_id": zid,
+                    "hour": hour,
+                    "dow": dow,
+                    "size_class": (size_class or "unknown"),
+                }
+                features.append(feat)
+        return features
+
+    async def _listen_assignment_request(self) -> None:
+        while True:
+            try:
+                msg = await self.ws.recv()
+                try:
+                    data = json.loads(msg)
+                except Exception:
+                    continue
+                if not isinstance(data, dict):
+                    continue
+                if data.get("message_type") == "request_assignment":
+                    # 현재 슬롯 상태 및 점유 맵 생성
+                    slot_map = self._get_slot_map()
+                    occupant_to_zone_upper = self._get_occupant_map()
+
+                    license_plate = str(data.get("license_plate") or "")
+                    if license_plate:
+                        # 서버에서 들어온 번호판을 큐에 적재해 신규 트랙에 매핑되도록 함
+                        self.plate_mgr.enqueue_plate(license_plate)
+                    size_class = str(data.get("size_class") or "")
+
+                    # 1) 서버가 구역을 지정해온 경우 우선 사용
+                    server_zone = str(
+                        data.get("assignment")
+                        or data.get("zone")
+                        or data.get("zone_id")
+                        or data.get("requested_zone")
+                        or ""
+                    ).strip().upper()
+
+                    # 2) ML 추천 시도
+                    suggested_zone = ""
+                    if self.recommender_model is not None and recommend_best_zone is not None:
+                        try:
+                            feats = self._build_features_for_free_zones(size_class, slot_map)
+                            best = recommend_best_zone(self.recommender_model, feats)
+                            if best and isinstance(best, dict):
+                                suggested_zone = str(best.get("zone_id") or "")
+                        except Exception as e:
+                            print(f"[Recommender] 예측 실패: {e} (fallback 사용)")
+
+                    # 3) 예약 대상 구역 선정 (서버 지정 > ML > 첫 free)
+                    assigned_zone_upper = self._choose_zone_for_assignment(slot_map, server_zone, size_class)
+
+                    # 4) 예약 상태 반영
+                    await self._reserve_zone(license_plate, assigned_zone_upper, slot_map)
+
+                    # 최신 슬롯 맵 재생성하여 응답 포함
+                    response: Dict[str, Any] = {
+                        "message_type": "assignment",
+                        "license_plate": license_plate,
+                        "assignment": assigned_zone_upper,
+                    }
+                    await self.ws.send_json_async(response)
+            except Exception:
+                break
 
     def _resize_for_display(
         self, im: np.ndarray, max_w: int = OUTPUT_WIDTH, max_h: int = OUTPUT_HEIGHT
@@ -640,7 +763,151 @@ class TrackerApp:
             return cv2.resize(im, (int(w * scale), int(h * scale)))
         return im
 
-    def run(self) -> None:
+    def _log_slot_changes(self, slot_map_now: Dict[str, str]) -> None:
+        try:
+            for zid_upper, cur in sorted(slot_map_now.items()):
+                prev = self._last_slot_map.get(zid_upper)
+                if prev is None and cur is not None:
+                    print(f"[Slot] {zid_upper}: None -> {cur}")
+                elif prev is not None and prev != cur:
+                    print(f"[Slot] {zid_upper}: {prev} -> {cur}")
+        except Exception:
+            pass
+
+    async def _send_snapshot(self, result_obj: Any | None, frame_w: int, frame_h: int) -> None:
+        try:
+            if result_obj is not None:
+                payload = build_wss_payload_from_result(result_obj, frame_w, frame_h)
+            else:
+                payload = []
+            await self.ws.send_json_async(
+                build_logging_snapshot(payload, self.plate_mgr, self.parking, self._reserved_upper)
+            )
+            # 상태 변화 로그 출력
+            slot_map_now = self.parking.assemble_slot_status(self._reserved_upper)
+            self._log_slot_changes(slot_map_now)
+            self._last_slot_map = slot_map_now.copy()
+        except Exception:
+            pass
+
+    def _get_slot_map(self) -> Dict[str, str]:
+        return self.parking.assemble_slot_status(self._reserved_upper)
+
+    def _get_occupant_map(self) -> Dict[int, str]:
+        return self.parking.occupant_to_zone_upper()
+
+    def _choose_zone_for_assignment(
+        self, slot_map: Dict[str, str], server_zone_upper: str, size_class: Optional[str]
+    ) -> str:
+        # 우선순위: 서버 지정 > ML 추천 > 첫 번째 free
+        if server_zone_upper:
+            return server_zone_upper
+        suggested_zone = ""
+        if self.recommender_model is not None and recommend_best_zone is not None:
+            try:
+                feats = self._build_features_for_free_zones(size_class or "", slot_map)
+                best = recommend_best_zone(self.recommender_model, feats)
+                if best and isinstance(best, dict):
+                    suggested_zone = str(best.get("zone_id") or "").strip().upper()
+            except Exception:
+                suggested_zone = ""
+        if suggested_zone:
+            return suggested_zone
+        for zid_upper, state in slot_map.items():
+            if state == "free":
+                return zid_upper
+        return ""
+
+    async def _reserve_zone(self, license_plate: str, assigned_zone_upper: str, slot_map: Dict[str, str]) -> None:
+        if not assigned_zone_upper:
+            return
+        if slot_map.get(assigned_zone_upper) != "free":
+            return
+        self._reserved_upper.add(assigned_zone_upper)
+        if license_plate:
+            self._assigned_by_plate[license_plate] = assigned_zone_upper
+        print(f"[Reservation] 예약 생성: plate={license_plate} zone={assigned_zone_upper}")
+        await self._send_snapshot(None, 0, 0)
+
+    def _handle_mispark_release(self, occupant_to_zone_upper: Dict[int, str]) -> None:
+        try:
+            plates_to_release: List[str] = []
+            for license_plate, assigned_zone_upper in list(self._assigned_by_plate.items()):
+                tid = self.plate_mgr.get_track_id_by_plate(license_plate)
+                if tid is None:
+                    continue
+                actual_zone_upper = occupant_to_zone_upper.get(int(tid))
+                if actual_zone_upper is None:
+                    continue
+                if actual_zone_upper != assigned_zone_upper:
+                    self._reserved_upper.discard(assigned_zone_upper)
+                    print(
+                        f"[Reservation] 다른 구역 주차로 예약 해제: plate={license_plate} zone={assigned_zone_upper} actual={actual_zone_upper}"
+                    )
+                    plates_to_release.append(license_plate)
+            for lp in plates_to_release:
+                self._assigned_by_plate.pop(lp, None)
+        except Exception:
+            pass
+
+    async def _handle_preemption_and_reassign(self) -> None:
+        try:
+            # zone -> assigned plate
+            zone_to_assigned_plate: Dict[str, str] = {z: p for p, z in self._assigned_by_plate.items()}
+            preempted_events: List[Dict[str, Any]] = []
+            for zid_upper in list(self._reserved_upper):
+                zid_lower = zid_upper.lower()
+                st = self.parking.state.get(zid_lower)
+                if st is None or st.occupant_id is None:
+                    continue
+                assigned_plate = zone_to_assigned_plate.get(zid_upper)
+                occupant_tid = int(st.occupant_id)
+                occupant_plate = self.plate_mgr.get(occupant_tid)
+                if assigned_plate is None or occupant_plate != assigned_plate:
+                    # 해제
+                    self._reserved_upper.discard(zid_upper)
+                    if assigned_plate:
+                        self._assigned_by_plate.pop(assigned_plate, None)
+                    preempted_events.append(
+                        {
+                            "message_type": "preempted",
+                            "zone": zid_upper,
+                            "by_track_id": occupant_tid,
+                            "by_plate": occupant_plate or "",
+                            "assigned_plate": assigned_plate or "",
+                        }
+                    )
+                    print(
+                        f"[Preempted] zone={zid_upper} by={occupant_plate or occupant_tid} (assigned={assigned_plate or ''})"
+                    )
+                    # 재할당 시도
+                    if assigned_plate:
+                        slot_map_now = self._get_slot_map()
+                        new_zone_upper = self._choose_zone_for_assignment(slot_map_now, "", None)
+                        if new_zone_upper and slot_map_now.get(new_zone_upper) == "free":
+                            self._reserved_upper.add(new_zone_upper)
+                            self._assigned_by_plate[assigned_plate] = new_zone_upper
+                            await self.ws.send_json_async(
+                                {
+                                    "message_type": "assignment",
+                                    "license_plate": assigned_plate,
+                                    "assignment": new_zone_upper,
+                                    "reason": "reassign_after_preempted",
+                                }
+                            )
+                            print(f"[Reservation] 재할당: plate={assigned_plate} -> {new_zone_upper}")
+            # 이벤트 전송
+            for evt in preempted_events:
+                try:
+                    await self.ws.send_json_async(evt)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    async def run(self) -> None:
+        # 일반 모드: YOLO 추론 및 전송만 남김
+        self.model = YOLO(MODEL_PATH)
         results = self.model.track(
             source=VIDEO_PATH,
             stream=True,
@@ -649,50 +916,84 @@ class TrackerApp:
             iou=IOU_THRES,
             tracker=self.tracker_cfg,
             visualize=False,
+            verbose=False,
         )
 
         window_name = "Tracking"
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        prev_ts = time.time()
+        fps_ema = 0.0
 
         try:
+            # 서버 수신 코루틴 병행 시작
+            listener_task = asyncio.create_task(self._listen_assignment_request())
+            # 서버에 클라이언트 타입을 알리는 헬로 메시지(로컬 서버 호환)
+            try:
+                await self.ws.send_json_async({"client_type": "track_video"})
+            except Exception:
+                pass
             for r in results:
-                im0 = r.orig_img if hasattr(r, "orig_img") else None
-                if im0 is None:
-                    continue
-                # Avoid extra copy; draw in-place
-                angles = self.vis.draw_direction_arrows(im0, r)
-                polys, centers = self.vis.draw_boxes(im0, r, angles)
-                ids = extract_track_ids(r) or []
-                self.plate_mgr.ensure_mapping(ids)
-
-                dets = get_detections_with_ids(r)
-                self.vis.draw_plate_labels(im0, dets)
-
-                now_ts = time.time()
-                h_full, w_full = im0.shape[:2]
-                self.parking.update(centers, ids, w_full, h_full, now_ts)
-
-                self.vis.draw_parking_zones(im0)
-                self.vis.draw_status_panel(im0, (10, 10))
-
                 try:
-                    if now_ts - self._last_snapshot_ts >= SNAPSHOT_INTERVAL_S:
-                        payload = build_wss_payload_from_result(r, w_full, h_full)
-                        # 요청 포맷으로 로깅 출력
-                        log_obj = build_logging_snapshot(
-                            payload, self.plate_mgr, self.parking, RESERVED_ZONES_UPPER
-                        )
-                        print(json.dumps(log_obj, ensure_ascii=False, indent=4))
-                        self.ws.send_json(payload)
-                        self._last_snapshot_ts = now_ts
-                except Exception:
-                    pass
+                    im0 = r.orig_img if hasattr(r, "orig_img") else None
+                    if im0 is None:
+                        continue
+                    # Avoid extra copy; draw in-place
+                    angles = self.vis.draw_direction_arrows(im0, r)
+                    polys, centers = self.vis.draw_boxes(im0, r, angles)
+                    ids = extract_track_ids(r) or []
+                    self.plate_mgr.ensure_mapping(ids)
 
-                im_disp = self._resize_for_display(im0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
-                cv2.imshow(window_name, im_disp)
-                if cv2.waitKey(1) & 0xFF == 27:
-                    break
+                    dets = get_detections_with_ids(r)
+                    self.vis.draw_plate_labels(im0, dets)
+
+                    now_ts = time.time()
+                    h_full, w_full = im0.shape[:2]
+                    self.parking.update(centers, ids, w_full, h_full, now_ts)
+
+                    self.vis.draw_parking_zones(im0)
+                    self.vis.draw_status_panel(im0, (10, 10), self._reserved_upper)
+
+                    # 오배정 해제 및 선점 처리
+                    self._handle_mispark_release(self._get_occupant_map())
+                    await self._handle_preemption_and_reassign()
+
+                    if now_ts - self._last_snapshot_ts >= SNAPSHOT_INTERVAL_S:
+                        await self._send_snapshot(r, w_full, h_full)
+                        self._last_snapshot_ts = now_ts
+
+                    # FPS 표시
+                    cur = time.time()
+                    dt = max(1e-6, cur - prev_ts)
+                    prev_ts = cur
+                    inst_fps = 1.0 / dt
+                    fps_ema = inst_fps if fps_ema == 0.0 else (0.9 * fps_ema + 0.1 * inst_fps)
+                    cv2.putText(im0, f"FPS: {fps_ema:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
+
+                    im_disp = self._resize_for_display(im0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+                    cv2.imshow(window_name, im_disp)
+                    if cv2.waitKey(1) & 0xFF == 27:
+                        break
+                    try:
+                        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                            break
+                    except Exception:
+                        pass
+                except Exception as loop_err:
+                    print(f"[RunLoop] error: {loop_err}")
+                finally:
+                    # 다른 코루틴이 실행될 수 있도록 한 틱 양보
+                    await asyncio.sleep(0)
         finally:
+            # 수신 태스크 정리
+            try:
+                if 'listener_task' in locals() and not listener_task.done():
+                    listener_task.cancel()
+                    try:
+                        await listener_task
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             try:
                 self.ws.close()
             except Exception:
@@ -700,5 +1001,14 @@ class TrackerApp:
             cv2.destroyAllWindows()
 
 
+async def listen_assignment_request(ws: WSClient):
+    while True:
+        try:
+            msg = await ws.recv()
+            print(f"[track-video] 서버로부터 주차 할당 요청 수신: {msg}")
+        except Exception:
+            break
+
 if __name__ == "__main__":
-    TrackerApp().run()
+    ws = WSClient(WSS_URL)
+    asyncio.run(TrackerApp(ws).run())
