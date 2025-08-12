@@ -206,10 +206,15 @@ class OCRTextConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
-        await self.accept()  # 연결 허용
-        self.task = asyncio.create_task(
-            self.push_loop()
-        )  # 주기적 텍스트 전송 태스크 시작
+        # 클라이언트가 제안한 subprotocol 목록 (예: ['arduino'])
+        subs = self.scope.get("subprotocols", [])
+        proto = "arduino" if "arduino" in subs else None
+
+        # 제안된 'arduino'를 그대로 에코해서 승인
+        await self.accept(subprotocol=proto)
+
+        # 주기 전송 태스크 시작
+        self.task = asyncio.create_task(self.push_loop())
 
     async def disconnect(self, code):
         self.task.cancel()  # 태스크 취소
