@@ -1,13 +1,13 @@
 # jetson/consumers.py
 import json
 from typing import Any, Dict, List, Tuple
-from channels.generic.websocket import AsyncWebsocketConsumer
+
 from channels.db import database_sync_to_async
-
-from parking.models import ParkingSpace
-from parking.services import handle_assignment_from_jetson, add_score_from_jetson
-
+from channels.generic.websocket import AsyncWebsocketConsumer
 from django.db.models import Q
+from events.models import VehicleEvent
+from parking.models import ParkingSpace
+from parking.services import add_score_from_jetson, handle_assignment_from_jetson
 
 JETSON_GROUP = "jetson-ws"
 CAR_POSITION_GROUP = "car_position"
@@ -32,6 +32,13 @@ class JetsonAssignConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(CAR_POSITION_GROUP, self.channel_name)
         await self.channel_layer.group_add(PARKING_SPACE_GROUP, self.channel_name)
         await self.channel_layer.group_add(ACTIVE_VEHICLES_GROUP, self.channel_name)
+
+        # ✅ 접속 직후 1회: 현재 DB 스냅샷을 이 소켓으로 직접 전송
+        space_payload = await self._snapshot_space_all()
+        await self.send(text_data=json.dumps(space_payload, ensure_ascii=False))
+
+        active_payload = await self._snapshot_active_vehicles()
+        await self.send(text_data=json.dumps(active_payload, ensure_ascii=False))
 
     async def disconnect(self, code):
         await self.channel_layer.group_discard(JETSON_GROUP, self.channel_name)
@@ -146,6 +153,63 @@ class JetsonAssignConsumer(AsyncWebsocketConsumer):
                 )
             )
             return
+
+    # ──────────────────────────────────────────────────────────────
+    # DB 스냅샷 헬퍼 (초기 전송/요청시 재사용)
+
+    @database_sync_to_async
+    def _snapshot_space_all(self) -> Dict[str, Any]:
+        rows = ParkingSpace.objects.values(
+            "zone",
+            "slot_number",
+            "size_class",
+            "status",
+            "current_vehicle_id",
+            "current_vehicle__license_plate",
+        ).order_by("zone", "slot_number")
+        out: Dict[str, Any] = {}
+        for r in rows:
+            key = f"{r['zone']}{r['slot_number']}"
+            out[key] = {
+                "status": r["status"],  # "free" | "occupied" | "reserved"
+                "size": r["size_class"],  # string | None
+                "vehicle_id": r["current_vehicle_id"],
+                "license_plate": r["current_vehicle__license_plate"],
+            }
+        return out
+
+    @database_sync_to_async
+    def _snapshot_active_vehicles(self) -> Dict[str, Any]:
+        qs = (
+            VehicleEvent.objects.select_related("vehicle")
+            .filter(exit_time__isnull=True)
+            .order_by("-id")
+        )
+        results = []
+        for ev in qs:
+            assigned = None
+            assignment = getattr(ev, "assignment", None)
+            if assignment and assignment.space:
+                s = assignment.space
+                assigned = {
+                    "zone": s.zone,
+                    "slot_number": s.slot_number,
+                    "label": f"{s.zone}{s.slot_number}",
+                    "status": s.status,
+                }
+            results.append(
+                {
+                    "id": ev.id,
+                    "vehicle_id": ev.vehicle_id,
+                    "license_plate": ev.vehicle.license_plate,
+                    "entrance_time": (
+                        ev.entrance_time.isoformat() if ev.entrance_time else None
+                    ),
+                    "status": ev.status,
+                    "assigned_space": assigned,
+                }
+            )
+        return {"results": results}
 
     # ── 텔레메트리 처리 ────────────────────────────────────────────────
     #  { "slot": { "B1": "occupied", ... }, "vehicles": [ ... ] }
