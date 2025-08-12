@@ -14,7 +14,8 @@ from ultralytics import YOLO
 from websocket import create_connection
 
 # ─── 백엔드 서버 주소 설정 ─────────────────────────────────────────────────────────
-WS_URL = "ws://192.168.45.183:8000/ws/upload/"
+WS_URL = "ws://192.168.137.1:8000/ws/upload/"
+WS_URL = "wss://i13e102.p.ssafy.io/ws/upload/"
 
 # ─── HTTP 세션 재사용 ────────────────────────────────────────────────────────
 sess = requests.Session()  # 세션 재사용
@@ -36,7 +37,7 @@ picam2.start()
 picam2.set_controls(
     {
         "AfMode": controls.AfModeEnum.Manual,  # 수동 초점
-        "LensPosition": 20.0,
+        "LensPosition": 11.1,
         "FrameRate": 10.0,  # 초당 10프레임
     }
 )
@@ -56,12 +57,19 @@ plate_pattern = re.compile(
 
 
 # ─── 유틸 함수 ────────────────────────────────────────────────────────────
+# 오른쪽 중앙 2배 크롭
 def zoom_flip(frame, zoom=2.0):
     h, w = frame.shape[:2]
     cw, ch = int(w / zoom), int(h / zoom)
-    x1, y1 = (w - cw) // 2, (h - ch) // 2
+
+    # 중앙 기준으로 오른쪽 방향으로 절반 이동
+    center_x = w // 2
+    x1 = center_x - cw // 2 // 2  # 중간~오른쪽 중간 영역 시작점
+    y1 = (h - ch) // 2
+
     crop = frame[y1 : y1 + ch, x1 : x1 + cw]
-    return cv2.flip(crop, -1)
+    # return cv2.flip(crop, -1)
+    return crop
 
 
 # ─── YOLO로 번호판 위치 검출 ───────────────────────────────────────────────
@@ -101,13 +109,20 @@ def ocr_and_annotate():
 
     if plate_coords:
         x1, y1, x2, y2 = plate_coords
-        plate_image = zoomed_frame[y1:y2, x1:x2]  # ROI 추출
-        h, w = plate_image.shape[:2]
-        print(f"[PLATE] {w}x{h}", end=", ")
+        h, w = zoomed_frame.shape[:2]
+        # 왼쪽은 5% 확장, 오른쪽은 20% 확장, 상하는 10%
+        ex1, ey1, ex2, ey2 = expand_bbox(
+            x1, y1, x2, y2, w, h, pad_left=0.05, pad_right=0.10, pad_y=0.10
+        )
+
+        # ROI 추출은 확장 박스 사용
+        plate_image = zoomed_frame[ey1:ey2, ex1:ex2]
+        ph, pw = plate_image.shape[:2]
+        print(f"[PLATE(expanded)] {pw}x{ph}", end=", ")
 
         # 너비 333px로 리사이즈 (비율 유지)
         target_w = 333
-        target_h = int(h * (target_w / w))
+        target_h = int(ph * (target_w / pw))
         small = cv2.resize(
             plate_image,
             (target_w, target_h),  # (width, height)
@@ -129,12 +144,18 @@ def ocr_and_annotate():
         text = "".join([t for (_b, t, p) in ocr_result if p > 0.5]).replace(" ", "")
         is_valid_plate = bool(plate_pattern.match(text))
         text = text if is_valid_plate else "유효하지 않은 번호판"
+        print(text)
 
         # 박스/텍스트 색 결정
         color = "lime" if is_valid_plate else "red"
         draw = ImageDraw.Draw(pillow)
-        draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
-        draw.text((x1, y1 - 30), text, font=font, fill=color)
+        # 표시도 확장 박스로
+        draw.rectangle([ex1, ey1, ex2, ey2], outline=color, width=3)
+
+        # 텍스트 위치가 화면 위로 안나가게 보정
+        tx = ex1
+        ty = max(0, ey1 - 30)
+        draw.text((tx, ty), text, font=font, fill=color)
         elapsed = time.perf_counter() - start
         print(f"[DRAW] {elapsed*1000:.1f} ms", end=", ")  # 예: 100 ms 이내 목표
 
@@ -165,6 +186,34 @@ def send_with_retry(ws, msg, url, max_retries=3, backoff=3):
             except Exception as e2:
                 print(f"[WS] 재연결 실패: {e2}. {backoff}초 후 재시도...")
             time.sleep(backoff)
+
+
+def expand_bbox(
+    x1, y1, x2, y2, img_w, img_h, pad_left=0.10, pad_right=0.10, pad_y=0.10
+):
+    """
+    pad_left:  폭 대비 왼쪽 확장 비율
+    pad_right: 폭 대비 오른쪽 확장 비율
+    pad_y:     높이 대비 상하 확장 비율
+    """
+    w = x2 - x1
+    h = y2 - y1
+    dx_left = int(w * pad_left)
+    dx_right = int(w * pad_right)
+    dy = int(h * pad_y)
+
+    nx1 = max(0, x1 - dx_left)
+    ny1 = max(0, y1 - dy)
+    nx2 = min(img_w - 1, x2 + dx_right)
+    ny2 = min(img_h - 1, y2 + dy)
+
+    # 최소 크기 보장
+    if nx2 <= nx1:
+        nx2 = min(img_w - 1, nx1 + 1)
+    if ny2 <= ny1:
+        ny2 = min(img_h - 1, ny1 + 1)
+
+    return nx1, ny1, nx2, ny2
 
 
 # ─── 메인 루프: 캡처 → OCR → WebSocket 전송 ─────────────────────────────────
