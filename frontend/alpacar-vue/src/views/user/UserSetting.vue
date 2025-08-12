@@ -391,6 +391,7 @@
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
 import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import {
@@ -401,8 +402,16 @@ import {
 } from "@/utils/pwa";
 
 /* ====== 스토어 ====== */
+const router = useRouter();
 const userStore = useUserStore();
 const userInfo = computed(() => userStore.me);
+
+// 소셜 로그인 유저 여부 확인
+const isSocialUser = computed(() => {
+	const email = userInfo.value?.email;
+	if (!email) return false;
+	return email.includes('gmail.com');
+});
 
 /* ====== 행(꺾쇠) 클릭 핸들러 ====== */
 const openNicknameModal = () => {
@@ -765,14 +774,58 @@ const setupPWAListeners = () => {
   });
 };
 
+/* ====== 보안 검증 ====== */
+const checkAuthenticationStatus = () => {
+	// 1. 소셜 로그인 유저인 경우 접근 차단
+	if (isSocialUser.value) {
+		alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
+		router.push('/user-profile');
+		return false;
+	}
+	
+	// 2. 일회용 토큰이 여전히 남아있다면 삭제
+	// Router Guard에서 이미 삭제했지만, 혹시 모를 경우를 대비
+	const remainingToken = sessionStorage.getItem('user-setting-one-time-auth');
+	if (remainingToken) {
+		sessionStorage.removeItem('user-setting-one-time-auth');
+		console.log('[UserSetting] 남은 일회용 토큰 삭제');
+	}
+	
+	// 3. 이 페이지는 Router Guard를 통과했으므로 정상 접근으로 간주
+	console.log('[UserSetting] 정상적인 인증 절차를 통한 접근');
+	return true;
+};
+
 /* ====== 마운트(테스트용) ====== */
 onMounted(async () => {
+  // 페이지 접근 시 보안 검증 수행
+  if (!checkAuthenticationStatus()) {
+  	return; // 검증 실패 시 라우터에서 리다이렉트됨
+  }
+  
+  // 페이지 이탈 시 남은 토큰 정리
+  const cleanupTokens = () => {
+  	sessionStorage.removeItem('user-setting-one-time-auth');
+  	console.log('[UserSetting] 페이지 이탈 시 토큰 정리');
+  };
+  
+  // 브라우저 이벤트 리스너 등록
+  window.addEventListener('beforeunload', cleanupTokens);
+  window.addEventListener('pagehide', cleanupTokens);
+  
   // const token = localStorage.getItem("access_token");
   // if (token) {
   //   await userStore.fetchMe(token);
   // }
   setupPWAListeners();
   await checkNotificationStatus();
+  
+  // 컴포넌트 언마운트 시 정리
+  return () => {
+  	window.removeEventListener('beforeunload', cleanupTokens);
+  	window.removeEventListener('pagehide', cleanupTokens);
+  	cleanupTokens();
+  };
 });
 
 /* ====== 유틸 ====== */
