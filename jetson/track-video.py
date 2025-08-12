@@ -29,7 +29,8 @@ except Exception:
 # =============================
 
 # 카메라 입력 사용 (기본 카메라 인덱스 0)
-VIDEO_PATH = 0
+# VIDEO_PATH = 0
+VIDEO_PATH = "data/video_part_1.mp4"
 MODEL_PATH = "last (2).pt"
 TRACKER_CFG_NAME = "bytetrack.yaml"  # located next to this file
 WSS_URL = "wss://i13e102.p.ssafy.io/ws/jetson/"
@@ -88,12 +89,14 @@ def point_in_norm_rect(
 # Plate Manager
 # =============================
 
+
 class PlateManager:
     def __init__(self) -> None:
         # 서버에서 수신한 번호판을 보관하는 큐
         self.plate_queue: deque[str] = deque()
-        # 트랙 ID → 번호판 매핑
+        # 트랙 ID → 차량 매핑
         self.track_to_plate: Dict[int, str] = {}
+        self.plate_to_size_class: Dict[str, str] = {}
 
     def enqueue_plate(self, plate: str) -> None:
         if not plate:
@@ -106,7 +109,8 @@ class PlateManager:
         for tid in ids:
             tid_int = int(tid)
             if tid_int not in self.track_to_plate and self.plate_queue:
-                self.track_to_plate[tid_int] = self.plate_queue.popleft()
+                plate = self.plate_queue.popleft()
+                self.track_to_plate[tid_int] = plate
 
     def get(self, tid: int) -> Optional[str]:
         return self.track_to_plate.get(int(tid))
@@ -116,6 +120,9 @@ class PlateManager:
             if mapped_plate == plate:
                 return int(track_id)
         return None
+
+    def get_size_class(self, plate: str) -> Optional[str]:
+        return self.plate_to_size_class.get(plate, None)
 
 
 # =============================
@@ -162,7 +169,7 @@ class ParkingManager:
             st = self.state[zid]
             cands = self.candidates[zid]
 
-            # If already occupied, check exit
+            # 출차 처리
             if st.occupant_id is not None:
                 if st.occupant_id in inside_ids:
                     st.last_inside_ts = now_ts
@@ -173,7 +180,7 @@ class ParkingManager:
                 self.candidates[zid] = {}
                 continue
 
-            # Maintain candidates
+            # 차량 추적 유지
             current_inside = set(inside_ids)
             for cand_id in list(cands.keys()):
                 if cand_id not in current_inside:
@@ -375,7 +382,7 @@ class Visualizer:
         frame: np.ndarray,
         result: Any,
         angles: Sequence[Optional[float]],
-        box_size: Tuple[int, int] = (250, 100),
+        boxes_size: List[Tuple[int, int]],
     ) -> Tuple[List[np.ndarray], List[Tuple[float, float]]]:
         xyxyxyxy_list: List[np.ndarray] = []
         center_list: List[Tuple[float, float]] = []
@@ -387,9 +394,9 @@ class Visualizer:
             if xywhr is None or xyxyxyxy is None:
                 return xyxyxyxy_list, center_list
             num_objs = len(xywhr)
-            w, h = box_size
             for i in range(num_objs):
                 try:
+                    w, h = boxes_size[i]
                     pts = xyxyxyxy[i].cpu().numpy().reshape(-1, 2)
                     cx = float(np.mean(pts[:, 0]))
                     cy = float(np.mean(pts[:, 1]))
@@ -744,7 +751,8 @@ class TrackerApp:
         self.vis = Visualizer(self.plate_mgr, self.parking)
         self._last_snapshot_ts = 0.0
         self._reserved_upper: set[str] = set()
-        self._assigned_by_plate: Dict[str, str] = {}
+        self._assigned_by_plate: Dict[str, str] = {}  # plate -> ZONE_UPPER
+        self._size_class_by_plate: Dict[str, str] = {}  # plate -> size_class
         self._last_slot_map: Dict[str, str] = {}
         # 동일 구역에서 중복으로 주차완료 이벤트가 전송되지 않도록 보호
         self._completed_zones: set[str] = set()
@@ -764,6 +772,40 @@ class TrackerApp:
                     print(f"[Recommender] 모델 파일 없음: {model_path} (fallback 사용)")
         except Exception as e:
             print(f"[Recommender] 모델 로드 실패: {e} (fallback 사용)")
+
+    # 점수 계산을 TrackerApp 내부 메서드로 일원화
+    def _calculate_parking_score(self, occupant_tid: int, zone_id_lower: str) -> float:
+        """
+        주차 완료 시 점수를 계산한다.
+        - 현재는 각도 기반 간이 점수(0~100)를 사용한다.
+        - 추후 필요 시 템플릿/차선침범 등 세부 로직을 통합 확장한다.
+        """
+        angle_rad = float(self._last_angle_by_id.get(occupant_tid, 0.0))
+        angle_deg = abs(math.degrees(angle_rad)) % 180.0
+        if angle_deg > 90.0:
+            angle_deg = 180.0 - angle_deg
+
+        # 3단계 점수 규칙 (기존 템플릿 클래스의 규칙을 간단화하여 내장)
+        if angle_deg <= 5.0:
+            base = 100.0 - (angle_deg * 4.0)
+        elif angle_deg <= 10.0:
+            base = 80.0 - ((angle_deg - 5.0) * 8.0)
+        else:
+            base = max(0.0, 40.0 - ((angle_deg - 10.0) * 2.0))
+
+        # 시간 요소를 가볍게 반영 (예상 대비 초과는 소폭 감점, 미만은 소폭 가점)
+        st = self.parking.state.get(zone_id_lower)
+        time_adj = 0.0
+        if st and st.parked_since is not None:
+            now_ts = time.time()
+            actual_sec = float(max(0.0, now_ts - st.parked_since))
+            expected_sec = float(os.getenv("EXPECTED_PARKING_TIME_S", "10"))
+            delta = actual_sec - expected_sec
+            # 초당 0.5점 감점/가점(최대 ±10점 제한)
+            time_adj = float(clamp(-0.5 * delta, -10.0, 10.0))
+
+        score = clamp(base + time_adj, 0.0, 100.0)
+        return float(round(score, 1))
 
     # TODO: 추후 특징 추가 필요
     def _build_features_for_free_zones(self, size_class: Optional[str], slot_map: Dict[str, str]) -> List[Dict]:
@@ -822,13 +864,50 @@ class TrackerApp:
                 "right_has_pillar": 0,
                 "controlled_x": 10.0 + i,
                 "controlled_y": 20.0 + i,
-                "controlled_width": 2.5,
-                "controlled_length": 5.0,
+                "controlled_width": size_class[0] if size_class else 2.5,
+                "controlled_length": size_class[1] if size_class else 5.0,
                 "zone_id": f"zone_{i+1}"
             }
             features.append(feature)
 
         return features
+
+    def get_box_size(self, size_class: Optional[str]) -> Tuple[int, int]:
+        """size_class에 따라 박스 크기를 반환한다."""
+        if size_class:
+            # size_class가 문자열로 들어온 경우 파싱
+            try:
+                # 예: "2.5,5.0" -> (250, 100)
+                if "," in size_class:
+                    width, length = map(float, size_class.split(","))
+                    return (int(width * 100), int(length * 100))
+                elif size_class.lower() == "compact":
+                    return (200, 80)
+                elif size_class.lower() == "midsize":
+                    return (250, 100)
+                elif size_class.lower() == "suv":
+                    return (300, 120)
+            except Exception:
+                pass
+        # 기본값 반환
+        return (250, 100)
+
+    def extract_boxes_size(self, track_ids: List[int]) -> List[Tuple[int, int]]:
+        """track ID 목록에 대해 각각의 박스 크기를 계산하여 반환한다."""
+        boxes_size = []
+        for track_id in track_ids:
+            # track_id에 해당하는 license plate 찾기
+            license_plate = self.plate_mgr.get(track_id)
+            if license_plate:
+                # license plate에 해당하는 size_class 가져오기
+                size_class = self.plate_mgr.plate_to_size_class.get(license_plate)
+                # size_class를 박스 크기로 변환
+                box_size = self.get_box_size(size_class)
+            else:
+                # license plate가 없으면 기본 크기 사용
+                box_size = self.get_box_size(None)
+            boxes_size.append(box_size)
+        return boxes_size
 
     async def _listen_assignment_request(self) -> None:
         while True:
@@ -843,6 +922,7 @@ class TrackerApp:
                 if data.get("message_type") == "request_assignment":
                     print("서버에서 요청이 들어왔습니다.")
                     # 현재 슬롯 상태 및 점유 맵 생성
+                    print(f"data: {data}")
                     slot_map = self._get_slot_map()
                     occupant_to_zone_upper = self._get_occupant_map()
 
@@ -852,21 +932,27 @@ class TrackerApp:
                         self.plate_mgr.enqueue_plate(license_plate)
                     size_class = str(data.get("size_class") or "")
 
+                    # 1) 들어온 size_class를 캐시에 저장
+                    if license_plate and size_class:
+                        self.plate_mgr.plate_to_size_class[license_plate] = size_class
+                        self._size_class_by_plate[license_plate] = size_class
+
                     # 2) ML 추천 시도
                     suggested_zone = ""
                     if self.recommender_model is not None and recommend_best_zone is not None:
                         try:
                             feats = self._build_features_for_free_zones(size_class, slot_map)
+                            print(f"[Recommender] 추천 구역 예측: {feats}")
                             best = recommend_best_zone(self.recommender_model, feats) # 최적 주차구역 ID
                             if best and isinstance(best, dict):
                                 suggested_zone = str(best.get("zone_id") or "")
                         except Exception as e:
                             print(f"[Recommender] 예측 실패: {e} (fallback 사용)")
 
-                    # 3) 예약 대상 구역 선정 (서버 지정 > ML > 첫 free)
+                    # 4) 예약 대상 구역 선정 (서버 지정 > ML > 첫 free)
                     assigned_zone_upper = self._choose_zone_for_assignment(slot_map, size_class)
 
-                    # 4) 예약 상태 반영
+                    # 5) 예약 상태 반영
                     await self._reserve_zone(license_plate, assigned_zone_upper, slot_map)
 
                     # 최신 슬롯 맵 재생성하여 응답 포함
@@ -934,7 +1020,7 @@ class TrackerApp:
                     suggested_zone = str(best.get("zone_id") or "").strip().upper()
             except Exception:
                 suggested_zone = ""
-        if suggested_zone:
+        if suggested_zone and slot_map.get(suggested_zone) == "free":
             return suggested_zone
         for zid_upper, state in slot_map.items():
             if state == "free":
@@ -951,6 +1037,7 @@ class TrackerApp:
         self._completed_zones.discard(assigned_zone_upper)
         if license_plate:
             self._assigned_by_plate[license_plate] = assigned_zone_upper
+            # size_class는 이미 _listen_assignment_request에서 캐시에 저장됨
         print(f"[Reservation] 예약 생성: plate={license_plate} zone={assigned_zone_upper}")
         await self._send_snapshot(None, 0, 0)
 
@@ -967,43 +1054,40 @@ class TrackerApp:
                 st = self.parking.state.get(zid_lower)
                 if not st or st.occupant_id is None:
                     continue
-                assigned_plate = zone_to_assigned_plate.get(zid_upper, "")
-                if not assigned_plate:
+                assigned_vehicle = zone_to_assigned_plate.get(zid_upper)
+                if not assigned_vehicle:
                     continue
                 occupant_tid = int(st.occupant_id)
-                occupant_plate = self.plate_mgr.get(occupant_tid) or ""
-                if occupant_plate and occupant_plate == assigned_plate:
-                    # 점수 계산: 각도 + (실제소요시간 - 예상주차시간)
-                    angle_rad = float(self._last_angle_by_id.get(occupant_tid, 0.0))
-                    now_ts = time.time()
-                    actual_sec = float(max(0.0, now_ts - (st.parked_since or now_ts)))
-                    expected_sec = float(os.getenv("EXPECTED_PARKING_TIME_S", "10"))
-                    time_delta = actual_sec - expected_sec
-                    score = float(angle_rad + time_delta)
+                occupant_vehicle = self.plate_mgr.get(occupant_tid) or ""
+                if occupant_vehicle and occupant_vehicle.plate == assigned_vehicle:
+                    # 점수 계산 (TrackerApp 내부 메서드 사용)
+                    score = self._calculate_parking_score(occupant_tid, zid_lower)
 
                     # 주차완료 이벤트 전송
                     await self.ws.send_json_async(
                         {
                             "message_type": "score",
-                            "license_plate": assigned_plate,
+                            "license_plate": assigned_vehicle,
                             "score": round(score, 4),
                         }
                     )
                     # 예약 해제 및 중복 방지 플래그 설정
                     self._reserved_upper.discard(zid_upper)
-                    self._assigned_by_plate.pop(assigned_plate, None)
+                    self._assigned_by_plate.pop(assigned_vehicle, None)
+                    self._size_class_by_plate.pop(assigned_vehicle, None)
                     self._completed_zones.add(zid_upper)
-                    print(f"[ParkingCompleted] plate={assigned_plate} zone={zid_upper}")
+                    print(f"[ParkingCompleted] plate={assigned_vehicle} zone={zid_upper}")
                     # 상태 스냅샷 갱신 전송
                     await self._send_snapshot(None, 0, 0)
+
         except Exception:
             pass
 
     def _handle_mispark_release(self, occupant_to_zone_upper: Dict[int, str]) -> None:
         try:
-            plates_to_release: List[str] = []
-            for license_plate, assigned_zone_upper in list(self._assigned_by_plate.items()):
-                tid = self.plate_mgr.get_track_id_by_plate(license_plate)
+            vehicles_to_release: List[str] = []
+            for plate, assigned_zone_upper in list(self._assigned_by_plate.items()):
+                tid = self.plate_mgr.get_track_id_by_plate(plate)
                 if tid is None:
                     continue
                 actual_zone_upper = occupant_to_zone_upper.get(int(tid))
@@ -1012,18 +1096,19 @@ class TrackerApp:
                 if actual_zone_upper != assigned_zone_upper:
                     self._reserved_upper.discard(assigned_zone_upper)
                     print(
-                        f"[Reservation] 다른 구역 주차로 예약 해제: plate={license_plate} zone={assigned_zone_upper} actual={actual_zone_upper}"
+                        f"[Reservation] 다른 구역 주차로 예약 해제: plate={plate} zone={assigned_zone_upper} actual={actual_zone_upper}"
                     )
-                    plates_to_release.append(license_plate)
-            for lp in plates_to_release:
-                self._assigned_by_plate.pop(lp, None)
+                    vehicles_to_release.append(plate)
+            for plate in vehicles_to_release:
+                self._assigned_by_plate.pop(plate, None)
+                self._size_class_by_plate.pop(plate, None)
         except Exception:
             pass
 
     async def _handle_preemption_and_reassign(self) -> None:
         try:
             # zone -> assigned plate
-            zone_to_assigned_plate: Dict[str, str] = {z: p for p, z in self._assigned_by_plate.items()}
+            zone_to_assigned_plate: Dict[str, str] = {zone: plate for plate, zone in self._assigned_by_plate.items()}
             preempted_events: List[Dict[str, Any]] = []
             for zid_upper in list(self._reserved_upper):
                 zid_lower = zid_upper.lower()
@@ -1038,6 +1123,7 @@ class TrackerApp:
                     self._reserved_upper.discard(zid_upper)
                     if assigned_plate:
                         self._assigned_by_plate.pop(assigned_plate, None)
+                        self._size_class_by_plate.pop(assigned_plate, None)
                     preempted_events.append(
                         {
                             "message_type": "preempted",
@@ -1053,7 +1139,8 @@ class TrackerApp:
                     # 재할당 시도
                     if assigned_plate:
                         slot_map_now = self._get_slot_map()
-                        new_zone_upper = self._choose_zone_for_assignment(slot_map_now, None)
+                        size_class = self._size_class_by_plate.get(assigned_plate, "")
+                        new_zone_upper = self._choose_zone_for_assignment(slot_map_now, size_class)
                         if new_zone_upper and slot_map_now.get(new_zone_upper) == "free":
                             self._reserved_upper.add(new_zone_upper)
                             self._assigned_by_plate[assigned_plate] = new_zone_upper
@@ -1067,10 +1154,7 @@ class TrackerApp:
                             print(f"[Reservation] 재할당: plate={assigned_plate} -> {new_zone_upper}")
             # 이벤트 전송
             for evt in preempted_events:
-                try:
-                    await self.ws.send_json_async(evt)
-                except Exception:
-                    pass
+                await self.ws.send_json_async(evt)
         except Exception:
             pass
 
@@ -1101,6 +1185,7 @@ class TrackerApp:
                 await self.ws.send_json_async({"client_type": "track_video"})
             except Exception:
                 pass
+
             for r in results:
                 try:
                     im0 = r.orig_img if hasattr(r, "orig_img") else None
@@ -1108,7 +1193,7 @@ class TrackerApp:
                         continue
                     # Avoid extra copy; draw in-place
                     angles = self.vis.draw_direction_arrows(im0, r)
-                    _, centers = self.vis.draw_boxes(im0, r, angles)
+                    
                     ids = extract_track_ids(r) or []
                     self.plate_mgr.ensure_mapping(ids)
 
@@ -1117,6 +1202,11 @@ class TrackerApp:
 
                     now_ts = time.time()
                     h_full, w_full = im0.shape[:2]
+                    
+                    boxes_size = self.extract_boxes_size(ids)
+
+                    _, centers = self.vis.draw_boxes(im0, r, angles, boxes_size=boxes_size)
+                    
                     self.parking.update(centers, ids, w_full, h_full, now_ts)
 
                     self.vis.draw_parking_zones(im0)
