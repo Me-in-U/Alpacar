@@ -12,6 +12,7 @@ from pywebpush import WebPushException, webpush
 
 from events.models import VehicleEvent
 from vehicles.models import Vehicle
+from datetime import datetime
 
 # ─── 전역 상태 ───────────────────────────────────────────────────────────
 LATEST_TEXT = "번호판 인식 대기중"
@@ -206,23 +207,30 @@ class OCRTextConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
-        await self.accept()  # 연결 허용
-        self.task = asyncio.create_task(
-            self.push_loop()
-        )  # 주기적 텍스트 전송 태스크 시작
+        # 클라이언트가 제안한 subprotocol 목록 (예: ['arduino'])
+        subs = self.scope.get("subprotocols", [])
+        proto = "arduino" if "arduino" in subs else None
+
+        # 제안된 'arduino'를 그대로 에코해서 승인
+        await self.accept(subprotocol=proto)
+
+        # 주기 전송 태스크 시작
+        self.task = asyncio.create_task(self.push_loop())
 
     async def disconnect(self, code):
         self.task.cancel()  # 태스크 취소
 
     async def push_loop(self):
         while True:
-            await asyncio.sleep(0.5)  # 0.5초 대기
+            await asyncio.sleep(1.0)  # 1초 대기
             is_valid_plate = bool(
                 plate_pattern.match(LATEST_TEXT)
             )  # 번호판 유효성 검사
-            returned_text = (
-                f"입차: {LATEST_TEXT}" if is_valid_plate else "번호판 인식 대기중"
-            )
+            if is_valid_plate:
+                returned_text = f"입차: {LATEST_TEXT}"
+            else:
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                returned_text = f"<ALPACAR>\n{now_str}"
             payload = json.dumps(
                 {"text": returned_text}, ensure_ascii=False
             )  # JSON 페이로드 생성

@@ -152,6 +152,7 @@ INSTALLED_APPS = [
     "parking",
     "events.apps.EventsConfig",  # 시그널 연결
     "drf_yasg",
+    "jetson",
 ]
 SWAGGER_SETTINGS = {
     "USE_SESSION_AUTH": False,
