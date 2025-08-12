@@ -2,124 +2,123 @@
   <div class="main-page-container">
     <Header />
 
-    <!-- Main Content -->
-    <div class="main-content">
-      <!-- Welcome Message -->
-      <div class="welcome-section">
-        <h1 class="welcome-title">알파카와 함께,</h1>
-        <p class="welcome-subtitle">내 차에 딱 맞는 주차 공간을 찾아보세요</p>
-      </div>
+```
+<!-- Main Content -->
+<div class="main-content">
+  <!-- Welcome Message -->
+  <div class="welcome-section">
+    <h1 class="welcome-title">알파카와 함께,</h1>
+    <p class="welcome-subtitle">내 차에 딱 맞는 주차 공간을 찾아보세요</p>
+  </div>
 
-      <!-- User Profile Card with 3D Animation -->
-      <div class="profile-card-container">
-        <div 
-          class="profile-card" 
-          :class="{ 'is-flipped': isCardFlipped, 'dragging': isDragging || isMouseDragging }" 
-          :style="holoGradeVars"          
-          @click="handleClick"
-          @mousedown="handleMouseDown"
-          @mousemove="handleMouseMove"
-          @mouseup="handleMouseUp"
-          @mouseleave="handleMouseLeave"
-          @touchstart.prevent="handleTouchStart"
-          @touchmove.prevent="handleTouchMove"
-          @touchend.prevent="handleTouchEnd"
-          ref="cardRef"
-        >
-          <div class="card-inner">
-            <!-- Front Side (Original Profile) -->
-            <div class="card-front">
-              <div class="profile-header">
-                <!-- Gray header bar -->
+  <!-- User Profile Card with 3D Animation -->
+  <div class="profile-card-container">
+    <div
+      class="profile-card"
+      :class="{ 'is-flipped': isCardFlipped, 'dragging': isDragging || isMouseDragging }"
+      :style="holoGradeVars"
+      @click="handleClick"
+      @mousedown="handleMouseDown"
+      @mousemove="handleMouseMove"
+      @mouseup="handleMouseUp"
+      @mouseleave="handleMouseLeave"
+      @touchstart.prevent="handleTouchStart"
+      @touchmove.prevent="handleTouchMove"
+      @touchend.prevent="handleTouchEnd"
+      ref="cardRef"
+    >
+      <div class="card-inner">
+        <!-- Front Side (Original Profile) -->
+        <div class="card-front">
+          <div class="profile-header"></div>
+          <div class="profile-content">
+            <div class="profile-left">
+              <div class="avatar-container">
+                <img :src="avatarImage" alt="User Avatar" class="avatar-image" />
               </div>
-              <div class="profile-content">
-                <div class="profile-left">
-                  <div class="avatar-container">
-                    <img :src="avatarImage" alt="User Avatar" class="avatar-image" />
-                  </div>
+            </div>
+            <div class="profile-right">
+              <div class="skill-badge">
+                <div class="skill-icon">
+                  <div class="skill-circle" :style="skillCircleVars"></div>
                 </div>
-                <div class="profile-right">
-                  <div class="skill-badge">
-                    <div class="skill-icon">
-                      <div class="skill-circle" :style="{ backgroundImage: `url(${skillIcon})` }">
-                      </div>
-                    </div>
-                    <span class="skill-text" :style="{ color: gradeInfo.color }">{{ gradeInfo.text }}</span>
-                  </div>
-                  <div class="user-info">
-                    <div class="user-name">
-                      <span class="label">Name</span>
-                      <span class="separator">|</span>
-                      <span class="value">{{ userName }}</span>
-                    </div>
-                    <div class="user-number">
-                      <span class="label">No.</span>
-                      <span class="separator">|</span>
-                      <span class="value">{{ userVehicleNumber }}</span>
-                    </div>
-                    <p class='touch-text-description'>카드를 두번 터치하면 화면이 돌아갑니다.</p>
+                <span class="skill-text" :data-text="gradeInfo.text" :style="{ color: gradeInfo.color }">{{ gradeInfo.text }}</span>
+              </div>
+              <div class="user-info">
+                <div class="user-name">
+                  <span class="label">Name</span>
+                  <span class="separator">|</span>
+                  <span class="value">{{ userName }}</span>
+                </div>
+                <div class="user-number">
+                  <span class="label">No.</span>
+                  <span class="separator">|</span>
+                  <span class="value">{{ userVehicleNumber }}</span>
+                </div>
+                <p class='touch-text-description'>카드를 두번 터치하면 화면이 돌아갑니다.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Back Side (Profile Details) -->
+        <div class="card-back">
+          <div class="back-header"></div>
+          <div class="back-content">
+            <div class="back-title">
+              <h2>{{ gradeInfo.text }}({{ userScore }}점)</h2>
+            </div>
+            <div class="grade-display">
+              <div class="grade-bar">
+                <div class="grade-fill" :style="{ width: userScore + '%' }"></div>
+                <div class="grade-marker" :style="{ left: `calc(${Math.max(5, Math.min(95, userScore))}% - 20px)` }">
+                  <div class="marker-icon">
+                    <img :src="carWithAlpacaImage" alt="Car With Alpaca" />
                   </div>
                 </div>
               </div>
             </div>
-
-            <!-- Back Side (Profile Details) -->
-            <div class="card-back">
-              <div class="back-header">
-                <!-- Gray header bar -->
-              </div>
-              <div class="back-content">
-                <div class="back-title">
-                  <h2>{{ gradeInfo.text }}({{ userScore }}점)</h2>
-                </div>
-                <div class="grade-display">
-                  <div class="grade-bar">
-                    <div class="grade-fill" :style="{ width: userScore + '%' }"></div>
-                    <div class="grade-marker" :style="{ left: `calc(${Math.max(5, Math.min(95, userScore))}% - 20px)` }">
-                      <div class="marker-icon">
-                        <img :src="alpakaInCarImage" alt="Alpaka in Car" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div> <!-- /card-inner -->
-        </div>
-      </div>
-
-      <!-- Menu Items -->
-      <div class="menu-items">
-        <div class="menu-item" @click="goToParkingHistory">
-          <div class="menu-icon">
-          </div>
-          <div class="menu-content">
-            <h3 class="menu-title">내 주차기록 확인하기</h3>
-            <p class="menu-description">주차기록과 운전 점수를 확인해보세요</p>
           </div>
         </div>
 
-        <div class="menu-item" @click="goToParkingRecommend">
-          <div class="menu-icon">
-          </div>
-          <div class="menu-content">
-            <h3 class="menu-title">주차 자리 추천 받기</h3>
-            <p class="menu-description">최적화된 주차 자리를 추천받아보세요</p>
-          </div>
-        </div>
+      </div> <!-- /card-inner -->
+    </div>
+  </div>
 
-        <div class="menu-item" @click="goToUserProfile">
-          <div class="menu-icon">
-          </div>
-          <div class="menu-content">
-            <h3 class="menu-title">내 정보 확인하기</h3>
-            <p class="menu-description">등록된 개인정보를 확인해보세요</p>
-          </div>
+  <!-- Menu Items -->
+  <div class="menu-items">
+    <div class="menu-item" @click="goToParkingHistory">
+      <div class="menu-content-wrapper">
+        <div class="menu-icon">
+          <img src="@/assets/alpaca-parkinglog.png" alt="주차기록 아이콘" class="menu-image" />
         </div>
+        <p class="menu-title">내 주차기록<br>확인하기</p>
       </div>
     </div>
 
-    <BottomNavigation />
+    <div class="menu-item" @click="goToParkingRecommend">
+      <div class="menu-content-wrapper">
+        <div class="menu-icon">
+          <img src="@/assets/alpaca-parkingrecommend.png" alt="주차 추천 아이콘" class="menu-image" />
+        </div>
+        <p class="menu-title">주차 자리<br>추천 받기</p>
+      </div>
+    </div>
+
+    <div class="menu-item" @click="goToUserProfile">
+      <div class="menu-content-wrapper">
+        <div class="menu-icon">
+          <img src="@/assets/alpaca-mypage.png" alt="내 정보 아이콘" class="menu-image" />
+        </div>
+        <p class="menu-title">내 정보<br>확인하기</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<BottomNavigation />
+
+
   </div>
 </template>
 
@@ -133,18 +132,14 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const userStore = useUserStore()
 
-// 정적 이미지 import
-const alpakaInCarImage = new URL('@/assets/alpaka_in_car.png', import.meta.url).href
+const carWithAlpacaImage = new URL('@/assets/car-with-alpaca.png', import.meta.url).href
 
-// 사용자 정보 기반 computed 속성들
 const userScore = computed(() => userStore.me?.score || 90)
 const userName = computed(() => userStore.me?.nickname || 'User')
 const userVehicleNumber = computed(() => {
-  // 가장 첫 번째 등록된 차량의 번호를 반환
   return userStore.vehicles.length > 0 ? userStore.vehicles[0].license_plate : '111 가 1111'
 })
 
-// 점수별 등급 계산
 const userGrade = computed(() => {
   const score = userScore.value
   if (score <= 50) return 'beginner'
@@ -152,39 +147,36 @@ const userGrade = computed(() => {
   return 'advanced'
 })
 
-// 등급별 텍스트 및 색상
 const gradeInfo = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return { text: '초급자', color: '#80360E' }
+      return { text: '초급자', color: '#A17C66' }
     case 'intermediate':
-      return { text: '중급자', color: '#9A9FA2' }
+      return { text: '중급자', color: '#B1AFAE' }
     case 'advanced':
-      return { text: '상급자', color: '#ECB908' }
+      return { text: '상급자', color: '#E0C993' }
     default:
-      return { text: '초급자', color: '#80360E' }
+      return { text: '초급자', color: '#A17C66' }
   }
 })
 
-// 등급별 이미지 경로
 const avatarImage = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return new URL('@/assets/alpaca-beginner.PNG', import.meta.url).href
+      return new URL('@/assets/alpacar-beginner.PNG', import.meta.url).href
     case 'intermediate':
-      return new URL('@/assets/alpaca-intermediate.png', import.meta.url).href
+      return new URL('@/assets/alpacar-intermediate.png', import.meta.url).href
     case 'advanced':
-      return new URL('@/assets/alpaca-advanced.PNG', import.meta.url).href
+      return new URL('@/assets/alpacar-advanced.PNG', import.meta.url).href
     default:
-      return new URL('@/assets/alpaca-beginner.PNG', import.meta.url).href
+      return new URL('@/assets/alpacar-beginner.PNG', import.meta.url).href
   }
 })
 
 const skillIcon = computed(() => {
-  const grade = userGrade.value
-  switch (grade) {
+  switch (userGrade.value) {
     case 'beginner':
       return new URL('@/assets/handle-bronze.png', import.meta.url).href
     case 'intermediate':
@@ -196,75 +188,63 @@ const skillIcon = computed(() => {
   }
 })
 
-/* ✅ 등급별 테두리/광택 변수 매핑 (로직 변경 아님: 스타일 주입만) */
+const skillCircleVars = computed(() => {
+  // 등급별 금/은/동 베이스 컬러(원하는 팔레트로 조정 가능)
+  const base = {
+    beginner: ['#A17C66', '#684138'],
+    intermediate: ['#DCDEDF', '#676C6F'],
+    advanced: ['#FEE274', '#B18200']
+  }[userGrade.value]
+
+  return {
+    '--icon-mask': `url(${skillIcon.value})`,
+    '--icon-g1': base[0],
+    '--icon-g2': base[1]
+  }
+})
+
+/* 등급별 변수 (테두리 그라데이션 팔레트 + 광택 강도 + 헤더 색) */
 const holoGradeVars = computed(() => {
   switch (userGrade.value) {
     case 'beginner':
       return {
-        '--border-color': '#80411E',
-        '--grade-gloss': 0.55,
-        '--header-color': '#80360E'
+        '--c1': '#A17C66',
+        '--c2': '#684138',
+        '--grade-gloss': 0.40,
+        '--header-color': '#A17C66'
       }
     case 'intermediate':
       return {
-        '--border-color': '#CECFD1',
+        '--c1': '#DCDEDF',
+        '--c2': '#676C6F',
         '--grade-gloss': 0.80,
-        '--header-color': '#9A9FA2'
+        '--header-color': '#B1AFAE'
       }
     case 'advanced':
       return {
-        '--border-color': '#E6BB21',
+        '--c1': '#FEE274',
+        '--c2': '#B18200',
         '--grade-gloss': 1.15,
-        '--header-color': '#ECB908'
+        '--header-color': '#E0C993'
       }
     default:
       return {
-        '--border-color': '#80411E',
+        '--c1': '#5C1E01',
+        '--c2': '#743A17',
         '--grade-gloss': 0.55,
-        '--header-color': '#80360E'
+        '--header-color': '#A17C66'
       }
   }
 })
 
+const goToParkingHistory = async () => { try { await router.push('/parking-history') } catch (e) { console.error(e) } }
+const goToParkingRecommend = async () => { try { await router.push('/parking-recommend') } catch (e) { console.error(e) } }
+const goToUserProfile = async () => { try { await router.push('/user-profile') } catch (e) { console.error(e) } }
 
-// 주차 히스토리 페이지로 이동
-const goToParkingHistory = async () => {
-  console.log('Navigating to parking history from main...')
-  try {
-    await router.push('/parking-history')
-    console.log('Navigation to parking history completed')
-  } catch (error) {
-    console.error('Navigation error:', error)
-  }
-}
-
-const goToParkingRecommend = async () => {
-  console.log('Navigating to parking recommend from main...')
-  try {
-    await router.push('/parking-recommend')
-    console.log('Navigation to parking recommend completed')
-  } catch (error) {
-    console.error('Navigation error:', error)
-  }
-}
-
-// 사용자 프로필 페이지로 이동
-const goToUserProfile = async () => {
-  console.log('Navigating to user profile from main...')
-  try {
-    await router.push('/user-profile')
-    console.log('Navigation to user profile completed')
-  } catch (error) {
-    console.error('Navigation error:', error)
-  }
-}
-
-// 모바일 기기 감지 함수
 const detectMobile = () => {
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0)
-  const result = isMobileUA || isTouchDevice
-  return result || isTouchDevice
+  return isMobileUA || isTouchDevice
 }
 
 const isCardFlipped = ref(false)
@@ -282,42 +262,28 @@ const lastTapTime = ref(0)
 const tapCount = ref(0)
 const doubleTapDelay = ref(400)
 
-const flipCard = () => {
-  isCardFlipped.value = !isCardFlipped.value
-}
+const flipCard = () => { isCardFlipped.value = !isCardFlipped.value }
+const handleClick = () => { if (!isDragging.value) flipCard() }
 
-const handleClick = () => {
-  if (!isDragging.value) {
-    console.log('Click event - flipping card')
-    flipCard()
-  } else {
-    console.log('Click event - blocked due to dragging')
-  }
-}
-
+/* 커서/터치 위치에 따른 빛 하이라이트 변수 업데이트 (얼굴 전체에서 공유) */
 function updateShineVars(x: number, y: number, rect: DOMRect) {
   if (!cardRef.value) return
   const cx = rect.width / 2
   const cy = rect.height / 2
   const dx = (x - cx) / cx
   const dy = (y - cy) / cy
-  const mag = Math.min(1, Math.hypot(dx, dy))             // 중심에서 얼마나 벗어났는지
-  const shineO = (0.22 + 0.38 * mag).toFixed(3)           // 0.22 ~ 0.60 정도로
+  const mag = Math.min(1, Math.hypot(dx, dy))
+  const shineO = (0.22 + 0.38 * mag).toFixed(3)
   const sx = (x / rect.width) * 100
   const sy = (y / rect.height) * 100
-
   cardRef.value.style.setProperty('--shineX', `${sx}%`)
   cardRef.value.style.setProperty('--shineY', `${sy}%`)
   cardRef.value.style.setProperty('--shineO', `${shineO}`)
 }
 
-
 const handleMouseMove = (event: MouseEvent) => {
   if (!cardRef.value) return
-  if (isMouseDown.value) {
-    handleMouseMoveWhileDragging(event)
-    return
-  }
+  if (isMouseDown.value) { handleMouseMoveWhileDragging(event); return }
   const rect = cardRef.value.getBoundingClientRect()
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
@@ -338,11 +304,7 @@ const handleMouseMove = (event: MouseEvent) => {
 const handleMouseLeave = () => {
   if (!cardRef.value) return
   if (!isMouseDown.value) {
-    if (isCardFlipped.value) {
-      cardRef.value.style.transform = 'rotateX(0deg) rotateY(180deg)'
-    } else {
-      cardRef.value.style.transform = 'rotateX(0deg) rotateY(0deg)'
-    }
+    cardRef.value.style.transform = isCardFlipped.value ? 'rotateX(0deg) rotateY(180deg)' : 'rotateX(0deg) rotateY(0deg)'
     cardRef.value.style.setProperty('--rotate-x', '0deg')
     cardRef.value.style.setProperty('--rotate-y', '0deg')
     cardRef.value.style.setProperty('--shineX', '50%')
@@ -352,7 +314,6 @@ const handleMouseLeave = () => {
 }
 
 const handleMouseDown = (event: MouseEvent) => {
-  console.log('Mouse down event:', { isMobile: isMobile.value, button: event.button })
   if (event.button !== 0) return
   isMouseDown.value = true
   isMouseDragging.value = false
@@ -386,22 +347,11 @@ const handleMouseMoveWhileDragging = (event: MouseEvent) => {
 }
 
 const handleMouseUp = () => {
-  console.log('Mouse up event:', { 
-    isMouseDown: isMouseDown.value, 
-    isMouseDragging: isMouseDragging.value 
-  })
   isMouseDown.value = false
-  if (isMouseDragging.value) {
-    isDragging.value = false
-    console.log('Mouse drag completed')
-  }
+  if (isMouseDragging.value) isDragging.value = false
   isMouseDragging.value = false
   if (!cardRef.value) return
-  if (isCardFlipped.value) {
-    cardRef.value.style.transform = 'rotateX(0deg) rotateY(180deg)'
-  } else {
-    cardRef.value.style.transform = 'rotateX(0deg) rotateY(0deg)'
-  }
+  cardRef.value.style.transform = isCardFlipped.value ? 'rotateX(0deg) rotateY(180deg)' : 'rotateX(0deg) rotateY(0deg)'
   cardRef.value.style.setProperty('--rotate-x', '0deg')
   cardRef.value.style.setProperty('--rotate-y', '0deg')
   cardRef.value.style.setProperty('--shineX', '50%')
@@ -410,7 +360,6 @@ const handleMouseUp = () => {
 }
 
 const handleTouchStart = (event: TouchEvent) => {
-  console.log('Touch start event triggered!', { isMobile: isMobile.value, touches: event.touches.length })
   const touch = event.touches[0]
   initialTouch.value = { x: touch.clientX, y: touch.clientY }
   isTouching.value = true
@@ -419,11 +368,7 @@ const handleTouchStart = (event: TouchEvent) => {
 }
 
 const handleTouchMove = (event: TouchEvent) => {
-  console.log('Touch move event triggered!', { isMobile: isMobile.value, isTouching: isTouching.value })
-  if (!isTouching.value || !cardRef.value) {
-    console.log('Touch move blocked:', { isTouching: isTouching.value, cardRef: !!cardRef.value })
-    return
-  }
+  if (!isTouching.value || !cardRef.value) return
   const touch = event.touches[0]
   const deltaX = Math.abs(touch.clientX - initialTouch.value.x)
   const deltaY = Math.abs(touch.clientY - initialTouch.value.y)
@@ -431,7 +376,6 @@ const handleTouchMove = (event: TouchEvent) => {
     isDragging.value = true
     tapCount.value = 0
     lastTapTime.value = 0
-    console.log('드래그 감지 - 탭 카운트 리셋')
   }
   if (isDragging.value) {
     const rect = cardRef.value.getBoundingClientRect()
@@ -441,7 +385,6 @@ const handleTouchMove = (event: TouchEvent) => {
     const centerY = rect.height / 2
     const rotateX = (y - centerY) / centerY * -20
     const rotateY = (x - centerX) / centerX * 20
-    console.log('Touch drag - 3D Animation ACTIVE:', { rotation: { rotateX, rotateY }})
     if (isCardFlipped.value) {
       cardRef.value.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY + 180}deg)`
     } else {
@@ -454,17 +397,13 @@ const handleTouchMove = (event: TouchEvent) => {
 }
 
 const handleTouchEnd = () => {
-  console.log('Touch end event triggered!')
   const touchDuration = Date.now() - touchStartTime.value
   const currentTime = Date.now()
-  console.log('Touch end:', { duration: touchDuration, isDragging: isDragging.value })
-
   if (!isDragging.value && touchDuration < 250) {
     const timeSinceLastTap = currentTime - lastTapTime.value
     if (timeSinceLastTap < doubleTapDelay.value) {
       tapCount.value++
       if (tapCount.value >= 2) {
-        console.log('더블 탭 감지! 카드 뒤집기')
         if (cardRef.value) {
           cardRef.value.classList.add('double-tap-feedback')
           setTimeout(() => { cardRef.value && cardRef.value.classList.remove('double-tap-feedback') }, 300)
@@ -475,18 +414,15 @@ const handleTouchEnd = () => {
       }
     } else {
       tapCount.value = 1
-      console.log('첫 번째 탭 감지, 더블 탭 대기 중...')
     }
     lastTapTime.value = currentTime
     setTimeout(() => {
       if (tapCount.value === 1) {
-        console.log('더블 탭 시간 초과, 단일 탭으로 처리')
         tapCount.value = 0
         lastTapTime.value = 0
       }
     }, doubleTapDelay.value)
   } else if (isDragging.value) {
-    console.log('Touch end - drag completed')
     tapCount.value = 0
     lastTapTime.value = 0
   }
@@ -495,11 +431,7 @@ const handleTouchEnd = () => {
   isDragging.value = false
 
   if (!cardRef.value) return
-  if (isCardFlipped.value) {
-    cardRef.value.style.transform = 'rotateX(0deg) rotateY(180deg)'
-  } else {
-    cardRef.value.style.transform = 'rotateX(0deg) rotateY(0deg)'
-  }
+  cardRef.value.style.transform = isCardFlipped.value ? 'rotateX(0deg) rotateY(180deg)' : 'rotateX(0deg) rotateY(0deg)'
   cardRef.value.style.setProperty('--rotate-x', '0deg')
   cardRef.value.style.setProperty('--rotate-y', '0deg')
   cardRef.value.style.setProperty('--shineX', '50%')
@@ -509,7 +441,6 @@ const handleTouchEnd = () => {
 
 onMounted(async () => {
   isMobile.value = detectMobile()
-  console.log('모바일 감지 결과:', isMobile.value)
   try {
     const token = localStorage.getItem('access_token')
     if (token) {
@@ -520,16 +451,9 @@ onMounted(async () => {
     console.error('사용자 정보 로드 실패:', error)
   }
 
-  const handleGlobalMouseUp = () => {
-    if (isMouseDown.value) {
-      console.log('Global mouse up - ending drag')
-      handleMouseUp()
-    }
-  }
+  const handleGlobalMouseUp = () => { if (isMouseDown.value) handleMouseUp() }
   const handleGlobalMouseMove = (event: MouseEvent) => {
-    if (isMouseDown.value && cardRef.value) {
-      handleMouseMoveWhileDragging(event)
-    }
+    if (isMouseDown.value && cardRef.value) handleMouseMoveWhileDragging(event)
   }
   document.addEventListener('mouseup', handleGlobalMouseUp)
   document.addEventListener('mousemove', handleGlobalMouseMove)
@@ -538,20 +462,7 @@ onMounted(async () => {
     document.removeEventListener('mouseup', handleGlobalMouseUp)
     document.removeEventListener('mousemove', handleGlobalMouseMove)
   })
-
-  if (cardRef.value) {
-    console.log('카드 요소 이벤트 바인딩 상태 확인:', {
-      touchstart: cardRef.value.ontouchstart,
-      touchmove: cardRef.value.ontouchmove,
-      touchend: cardRef.value.ontouchend,
-      mousedown: cardRef.value.onmousedown,
-      mousemove: cardRef.value.onmousemove,
-      mouseup: cardRef.value.onmouseup
-    })
-  }
 })
-
-
 </script>
 
 <style scoped>
@@ -564,7 +475,6 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-/* Main Content */
 .main-content {
   position: relative;
   padding-top: 80px;
@@ -572,9 +482,8 @@ onMounted(async () => {
   overflow-y: auto;
 }
 
-/* Welcome Section */
 .welcome-section {
-  padding: 40px 26px 30px;
+  padding: 0px 26px 30px;
 }
 
 .welcome-title {
@@ -608,38 +517,32 @@ onMounted(async () => {
   --rotate-y: 0deg;
   --card-width: 280px;
   --card-radius: 12px;
-  --card-border: 2px; 
+  --card-border: 2px;
   border-radius: var(--card-radius);
-  border: var(--card-border) solid var(--border-color);
+  border: var(--card-border) solid transparent; /* 테두리는 링에서 표현 */
   background: transparent;
   width: var(--card-width);
   aspect-ratio: 5 / 7;
   position: relative;
   cursor: pointer;
   transform-style: preserve-3d;
-  transition: transform 0.9s ease-in-out;
+  transition: transform 0.18s ease-out;
   touch-action: none;
   user-select: none;
 
   min-height: 200px;
   min-width: 150px;
 
-  /* 홀로그램 팔레트 */
-  --c1: rgb(134, 243, 255);
-  --c2: rgb(255, 145, 244);
-
-  /* 🔸 script에서 주입됨 */
-  --border-color: #80411E;
-  --grade-gloss: 0.7;
+  /* 등급 주입 변수: --c1, --c2, --grade-gloss, --header-color */
   --lp: 50%;
   --tp: 50%;
   --px_s: 50%;
   --py_s: 50%;
   --opc: 0.75;
 
-  background: transparent;
+  background: #ffffff;
   box-sizing: border-box;
-  background-clip: padding-box; 
+  background-clip: padding-box;
 }
 
 .profile-card::before {
@@ -653,12 +556,43 @@ onMounted(async () => {
   background: transparent;
 }
 
-/* 기존 호버효과 유지 */
-.profile-card:hover {
-  transition: transform 0.1s ease-out;
+/* 그라데이션 테두리 링 */
+.profile-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--card-radius);
+  padding: var(--card-border);
+
+  /* 기존 그라데이션 + 스파클/홀로 시트 오버레이 */
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(115deg, var(--c1), var(--c2));
+  background-size: 160%, 160%, auto;
+  background-position: 50% 50%, 50% 50%, center;
+  background-repeat: no-repeat;
+  background-blend-mode: screen, screen, normal;
+
+  pointer-events: none;
+
+  /* 테두리만 보이도록 마스크 (카드 내부는 구멍) */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+
+  /* 홀로그램 광택 강도 (이미 코드에 있는 --opc, --grade-gloss 사용) */
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  /* filter:
+    brightness(calc(1 + 0.25 * var(--grade-gloss)))
+    contrast(calc(1 + 0.15 * var(--grade-gloss))); */
 }
 
-/* 플립 클래스는 기존대로 유지 */
 .profile-card.is-flipped {
   transform: rotateY(180deg);
 }
@@ -668,7 +602,7 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   text-align: center;
-  transition: transform 0.9s ease-in-out; /* 50% 느리게 조정 */
+  transition: transform 0.18s ease-out;
   transform-style: preserve-3d;
 }
 
@@ -682,11 +616,10 @@ onMounted(async () => {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   transition: box-shadow 0.3s ease;
   box-sizing: border-box;
-  /* ✅ 각 면에 홀로그램을 붙이기 위해 기준 지정 */
   isolation: isolate;
 }
 
-/* 🟡 움직이는 샤인(빛 하이라이트) 레이어: 마우스/터치 위치를 따라감 */
+/* ========= 공통: 얼굴 전체에서 커서/터치에 반응하는 SHINE ========= */
 .card-front::before,
 .card-back::before {
   content: "";
@@ -694,11 +627,9 @@ onMounted(async () => {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  /* 하이라이트 중심 좌표 & 세기(스크립트에서 갱신) */
   --shineX: 50%;
   --shineY: 50%;
   --shineO: 0.28;
-  /* 레퍼런스 느낌의 radial + 약한 스윕 조합 */
   background:
     radial-gradient(
       circle at var(--shineX) var(--shineY),
@@ -709,24 +640,19 @@ onMounted(async () => {
     ),
     linear-gradient(
       135deg,
-      rgba(255,255,255, calc(var(--shineO) * 0.3)) 0%,
+      rgba(255,255,255, calc(var(--shineO) * 0.30)) 0%,
       rgba(255,255,255, 0) 60%
     );
-  mix-blend-mode: screen;           /* 밝은 면에서 더 잘 보이게 */
+  mix-blend-mode: screen;
   transition: background-position 60ms linear, opacity 120ms ease;
-  opacity: 1;                       /* 필요 시 0~1로 애니메이션 가능 */
+  opacity: 1;
 }
 
-/* ✅ 홀로그램 레이어를 '각 면'의 ::after 로 이동 */
-.card-front::after,
-.card-back::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  mix-blend-mode: color-dodge;
-  border-radius: inherit;
+/* ========= Hologram: 앞면 특정 영역 + 뒷면 헤더만 ========= */
 
+/* 공통 홀로그램 배경 */
+@keyframes _holoSparkleDummy {} /* 일부 빌드에서 빈 규칙 필요할 때 방지용 */
+.holo-bg {
   background:
     url("https://assets.codepen.io/13471/sparkles.gif"),
     url("https://assets.codepen.io/13471/holo.png"),
@@ -739,46 +665,238 @@ onMounted(async () => {
       #00cfff40 70%,
       #cc4cfa50 85%
     );
-      background-size: 160%;
+  background-size: 160%;
   background-position: var(--px_s) var(--py_s);
   background-blend-mode: overlay;
-
-  /* 등급에 따른 광택 강도 */
-  opacity: calc(var(--opc) * var(--grade-gloss));
-  filter:
-    brightness(calc(1 + 0.25 * var(--grade-gloss)))
-    contrast(calc(1 + 0.15 * var(--grade-gloss)));
 }
 
-/* hover 시 상자 그림자 */
-.profile-card:hover .card-front,
-.profile-card:hover .card-back {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
-}
-
-.card-front {
-  background: #FFFFFF;
-}
-
-/* ✅ 뒷면 안쪽 테두리도 등급색으로 동기화(원하면 이 줄만 삭제 가능) */
-.card-back {
-  background: #EBE3D5;
-  border: 1px solid var(--border-color);
-  transform: rotateY(180deg);
-}
-
-/* Front Side Styles */
+/* 앞면 - 헤더 */
 .profile-header {
   height: 50px;
   background: var(--header-color);
   border-top-left-radius: calc(var(--card-radius) - var(--card-border));
   border-top-right-radius: calc(var(--card-radius) - var(--card-border));
+  position: relative;
+  overflow: hidden;
+}
+.profile-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: color-dodge;
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  filter: brightness(calc(1 + 0.25 * var(--grade-gloss)))
+          contrast(calc(1 + 0.15 * var(--grade-gloss)));
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(
+      125deg,
+      #ff008450 15%,
+      #fca40040 30%,
+      #ffff0030 40%,
+      #00ff8a20 60%,
+      #00cfff40 70%,
+      #cc4cfa50 85%
+    );
+  background-size: 160%;
+  background-position: var(--px_s) var(--py_s);
+  background-blend-mode: overlay;
 }
 
+/* 앞면 - 아바타 */
+.avatar-container {
+  width: 90px;
+  height: 120px;
+  /* border-radius: 50%; */
+  background: #ffffff;
+  border: 3px solid #E5E5E5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative; /* ::after 기준 */
+}
+.avatar-container::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* border-radius: inherit; */
+  mix-blend-mode: color-dodge;
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  filter: brightness(calc(1 + 0.25 * var(--grade-gloss)))
+          contrast(calc(1 + 0.15 * var(--grade-gloss)));
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(
+      125deg,
+      #ff008450 15%,
+      #fca40040 30%,
+      #ffff0030 40%,
+      #00ff8a20 60%,
+      #00cfff40 70%,
+      #cc4cfa50 85%
+    );
+  background-size: 160%;
+  background-position: var(--px_s) var(--py_s);
+  background-blend-mode: overlay;
+}
+
+.avatar-image {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+}
+
+/* 앞면 - 스킬 아이콘/텍스트 */
+.skill-badge {
+  display:flex;
+  align-items:center;
+  justify-content:center;   /* 가운데 정렬 원하면 */
+  gap:12px;
+}
+
+.skill-icon {
+  flex:0 0 auto;            /* 줄 안에서 고정폭 요소 */
+  display:inline-flex;
+  align-items:center;
+}
+.skill-icon::after {
+  content: none !important;
+}
+
+.skill-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  /* PNG를 배경이 아니라 마스크로! 어두운 픽셀/구멍은 투명 처리됨 */
+  -webkit-mask: var(--icon-mask) center/contain no-repeat;
+  mask: var(--icon-mask) center/contain no-repeat;
+
+  /* 실제 보이는 채움은 우리가 주는 그라데이션 */
+  background: linear-gradient(135deg, var(--icon-g1), var(--icon-g2));
+  position: relative; 
+}
+
+.skill-circle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  mix-blend-mode: color-dodge;
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  filter:
+    brightness(calc(1 + 0.25 * var(--grade-gloss)))
+    contrast(calc(1 + 0.15 * var(--grade-gloss)));
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(
+      125deg,
+      #ff008450 15%,
+      #fca40040 30%,
+      #ffff0030 40%,
+      #00ff8a20 60%,
+      #00cfff40 70%,
+      #cc4cfa50 85%
+    );
+  background-size: 160%;
+  background-position: var(--px_s) var(--py_s);
+  background-blend-mode: overlay;
+}
+
+.skill-text {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  position: relative;       /* ::after 기준 */
+  display: inline-block;    /* 크기 계산 */
+  background: none;
+  flex:0 0 auto;
+}
+.skill-text::after {
+  content: attr(data-text);      /* 실제 텍스트를 복제 */
+  position: absolute;
+  inset: 0;
+  font: inherit;                 /* 크기/자간 동일하게 */
+  pointer-events: none;
+  mix-blend-mode: color-dodge;   /* 헤더 느낌 매칭 */
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  filter: brightness(calc(1 + 0.25 * var(--grade-gloss)))
+          contrast(calc(1 + 0.15 * var(--grade-gloss)));
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(
+      125deg,
+      #ff008450 15%,
+      #fca40040 30%,
+      #ffff0030 40%,
+      #00ff8a20 60%,
+      #00cfff40 70%,
+      #cc4cfa50 85%
+    );
+  background-size: 160%;
+  background-position: var(--px_s) var(--py_s);
+  background-blend-mode: overlay;
+
+  /* 핵심: 글자 모양으로만 보이게 클리핑 */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;  /* 가상요소의 텍스트를 투명 처리 */
+}
+
+/* 뒷면 - 헤더에만 홀로그램 */
+.card-back {
+  background: #F1EFEC;
+  border: 1px solid transparent;
+  transform: rotateY(180deg);
+}
+
+.back-header {
+  height: 50px;
+  background: var(--header-color);
+  border-top-left-radius: calc(var(--card-radius) - var(--card-border));
+  border-top-right-radius: calc(var(--card-radius) - var(--card-border));
+  position: relative;
+  overflow: hidden;
+}
+.back-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: color-dodge;
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  filter: brightness(calc(1 + 0.25 * var(--grade-gloss)))
+          contrast(calc(1 + 0.15 * var(--grade-gloss)));
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(
+      125deg,
+      #ff008450 15%,
+      #fca40040 30%,
+      #ffff0030 40%,
+      #00ff8a20 60%,
+      #00cfff40 70%,
+      #cc4cfa50 85%
+    );
+  background-size: 160%;
+  background-position: var(--px_s) var(--py_s);
+  background-blend-mode: overlay;
+}
+
+/* Front content layout */
 .profile-content {
   display: flex;
-  padding: 20px;
-  gap: 15px;
+  padding: 14px;
+  gap: 10px;
   height: calc(100% - 50px);
   flex-direction: column;
   justify-content: center;
@@ -790,59 +908,11 @@ onMounted(async () => {
   margin-bottom: 15px;
 }
 
-.avatar-container {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: #FFFFFF;
-  border: 3px solid #E5E5E5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.avatar-image {
-  width: 70px;
-  height: 70px;
-  object-fit: contain;
-}
-
 .profile-right {
   display: flex;
   flex-direction: column;
   gap: 15px;
   align-items: center;
-}
-
-.skill-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.skill-icon {
-  display: flex;
-  align-items: center;
-}
-
-.skill-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.skill-text {
-  color: #4CAF50;
-  font-size: 18px;
-  font-weight: 700;
-  font-family: 'Inter', sans-serif;
 }
 
 .touch-text-description {
@@ -885,14 +955,7 @@ onMounted(async () => {
   font-family: 'Inter', sans-serif;
 }
 
-/* Back Side Styles */
-.back-header {
-  height: 50px;
-  background: var(--header-color);
-  border-top-left-radius: calc(var(--card-radius) - var(--card-border));
-  border-top-right-radius: calc(var(--card-radius) - var(--card-border));
-}
-
+/* Back content */
 .back-content {
   padding: 20px;
   display: flex;
@@ -977,22 +1040,28 @@ onMounted(async () => {
 
 /* Menu Items */
 .menu-items {
-  padding: 0 26px;
+  padding: 0 16px;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  flex-direction: row; /* 🔹 가로 배치 */
+  gap: 12px;           /* 카드 간격 */
+  justify-content: center; /* 가운데 정렬 */
 }
 
 .menu-item {
+  flex: 0 0 calc((100% - 24px) / 3);  /* 12px 갭 * 2 제외 후 1/3 */
+  box-sizing: border-box;             /* 패딩 포함 계산 */
+  min-width: 0;                       /* 자식 최소폭으로 밀리지 않게 */
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 20px;
-  padding: 20px;
-  background: #FFFFFF;
+  text-align: center;
+
+  padding: 0px;                      /* 기존 20px → 16px */
+  background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all .3s ease;
 }
 
 .menu-item:hover {
@@ -1006,20 +1075,35 @@ onMounted(async () => {
 }
 
 .menu-icon {
-  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px; 
 }
 
-.menu-content {
-  flex: 1;
+.menu-image {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+}
+
+.menu-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  padding: 16px 8px; /* 🔹 상하 여백 동일하게 */
+  height: 100%; /* 카드 높이 내에서 균등 배치 */
 }
 
 .menu-title {
-  color: #333333;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
-  margin: 0 0 5px 0;
-  line-height: 1.3;
+  color: #333;
+  margin: 0;
+  white-space: normal; /* 줄바꿈 허용 */
+  text-align: center;
 }
 
 .menu-description {
@@ -1037,39 +1121,32 @@ onMounted(async () => {
     width: 100vw;
     height: 100vh;
   }
-  
+
   .welcome-section {
     padding: 30px 20px 25px;
   }
-  
+
   .profile-card-container {
     margin: 0 20px 30px;
   }
-  
+
   .profile-card {
     --card-width: 260px;
   }
-  
+
   .menu-items {
     padding: 0 20px;
   }
+  
+  .main-content {
+    padding-top: 40px;
+  }
 }
 
-/* 터치 환경 최적화 - 모든 터치 기기에 적용 */
-.profile-card {
-  /* 카드 내부 요소들의 터치 이벤트 차단하여 부모에서 통합 처리 */
-}
-
-/* 드래그 중일 때 빠른 반응을 위한 클래스 */
-.profile-card.dragging {
-  transition: none !important;
-}
-
-/* 더블 탭 시각적 피드백 */
-.profile-card.double-tap-feedback {
-  animation: doubleTapPulse 0.3s ease-out;
-}
-
+/* 터치 환경 최적화 */
+.profile-card { }
+.profile-card.dragging { transition: none !important; }
+.profile-card.double-tap-feedback { animation: doubleTapPulse 0.3s ease-out; }
 @keyframes doubleTapPulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.05); }
@@ -1081,7 +1158,7 @@ onMounted(async () => {
   pointer-events: none !important;
 }
 
-/* 🔸 기존 터치 영역 확장: 그대로 둠(홀로그램은 ::after 사용하므로 충돌 없음) */
+/* 기존 터치 영역 확장 */
 .profile-card::before {
   content: '';
   position: absolute;
@@ -1093,7 +1170,6 @@ onMounted(async () => {
   background: transparent;
 }
 
-/* 카드 전체가 터치 가능하도록 */
 .profile-card,
 .card-inner,
 .card-front,
@@ -1101,19 +1177,10 @@ onMounted(async () => {
   touch-action: none !important;
 }
 
-/* 모바일 전용 최적화 */
 @media (hover: none) and (pointer: coarse) {
-  .profile-card {
-    cursor: default;
-  }
-  
-  .profile-card:hover {
-    transition: none;
-  }
-  
-  .profile-card:active {
-    /* transform 제거하여 JavaScript 제어와 충돌 방지 */
-  }
+  .profile-card { cursor: default; }
+  .profile-card:hover { transition: none; }
+  .profile-card:active { }
 }
 
 @media (min-width: 441px) {
@@ -1125,7 +1192,7 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
   }
-  
+
   .main-content {
     flex: 1;
     height: auto;
@@ -1134,3 +1201,4 @@ onMounted(async () => {
   }
 }
 </style>
+
