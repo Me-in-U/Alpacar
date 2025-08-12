@@ -643,7 +643,11 @@ def build_logging_snapshot(
             }
         )
 
-    return {"slot": slot_map, "vehicles": vehicles_log}
+    return {
+        "message_type": "car_position", 
+        "slot": slot_map, 
+        "vehicles": vehicles_log
+        }
 
 
 def build_wss_payload_from_result(
@@ -980,7 +984,7 @@ class TrackerApp:
                     # 주차완료 이벤트 전송
                     await self.ws.send_json_async(
                         {
-                            "message_type": "score_ack",
+                            "message_type": "score",
                             "license_plate": assigned_plate,
                             "score": round(score, 4),
                         }
