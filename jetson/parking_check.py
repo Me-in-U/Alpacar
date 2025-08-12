@@ -513,10 +513,9 @@ class EnhancedVideoProcessor:
                 self.current_active_track_ids.add(int(track_id))
 
 def process_video():
-    """기본 비디오 처리"""
+    """기존 호환성을 위한 함수"""
     processor = EnhancedVideoProcessor("best.pt")
-    processor.process_video_enhanced()
+    processor.process_video_enhanced("car.mp4")
 
 if __name__ == "__main__":
-    # 기본 처리
     process_video()

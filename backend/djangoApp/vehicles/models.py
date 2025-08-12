@@ -23,6 +23,11 @@ class VehicleModel(models.Model):
     created_at = models.DateTimeField("생성일시", auto_now_add=True)
     updated_at = models.DateTimeField("수정일시", auto_now=True)
 
+    # 새로 추가한 필드들
+    length_mm = models.IntegerField("차량 길이(mm)", default=4500, help_text="차량 전장(mm)")
+    width_mm = models.IntegerField("차량 너비(mm)", default=1800, help_text="차량 전폭(mm)")
+    height_mm = models.IntegerField("차량 높이(mm)", default=1500, help_text="차량 전고(mm)")
+
     class Meta:
         db_table = "vehicle_model"  # 테이블명 지정
         verbose_name = "차량 모델"
