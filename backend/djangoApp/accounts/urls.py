@@ -32,10 +32,8 @@ from accounts.views.notifications import (
     notification_delete, 
     notification_delete_all, 
     notification_mark_all_read, 
-    notification_unread_count,
-    notification_system_diagnostic
+    notification_unread_count
 )
-# 고급 테스트 기능들은 단순화를 위해 제거됨
 
 urlpatterns = [
     # ─ 회원가입 / 로그인 / 토큰갱신 ──────────────────────────────────────────
@@ -169,10 +167,4 @@ urlpatterns = [
         notification_unread_count,
         name="notification-unread-count",
     ),  # GET: 읽지 않은 알림 개수
-    # ── 테스트 기능들은 개발 목적으로만 유지됨 ──
-    path(
-        "notifications/diagnostic/",
-        notification_system_diagnostic,
-        name="notification-system-diagnostic",
-    ),  # GET: 푸시 알림 시스템 진단
 ]
