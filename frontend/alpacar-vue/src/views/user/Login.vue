@@ -79,8 +79,18 @@ export default defineComponent({
 		};
 
 		const handleGoogleLogin = () => {
+			console.log("🔍 구글 로그인 버튼 클릭됨");
 			const backendUrl = BACKEND_BASE_URL || "https://i13e102.p.ssafy.io/api";
-			window.location.href = `${backendUrl}/auth/social/google/login/`;
+			const googleLoginUrl = `${backendUrl}/auth/social/google/login/`;
+			console.log("🔗 리다이렉트 URL:", googleLoginUrl);
+			
+			try {
+				console.log("🚀 리다이렉트 시작...");
+				window.location.href = googleLoginUrl;
+			} catch (error) {
+				console.error("❌ 리다이렉트 실패:", error);
+				alert(`구글 로그인 중 오류가 발생했습니다: ${error.message}`);
+			}
 		};
 
 		const handleKakaoLogin = () => {
