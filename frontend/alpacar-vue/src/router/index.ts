@@ -23,7 +23,6 @@ import ParkingComplete from "@/views/user/ParkingComplete.vue";
 import ParkingHistory from "@/views/user/ParkingHistory.vue";
 import ModalTest from "@/views/user/ModalTest.vue";
 import AdminErrorModalTest from "@/views/admin/AdminErrorModalTest.vue";
-import NotificationTestView from "@/views/admin/NotificationTestView.vue";
 import GoogleCallback from "@/views/user/GoogleCallback.vue";
 import MainWithHolo from "@/views/user/MainWithHolo.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
@@ -156,12 +155,6 @@ const router = createRouter({
 			component: AdminPlateOcr,
 			meta: { requiresAuth: true },
 		},
-        {
-            path: "/notification-test",
-            name: "notification-test",
-            component: NotificationTestView,
-            meta: { requiresAuth: true },
-        },
 		// 모달 스타일 확인용 테스트 컴포넌트
 		{
 			path: "/modal-test",
@@ -227,7 +220,7 @@ router.beforeEach(async (to, from, next) => {
 		const adminAllowedPages = [
 			"/admin-main", "/admin-parkinglogs", "/admin-parkingreassign",
 			"/admin-plate-ocr", "/admin-login", "/modal-test", "/admin-error-test", 
-			"/holo", "/notification-test"
+			"/holo"
 		];
 		
 		// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
@@ -318,7 +311,6 @@ router.beforeEach(async (to, from, next) => {
 						"/modal-test",
 						"/admin-error-test", 
 						"/holo",
-						"/notification-test"
 					];
 					
 					// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
