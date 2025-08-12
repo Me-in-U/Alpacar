@@ -329,7 +329,7 @@ def assign_space(request):
                 user=vehicle.user,
                 title="🅿️ 주차 구역 배정",
                 message=f"{vehicle.license_plate} 차량에 {zone}{slot_number} 구역이 배정되었습니다. 안내에 따라 주차해 주세요.",
-                notification_type='parking_assignment',
+                notification_type='parking',
                 data=assignment_data
             )
             print(f"[ADMIN] 주차 배정 알림 전송됨: {vehicle.license_plate} -> {zone}{slot_number} (space_id: {space_id})")
@@ -384,7 +384,7 @@ def assign_space(request):
                 user=vehicle.user,
                 title="🔄 주차 구역 재배정",
                 message=f"{vehicle.license_plate} 차량의 주차 구역이 {new_zone}{new_slot_number}로 변경되었습니다.",
-                notification_type='parking_reassignment',
+                notification_type='parking',
                 data=reassignment_data
             )
             print(f"[ADMIN] 주차 재배정 알림 전송됨: {vehicle.license_plate} -> {new_zone}{new_slot_number} (space_id: {new_space_id})")
