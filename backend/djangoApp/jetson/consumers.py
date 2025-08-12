@@ -5,13 +5,13 @@ from channels.db import database_sync_to_async
 
 from parking.services import handle_assignment_from_jetson, add_score_from_jetson
 
-JETSON_GROUP = "jetson"  # 장고→젯슨 요청 broadcast 그룹
+JETSON_GROUP = "jetson-ws"  # 장고→젯슨 요청 broadcast 그룹
 
 
 class JetsonAssignConsumer(AsyncWebsocketConsumer):
     """
     Jetson이 이 WS에 붙는다.
-    - 장고가 group_send("jetson", {"type":"jetson.request", payload})로 요청을 내리면 → 그대로 send
+    - 장고가 group_send("jetson-ws", {"type":"jetson_request", payload})로 요청을 내리면 → 그대로 send
     - Jetson이 {"message_type":"assignment", "license_plate", "assignment":"B3"}를 보내면 → DB 반영
     """
 
