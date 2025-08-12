@@ -10,6 +10,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import asyncio
 import json
 import os
+import threading
+import queue
 
 import cv2
 import numpy as np
@@ -26,17 +28,18 @@ except Exception:
 # Configuration
 # =============================
 
-VIDEO_PATH = "data/video_part_1.mp4"
+# 카메라 입력 사용 (기본 카메라 인덱스 0)
+VIDEO_PATH = 0
 MODEL_PATH = "last (2).pt"
 TRACKER_CFG_NAME = "bytetrack.yaml"  # located next to this file
-# WSS_URL = "wss://i13e102.p.ssafy.io/ws/car-position/"
-WSS_URL = "ws://localhost:8000/ws/car-position/"
+WSS_URL = "wss://i13e102.p.ssafy.io/ws/jetson/"
+# WSS_URL = "ws://localhost:8000/ws/car-position/"
 
 OUTPUT_WIDTH = 900
 OUTPUT_HEIGHT = 550
 
 IMG_SIZE = 1080
-CONF_THRES = 0.1
+CONF_THRES = 0.2
 IOU_THRES = 0.6
 
 ENTER_THRESHOLD_SECONDS = 3.0
@@ -216,71 +219,113 @@ class ParkingManager:
 # =============================
 
 class WSClient:
+    """WebSocketApp 기반 클라이언트. 백그라운드 스레드에서 run_forever.
+
+    - 보낸 메시지: wsapp.send 사용
+    - 받은 메시지: thread-safe queue로 수집, recv()에서 꺼냄
+    - 자동 재연결: on_close 이후 루프 내에서 재시도
+    """
+
     def __init__(self, url: str) -> None:
         self.url = url
-        self.ws: Optional[websocket.WebSocket] = None
-        self.connect()
+        self.wsapp: Optional[websocket.WebSocketApp] = None
+        self._queue: "queue.Queue[str]" = queue.Queue()
+        self._thread: Optional[threading.Thread] = None
+        self._stop_flag = threading.Event()
+        self._connected = threading.Event()
+        self._start_background()
 
-    def connect(self) -> None:
-        while True:
+    # WebSocketApp 콜백들
+    def _on_open(self, ws) -> None:  # type: ignore[no-untyped-def]
+        self._connected.set()
+        print(f"[WebSocket] Connected to {self.url}")
+
+    def _on_message(self, ws, message: str) -> None:  # type: ignore[no-untyped-def]
+        try:
+            self._queue.put_nowait(message)
+        except Exception:
+            pass
+
+    def _on_error(self, ws, error) -> None:  # type: ignore[no-untyped-def]
+        print(f"[WebSocket] error: {error}")
+
+    def _on_close(self, ws, code, msg) -> None:  # type: ignore[no-untyped-def]
+        self._connected.clear()
+        print(f"[WebSocket] closed code={code} msg={msg}")
+
+    def _run_forever_loop(self) -> None:
+        while not self._stop_flag.is_set():
             try:
-                if hasattr(websocket, "create_connection"):
-                    self.ws = websocket.create_connection(self.url)
-                else:
-                    ws = websocket.WebSocket()
-                    ws.connect(self.url)
-                    self.ws = ws
-                print(f"[WebSocket] Connected to {self.url}")
-                return
+                self.wsapp = websocket.WebSocketApp(
+                    self.url,
+                    on_open=self._on_open,
+                    on_message=self._on_message,
+                    on_error=self._on_error,
+                    on_close=self._on_close,
+                )
+                # ping keepalive; SSL 옵션은 라이브러리 기본 사용
+                self.wsapp.run_forever(ping_interval=20, ping_timeout=10)
             except Exception as e:
-                print(f"[WebSocket] Connection failed: {e}. Retrying in 1s...")
+                print(f"[WebSocket] run_forever error: {e}")
+            # 종료 요청이 아니면 재시도
+            if not self._stop_flag.is_set():
+                print("[WebSocket] Reconnecting in 1s...")
                 time.sleep(1)
+
+    def _start_background(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_flag.clear()
+        self._thread = threading.Thread(target=self._run_forever_loop, daemon=True)
+        self._thread.start()
 
     def send_json(self, obj: Any) -> None:
         payload = json.dumps(obj, ensure_ascii=False)
         try:
-            assert self.ws is not None
-            self.ws.send(payload)
+            if self.wsapp and self._connected.is_set() and self.wsapp.sock and self.wsapp.sock.connected:
+                self.wsapp.send(payload)
+            else:
+                raise RuntimeError("socket not connected")
         except Exception as e:
-            print(f"[WebSocket] send failed: {e}. Reconnecting...")
-            try:
-                if self.ws:
-                    self.ws.close()
-            except Exception:
-                pass
-            self.connect()
-            try:
-                assert self.ws is not None
-                self.ws.send(payload)
-                print("[WebSocket] resent successfully")
-            except Exception as e2:
-                print(f"[WebSocket] resend failed: {e2}")
-
-    def close(self) -> None:
-        try:
-            if self.ws:
-                self.ws.close()
-        except Exception:
-            pass
+            print(f"[WebSocket] send failed: {e}")
 
     async def send_json_async(self, obj: Any) -> None:
         await asyncio.to_thread(self.send_json, obj)
 
     async def recv(self) -> str:
-        def _blocking_recv() -> str:
-            assert self.ws is not None
-            return self.ws.recv()
-
-        return await asyncio.to_thread(_blocking_recv)
+        # 큐에서 메시지를 하나 꺼냄 (블로킹)
+        return await asyncio.to_thread(self._queue.get)
 
     def recv_text(self, timeout: float | None = None) -> str:
-        assert self.ws is not None
+        # 하위 호환
         if timeout is not None:
-            self.ws.settimeout(timeout)
-        return self.ws.recv()  # blocking
+            try:
+                return self._queue.get(timeout=timeout)
+            except Exception:
+                raise TimeoutError()
+        return self._queue.get()
 
     async def recv_async(self, timeout: float | None = None) -> str:
-        return await asyncio.to_thread(self.recv_text, timeout)
+        if timeout is None:
+            return await asyncio.to_thread(self._queue.get)
+        # timeout을 지원하기 위해 to_thread로 get 호출
+        def _get_with_timeout() -> str:
+            return self._queue.get(timeout=timeout)
+        return await asyncio.to_thread(_get_with_timeout)
+
+    def close(self) -> None:
+        try:
+            self._stop_flag.set()
+            if self.wsapp is not None:
+                try:
+                    self.wsapp.close()
+                except Exception:
+                    pass
+            if self._thread and self._thread.is_alive():
+                # 강제 join은 생략 (daemon)
+                pass
+        except Exception:
+            pass
 
 # =============================
 # Drawing / Visualization
@@ -520,6 +565,39 @@ def get_detections_with_ids(result: Any) -> List[Dict[str, float]]:
     return detections
 
 
+def extract_angles_by_id(result: Any) -> Dict[int, float]:
+    """현재 프레임의 트랙 ID별 차량 각도(rad)를 추출한다.
+    xywhr 기준으로 w<h이면 +pi/2 보정을 적용한다.
+    """
+    id_to_angle: Dict[int, float] = {}
+    try:
+        if not hasattr(result, "obb") or result.obb is None:
+            return id_to_angle
+        ids_t = getattr(result.obb, "id", None)
+        xywhr = getattr(result.obb, "xywhr", None)
+        if ids_t is None or xywhr is None:
+            return id_to_angle
+        ids = ids_t.cpu().numpy().tolist() if hasattr(ids_t, "cpu") else list(ids_t)
+        for i, tid in enumerate(ids):
+            try:
+                try:
+                    w_px = float(xywhr[i][2].item())
+                    h_px = float(xywhr[i][3].item())
+                    theta = float(xywhr[i][4].item())
+                except Exception:
+                    arr = (
+                        xywhr[i].cpu().numpy().tolist() if hasattr(xywhr[i], "cpu") else list(xywhr[i])
+                    )
+                    w_px, h_px, theta = float(arr[2]), float(arr[3]), float(arr[4])
+                if w_px < h_px:
+                    theta += math.pi / 2.0
+                id_to_angle[int(tid)] = theta
+            except Exception:
+                continue
+    except Exception:
+        return id_to_angle
+    return id_to_angle
+
 def build_logging_snapshot(
     payload: List[Dict[str, Any]],
     plate_mgr: PlateManager,
@@ -664,6 +742,10 @@ class TrackerApp:
         self._reserved_upper: set[str] = set()
         self._assigned_by_plate: Dict[str, str] = {}
         self._last_slot_map: Dict[str, str] = {}
+        # 동일 구역에서 중복으로 주차완료 이벤트가 전송되지 않도록 보호
+        self._completed_zones: set[str] = set()
+        # 최근 프레임의 트랙별 각도(rad)
+        self._last_angle_by_id: Dict[int, float] = {}
 
         # 추천 모델 로딩 (선택적)
         self.recommender_model = None
@@ -681,21 +763,67 @@ class TrackerApp:
 
     # TODO: 추후 특징 추가 필요
     def _build_features_for_free_zones(self, size_class: Optional[str], slot_map: Dict[str, str]) -> List[Dict]:
-        # 최소 특징: zone_id, size_class, 시간 기반 특징
-        now = time.localtime()
-        hour = now.tm_hour
-        dow = now.tm_wday
+        # left_occupied	left_angle
+        # left_offset
+        # left_size
+        # left_width
+        # left_length
+        # left_has_pillar
+        # right_occupied
+        # right_angle
+        # right_offset
+        # right_size
+        # right_width
+        # right_length
+        # right_has_pillar
+        # goal_lane_index
+        # goal_position_x
+        # goal_position_y
+        # goal_heading
+        # controlled_x
+        # controlled_y
+        # controlled_width
+        # controlled_length	
+        # Reset 1	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+        # Reset 2	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+        # Reset 3	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+        # Reset 4	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+        # Reset 5	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+        # Reset 6	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+        # Reset 7	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+        # Reset 8	1	0.162860807	0	0	2	5	0	0	0	0	0	0	0	0	('b', 'c', 4)	26	-14	-1.570796327	-8.883955413	0	2	5	23
+
+        feature_cols = [
+            "left_occupied","left_angle","left_offset","left_size","left_width","left_length","left_has_pillar",
+            "right_occupied","right_angle","right_offset","right_size","right_width","right_length","right_has_pillar",
+            "controlled_x","controlled_y","controlled_width","controlled_length"
+        ]
+        # 더미 데이터 생성
         features: List[Dict] = []
-        for z in self.parking.zones_norm:
-            zid = z["id"].upper()
-            if slot_map.get(zid) == "free":
-                feat = {
-                    "zone_id": zid,
-                    "hour": hour,
-                    "dow": dow,
-                    "size_class": (size_class or "unknown"),
-                }
-                features.append(feat)
+        for i in range(5):
+            feature = {
+                "left_occupied": 0,
+                "left_angle": 0.0,
+                "left_offset": 0.0,
+                "left_size": 2,
+                "left_width": 2.5,
+                "left_length": 5.0,
+                "left_has_pillar": 0,
+                "right_occupied": 0,
+                "right_angle": 0.0,
+                "right_offset": 0.0,
+                "right_size": 2,
+                "right_width": 2.5,
+                "right_length": 5.0,
+                "right_has_pillar": 0,
+                "controlled_x": 10.0 + i,
+                "controlled_y": 20.0 + i,
+                "controlled_width": 2.5,
+                "controlled_length": 5.0,
+                "zone_id": f"zone_{i+1}"
+            }
+            features.append(feature)
+
         return features
 
     async def _listen_assignment_request(self) -> None:
@@ -709,6 +837,7 @@ class TrackerApp:
                 if not isinstance(data, dict):
                     continue
                 if data.get("message_type") == "request_assignment":
+                    print("서버에서 요청이 들어왔습니다.")
                     # 현재 슬롯 상태 및 점유 맵 생성
                     slot_map = self._get_slot_map()
                     occupant_to_zone_upper = self._get_occupant_map()
@@ -724,7 +853,7 @@ class TrackerApp:
                     if self.recommender_model is not None and recommend_best_zone is not None:
                         try:
                             feats = self._build_features_for_free_zones(size_class, slot_map)
-                            best = recommend_best_zone(self.recommender_model, feats)
+                            best = recommend_best_zone(self.recommender_model, feats) # 최적 주차구역 ID
                             if best and isinstance(best, dict):
                                 suggested_zone = str(best.get("zone_id") or "")
                         except Exception as e:
@@ -814,10 +943,57 @@ class TrackerApp:
         if slot_map.get(assigned_zone_upper) != "free":
             return
         self._reserved_upper.add(assigned_zone_upper)
+        # 새 예약 시 해당 구역의 완료 플래그 초기화
+        self._completed_zones.discard(assigned_zone_upper)
         if license_plate:
             self._assigned_by_plate[license_plate] = assigned_zone_upper
         print(f"[Reservation] 예약 생성: plate={license_plate} zone={assigned_zone_upper}")
         await self._send_snapshot(None, 0, 0)
+
+    async def _handle_parking_completion(self) -> None:
+        """예약된 구역에 배정 차량이 실제로 주차 완료되었을 때 1회성 이벤트를 전송하고 예약을 해제한다."""
+        try:
+            # zone_upper -> assigned_plate 로 변환
+            zone_to_assigned_plate: Dict[str, str] = {z: p for p, z in self._assigned_by_plate.items()}
+            for zid_upper in list(self._reserved_upper):
+                # 이미 완료 처리된 구역은 스킵
+                if zid_upper in self._completed_zones:
+                    continue
+                zid_lower = zid_upper.lower()
+                st = self.parking.state.get(zid_lower)
+                if not st or st.occupant_id is None:
+                    continue
+                assigned_plate = zone_to_assigned_plate.get(zid_upper, "")
+                if not assigned_plate:
+                    continue
+                occupant_tid = int(st.occupant_id)
+                occupant_plate = self.plate_mgr.get(occupant_tid) or ""
+                if occupant_plate and occupant_plate == assigned_plate:
+                    # 점수 계산: 각도 + (실제소요시간 - 예상주차시간)
+                    angle_rad = float(self._last_angle_by_id.get(occupant_tid, 0.0))
+                    now_ts = time.time()
+                    actual_sec = float(max(0.0, now_ts - (st.parked_since or now_ts)))
+                    expected_sec = float(os.getenv("EXPECTED_PARKING_TIME_S", "10"))
+                    time_delta = actual_sec - expected_sec
+                    score = float(angle_rad + time_delta)
+
+                    # 주차완료 이벤트 전송
+                    await self.ws.send_json_async(
+                        {
+                            "message_type": "score_ack",
+                            "license_plate": assigned_plate,
+                            "score": round(score, 4),
+                        }
+                    )
+                    # 예약 해제 및 중복 방지 플래그 설정
+                    self._reserved_upper.discard(zid_upper)
+                    self._assigned_by_plate.pop(assigned_plate, None)
+                    self._completed_zones.add(zid_upper)
+                    print(f"[ParkingCompleted] plate={assigned_plate} zone={zid_upper}")
+                    # 상태 스냅샷 갱신 전송
+                    await self._send_snapshot(None, 0, 0)
+        except Exception:
+            pass
 
     def _handle_mispark_release(self, occupant_to_zone_upper: Dict[int, str]) -> None:
         try:
@@ -941,6 +1117,15 @@ class TrackerApp:
 
                     self.vis.draw_parking_zones(im0)
                     self.vis.draw_status_panel(im0, (10, 10), self._reserved_upper)
+
+                    # 최근 각도 맵 업데이트
+                    try:
+                        self._last_angle_by_id.update(extract_angles_by_id(r))
+                    except Exception:
+                        pass
+
+                    # 예약된 차량이 배정 구역에 실제 주차 완료되면 이벤트 전송
+                    await self._handle_parking_completion()
 
                     # 오배정 해제 및 선점 처리
                     self._handle_mispark_release(self._get_occupant_map())
