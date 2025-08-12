@@ -1,7 +1,10 @@
 # jetson/routing.py
 from django.urls import re_path
-from .consumers import JetsonAssignConsumer
+from .consumers import JetsonIngestConsumer, ParkingStatusConsumer
 
 websocket_urlpatterns = [
-    re_path(r"ws/jetson/$", JetsonAssignConsumer.as_asgi()),
+    # Jetson -> Django
+    re_path(r"^ws/jetson/$", JetsonIngestConsumer.as_asgi()),
+    # Django -> Frontend
+    re_path(r"^ws/parking_status$", ParkingStatusConsumer.as_asgi()),
 ]

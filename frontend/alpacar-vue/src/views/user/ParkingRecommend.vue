@@ -235,7 +235,8 @@ function simulateComplete() {
 }
 
 /* ===== WS 엔드포인트 (관리자와 동일) ===== */
-const WSS_JETSON_URL = `wss://i13e102.p.ssafy.io/ws/jetson/`;
+const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
+// const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
 
 /* ===== 상태 ===== */
 const router = useRouter();
@@ -317,77 +318,47 @@ async function ensureMyPlates() {
 /* WebSocket */
 let ws: WebSocket | null = null;
 function connectWS() {
-	ws = new WebSocket(WSS_JETSON_URL);
-	ws.onopen = () => console.log("[Jetson WS] ✅ Connected");
-	ws.onerror = (e) => console.error("[Jetson WS] ❌ Error:", e);
-	ws.onclose = () => console.warn("[Jetson WS] 🔒 Closed");
+	ws = new WebSocket(WSS_PARKING_STATUS_URL);
+	ws.onopen = () => console.log("[ParkingStatus WS] ✅ Connected");
+	ws.onerror = (e) => console.error("[ParkingStatus WS] ❌ Error:", e);
+	ws.onclose = () => console.warn("[ParkingStatus WS] 🔒 Closed");
 	ws.onmessage = (e) => {
 		try {
 			const data = JSON.parse(e.data);
 
-			// A) 배열: 단순 차량 목록
-			if (Array.isArray(data)) {
-				const converted = data.map((v: any) => ({
-					track_id: String(v?.track_id ?? v?.plate ?? ""),
-					center: [Number(v?.center?.[0] ?? v?.center?.x ?? 0), Number(v?.center?.[1] ?? v?.center?.y ?? 0)] as [number, number],
-					corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
-					state: v?.state,
-					suggested: v?.suggested ?? "",
-				})) as TelemetryCar[];
-				vehicles.splice(0, vehicles.length, ...converted);
-				updateMyStateFromVehicles();
-				return;
-			}
-
-			// B) 젯슨 원본 텔레메트리 { slot, vehicles }
-			if (data && (data.slot || data.vehicles)) {
-				if (data.slot) {
-					Object.entries(data.slot as Record<string, SlotStatus>).forEach(([k, v]) => {
-						if (k in statusMap) statusMap[k] = v;
-					});
-				}
-				if (Array.isArray(data.vehicles)) {
-					const converted = data.vehicles.map((v: any) => {
-						const cx = Number(v?.center?.x ?? 0);
-						const cy = Number(v?.center?.y ?? 0);
-						const corners1d = (v?.corners ?? []).flat().map(Number);
-						return {
-							track_id: String(v?.plate ?? ""),
-							center: [cx, cy] as [number, number],
-							corners: corners1d,
-							state: v?.state,
-							suggested: v?.suggested ?? "",
-						} as TelemetryCar;
-					});
+			switch (data?.message_type) {
+				case "car_position": {
+					const arr = Array.isArray(data.vehicles) ? data.vehicles : [];
+					const converted = arr.map((v: any) => ({
+						track_id: String(v?.track_id ?? v?.plate ?? ""),
+						center: [Number(v?.center?.[0] ?? v?.center?.x ?? 0), Number(v?.center?.[1] ?? v?.center?.y ?? 0)] as [number, number],
+						corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
+						state: v?.state,
+						suggested: v?.suggested ?? "",
+					})) as TelemetryCar[];
 					vehicles.splice(0, vehicles.length, ...converted);
 					updateMyStateFromVehicles();
+					break;
 				}
-				return;
-			}
-
-			// C) parking_space.update: 슬롯 맵
-			if (data && typeof data === "object") {
-				const firstKey = Object.keys(data)[0];
-				const firstVal = firstKey ? (data as any)[firstKey] : null;
-				const looksLikeMap = firstVal && typeof firstVal === "object" && "status" in firstVal;
-				if (looksLikeMap) {
-					Object.entries(data as Record<string, { status: SlotStatus; license_plate?: string | null }>).forEach(([slot, info]) => {
+				case "parking_space": {
+					const payload = data.spaces || {};
+					Object.entries(payload).forEach(([slot, info]: any) => {
 						if (!(slot in statusMap)) return;
 						statusMap[slot] = info.status;
 						spaceVehicleMap[slot] = { plate: info.license_plate ?? null };
 					});
 					checkAutoComplete();
-					return;
+					break;
 				}
-			}
-
-			// D) active_vehicles.update (옵션)
-			if (data && data.results && Array.isArray(data.results)) {
-				// 필요시 확장
-				return;
+				case "active_vehicles": {
+					// 필요시 확장
+					break;
+				}
+				default:
+					break;
 			}
 		} catch (err) {
-			console.error("[Jetson WS] parse error:", err, e.data);
+			console.error("[ParkingStatus WS] parse error:", err, e.data);
 		}
 	};
 }
