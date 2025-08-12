@@ -343,9 +343,25 @@ const getVehicleImageUrl = (imageUrl: string | undefined) => {
 };
 
 const handleLogout = () => {
+	// 사용자 스토어 클리어
 	userStore.clearUser();
-	// router.push("/login"); // 테스트 모드 유지
-	alert("로그아웃(테스트). 페이지는 그대로 유지됩니다.");
+	
+	// 로컬 스토리지에서 인증 관련 데이터 모두 삭제
+	[
+		"access_token", "refresh_token",
+		"access", "refresh", "accessToken", "refreshToken",
+		"token", "user"
+	].forEach((key) => localStorage.removeItem(key));
+	
+	// 세션 스토리지에서도 제거
+	[
+		"access_token", "refresh_token",
+		"access", "refresh", "accessToken", "refreshToken",
+		"token", "user"
+	].forEach((key) => sessionStorage.removeItem(key));
+	
+	// 로그인 페이지로 리다이렉트
+	router.push("/login");
 };
 
 /* ===== 설정 진입 전 비밀번호 인증 (UserSetting의 currentPassword 컨셉 재사용) ===== */
