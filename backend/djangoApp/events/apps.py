@@ -7,5 +7,5 @@ class EventsConfig(AppConfig):
     name = "events"
 
     def ready(self):
-        # 시그널 연결
-        import events.signals  # noqa
+        # signals 모듈을 import 해야 receiver들이 연결됩니다.
+        from . import signals  # noqa
