@@ -165,13 +165,13 @@ const avatarImage = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return new URL('@/assets/alpacar-beginner.PNG', import.meta.url).href
+      return new URL('@/assets/alpacar-beginner.png', import.meta.url).href
     case 'intermediate':
       return new URL('@/assets/alpacar-intermediate.png', import.meta.url).href
     case 'advanced':
-      return new URL('@/assets/alpacar-advanced.PNG', import.meta.url).href
+      return new URL('@/assets/alpacar-advanced.png', import.meta.url).href
     default:
-      return new URL('@/assets/alpacar-beginner.PNG', import.meta.url).href
+      return new URL('@/assets/alpacar-beginner.png', import.meta.url).href
   }
 })
 
