@@ -230,12 +230,12 @@ class OCRTextConsumer(AsyncWebsocketConsumer):
                 # 날짜/시간 포맷
                 now = timezone.now()
                 returned_text = (
-                    "  <ALPACAR 주차장>\n"
-                    f"  {now.strftime('%Y년 %m월 %d일')}\n"
-                    f"     {now.strftime('%H:%M:%S')}"
+                    "<ALPACAR 주차장>\n"
+                    f"{now.strftime('%Y년 %m월 %d일')}\n"
+                    f"{now.strftime('%H:%M:%S')}"
                 )
             else:
-                returned_text = "  <ALPACAR 주차장>\n" f"입차: {LATEST_TEXT}"
+                returned_text = "<ALPACAR 주차장>\n" f"입차: {LATEST_TEXT}\n" "어서오슈"
 
             payload = json.dumps(
                 {"text": returned_text}, ensure_ascii=False
