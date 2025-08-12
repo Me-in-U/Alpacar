@@ -89,7 +89,8 @@ export default defineComponent({
 				window.location.href = googleLoginUrl;
 			} catch (error) {
 				console.error("❌ 리다이렉트 실패:", error);
-				alert(`구글 로그인 중 오류가 발생했습니다: ${error.message}`);
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				alert(`구글 로그인 중 오류가 발생했습니다: ${errorMessage}`);
 			}
 		};
 
