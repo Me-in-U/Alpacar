@@ -21,8 +21,14 @@
 						</div>
 					</div>
 
-					<!-- 우측 설정 아이콘: 비밀번호 확인 모달 -->
-					<img class="settings-icon" src="@/assets/setting.png" alt="설정" @click="openSettingsAuthModal" />
+					<!-- 우측 설정 아이콘: 비밀번호 확인 모달 (소셜 로그인 유저는 숨김) -->
+					<img 
+						v-if="!isSocialUser"
+						class="settings-icon" 
+						src="@/assets/setting.png" 
+						alt="설정" 
+						@click="openSettingsAuthModal" 
+					/>
 				</div>
 
 				<!-- ▼ 더보기 영역 -->
@@ -194,6 +200,18 @@ const userStore = useUserStore();
 /* 상태 / 계산 */
 const userInfo = computed(() => userStore.me);
 const vehicles = computed(() => userStore.vehicles);
+
+// 소셜 로그인 유저 여부 확인
+const isSocialUser = computed(() => {
+	// 소셜 로그인 유저는 Google OAuth를 통해 가입한 경우
+	// 이메일이 Google 이메일이거나 별도 플래그가 있을 수 있음
+	const email = userInfo.value?.email;
+	if (!email) return false;
+	
+	// Google OAuth 사용자는 보통 소셜 로그인 정보를 별도로 저장
+	// 여기서는 간단히 구글 이메일로 판단
+	return email.includes('gmail.com');
+});
 
 const showAllVehicles = ref(false);
 const displayedVehicles = computed(() => (vehicles.value.length <= 3 ? vehicles.value : showAllVehicles.value ? vehicles.value : vehicles.value.slice(0, 3)));
@@ -421,6 +439,15 @@ const verifySettingsPassword = async () => {
 
 		// 성공: 토큰은 저장/갱신하지 않고 바로 폐기(검증 목적)
 		closeSettingsAuthModal();
+		
+		// 일회용 인증 토큰 생성 (5초간만 유효)
+		const oneTimeToken = {
+			timestamp: Date.now(),
+			userEmail: email,
+			token: `auth_${Date.now()}_${Math.random()}`
+		};
+		sessionStorage.setItem('user-setting-one-time-auth', JSON.stringify(oneTimeToken));
+		
 		router.push("/user-setting");
 	} catch (e) {
 		console.error(e);
