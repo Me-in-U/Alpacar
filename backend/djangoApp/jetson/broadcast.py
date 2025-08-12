@@ -9,6 +9,7 @@ def send_request_assignment(license_plate: str, size_class: str):
     """
     젯슨으로 배정 요청 브로드캐스트
     """
+    print("[★★★★] send_request_assignment")
     payload = {
         "message_type": "request_assignment",
         "license_plate": license_plate,
