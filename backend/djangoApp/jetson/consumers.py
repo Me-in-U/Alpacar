@@ -71,7 +71,7 @@ class JetsonAssignConsumer(AsyncWebsocketConsumer):
         message_type = data.get("message_type")
 
         # 1) 슬롯/차량 텔레메트리 (message_type 없음, 혹은 "telemetry")
-        if message_type in (None, "telemetry"):
+        if message_type == "car_position":
             await self._handle_telemetry_payload(data)
             return
 
