@@ -2,6 +2,9 @@
 from django.db import models
 from django.utils import timezone
 
+from events.models import VehicleEvent
+from vehicles.models import Vehicle
+
 
 class ParkingSpace(models.Model):
     """
@@ -36,6 +39,14 @@ class ParkingSpace(models.Model):
         choices=STATUS_CHOICES,
         default="free",
     )
+    #  현재 이 공간을 점유/예약 중인 차량(없으면 null)
+    current_vehicle = models.ForeignKey(
+        Vehicle,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="current_space",
+    )
     created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각
     updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각
 
@@ -57,6 +68,13 @@ class ParkingAssignment(models.Model):
     - status로 현황 표시(배정됨/완료됨)
     """
 
+    entrance_event = models.OneToOneField(  # << 입차 기록당 1개 배정
+        VehicleEvent,
+        on_delete=models.PROTECT,
+        related_name="assignment",
+        null=True,
+        blank=True,  # 기존 데이터 고려
+    )
     STATUS_CHOICES = [
         ("ASSIGNED", "배정됨"),  # 입차 완료, 주차 중
         ("COMPLETED", "완료됨"),  # 출차 완료

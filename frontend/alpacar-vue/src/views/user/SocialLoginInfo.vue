@@ -47,11 +47,22 @@
 				<div class="modal-header">
 					<h3 class="modal-title">차량 번호를 입력해주세요</h3>
 				</div>
+
 				<div class="modal-body">
 					<input v-model="vehicleNumber" type="text" class="modal-input" placeholder="예: 12가3456" @input="handleVehicleNumberInput" maxlength="8" />
 				</div>
+
+				<!-- 실시간 중복/형식 상태 표시 -->
+				<div class="license-status" v-if="vehicleNumber">
+					<span v-if="plateStatus === 'checking'" class="status checking">확인 중...</span>
+					<span v-else-if="plateStatus === 'ok'" class="status ok">✔ 사용 가능</span>
+					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량</span>
+					<span v-else-if="plateStatus === 'error'" class="status error">검증 실패, 다시 시도</span>
+					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요</span>
+				</div>
+
 				<div class="modal-footer">
-					<button class="modal-complete-button" @click="addVehicle">
+					<button class="modal-complete-button" @click="addVehicle" :disabled="!canAddVehicle">
 						<span class="button-text">설정 완료</span>
 					</button>
 				</div>
@@ -61,130 +72,170 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 
 const router = useRouter();
 const userStore = useUserStore();
+
 const showModal = ref(false);
 const selectedSkill = ref("advanced");
+
+// ── 차량번호 상태/검증 ──
 const vehicleNumber = ref("");
+const plateRegex = /^(?:0[1-9]|[1-9]\d|[1-9]\d{2})[가-힣][1-9]\d{3}$/;
+const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
+
+type PlateStatus = "idle" | "checking" | "ok" | "duplicate" | "error";
+const plateStatus = ref<PlateStatus>("idle");
+let plateTimer: ReturnType<typeof setTimeout> | null = null;
+
+const canAddVehicle = computed(() => isVehicleNumberValid.value && plateStatus.value === "ok");
 
 const formData = reactive({
 	vehicleNumber: "",
 	parkingSkill: "advanced",
 });
 
-// 관리자 접근 차단 - 컴포넌트 레벨에서 추가 보호
+// 관리자 접근 차단
 onMounted(() => {
 	const isAdmin = userStore.me?.is_staff ?? false;
 	if (isAdmin) {
-		console.log("[SOCIAL-LOGIN-INFO] 관리자는 차량 등록 페이지에 접근할 수 없습니다. 관리자 메인 페이지로 리다이렉트합니다.");
+		console.log("[SOCIAL-LOGIN-INFO] 관리자 접근 차단 → /admin-main");
 		router.replace("/admin-main");
 		return;
 	}
 });
 
-// 차량번호 입력 시 숫자와 한글만 허용
+// 로그인 확인
+onMounted(() => {
+	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+	if (!token) {
+		alert("로그인이 필요합니다.");
+		router.push("/login");
+	}
+});
+
+// 차량번호 입력 시 숫자/한글만 허용 + 상태 초기화
 const handleVehicleNumberInput = (event: Event) => {
 	const target = event.target as HTMLInputElement;
 	const value = target.value;
-	// 숫자와 한글만 허용 (공백, 특수문자 제거)
-	const cleanValue = value.replace(/[^0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, "");
-	// 최대 8자로 제한
-	if (cleanValue.length > 8) {
-		vehicleNumber.value = cleanValue.substring(0, 8);
-	} else {
-		vehicleNumber.value = cleanValue;
-	}
+	const cleanValue = value.replace(/[^0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, "").slice(0, 8);
+	vehicleNumber.value = cleanValue;
+	plateStatus.value = "idle";
 };
 
-const addVehicle = async () => {
-	if (vehicleNumber.value.trim()) {
+// 디바운스 중복 검증
+watch(vehicleNumber, () => {
+	if (plateTimer) clearTimeout(plateTimer);
+
+	if (!vehicleNumber.value) {
+		plateStatus.value = "idle";
+		return;
+	}
+	if (!isVehicleNumberValid.value) {
+		plateStatus.value = "idle";
+		return;
+	}
+
+	plateStatus.value = "checking";
+	plateTimer = setTimeout(async () => {
 		try {
-			// 토큰 가져오기 (localStorage 또는 sessionStorage에서)
-			const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+			// check_license가 AllowAny라면 헤더 없이도 OK.
+			// 인증이 필요한 경우, 아래 headers에 토큰을 넣어주세요.
+			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`);
+			if (!res.ok) throw new Error();
+			const data = await res.json();
+			plateStatus.value = data.exists ? "duplicate" : "ok";
+		} catch {
+			plateStatus.value = "error";
+		}
+	}, 400);
+});
 
-			if (!token) {
-				alert("로그인이 필요합니다.");
-				router.push("/login");
-				return;
-			}
+// 차량 등록
+const addVehicle = async () => {
+	if (!canAddVehicle.value) {
+		alert("차량번호를 확인해주세요.");
+		return;
+	}
 
-			const response = await fetch(`${BACKEND_BASE_URL}/user/vehicle/`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({
-					license_plate: vehicleNumber.value.trim(),
-				}),
-			});
+	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+	if (!token) {
+		alert("로그인이 필요합니다.");
+		router.push("/login");
+		return;
+	}
 
-			if (response.ok) {
-				formData.vehicleNumber = vehicleNumber.value.trim();
-				console.log("차량 번호 저장 성공:", vehicleNumber.value);
-				alert("차량 번호가 성공적으로 등록되었습니다!");
-				showModal.value = false;
-				vehicleNumber.value = "";
+	try {
+		const response = await fetch(`${BACKEND_BASE_URL}/user/vehicle/`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({
+				license_plate: vehicleNumber.value.trim(),
+			}),
+		});
+
+		if (response.ok) {
+			formData.vehicleNumber = vehicleNumber.value.trim();
+			// 등록 직후 내 차량 목록 갱신이 필요하면 아래 주석 해제
+			// await userStore.fetchMyVehicles();
+
+			alert("차량 번호가 성공적으로 등록되었습니다!");
+			showModal.value = false;
+			vehicleNumber.value = "";
+			plateStatus.value = "idle";
+		} else {
+			const contentType = response.headers.get("content-type");
+			if (contentType && contentType.includes("application/json")) {
+				const errorData = await response.json();
+				alert("차량 번호 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
+				if ((errorData.detail || "").includes("이미") || response.status === 400) {
+					plateStatus.value = "duplicate";
+				}
 			} else {
-				// 응답이 JSON인지 확인
-				const contentType = response.headers.get("content-type");
-				if (contentType && contentType.includes("application/json")) {
-					const errorData = await response.json();
-					alert("차량 번호 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
+				if (response.status === 404) {
+					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
+				} else if (response.status === 401) {
+					alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+					router.push("/login");
 				} else {
-					// HTML 응답인 경우 (보통 404, 401 등의 에러)
-					console.error("API 응답이 HTML입니다. 상태 코드:", response.status);
-					if (response.status === 404) {
-						alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
-					} else if (response.status === 401) {
-						alert("인증이 만료되었습니다. 다시 로그인해주세요.");
-						router.push("/login");
-					} else {
-						alert("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
-					}
+					alert("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
 			}
-		} catch (error) {
-			console.error("차량 번호 저장 중 오류:", error);
-			alert("차량 번호 저장 중 오류가 발생했습니다.");
 		}
+	} catch (error) {
+		console.error("차량 번호 저장 중 오류:", error);
+		alert("차량 번호 저장 중 오류가 발생했습니다.");
+		plateStatus.value = "error";
 	}
 };
 
+// 설정 완료
 const completeSetup = async () => {
 	formData.parkingSkill = selectedSkill.value;
 
-	// 차량이 등록되지 않은 경우 경고
 	if (!formData.vehicleNumber) {
 		alert("차량 번호를 먼저 등록해주세요.");
 		return;
 	}
 
 	try {
-		// 토큰 가져오기
 		const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
-
 		if (!token) {
 			alert("로그인이 필요합니다.");
 			router.push("/login");
 			return;
 		}
 
-		// 주차 실력별 점수 매핑
-		const scoreMap: Record<string, number> = {
-			beginner: 30, // 초급자
-			intermediate: 65, // 중급자
-			advanced: 86, // 상급자
-		};
-
+		const scoreMap: Record<string, number> = { beginner: 30, intermediate: 65, advanced: 86 };
 		const userScore = scoreMap[selectedSkill.value] || 30;
 
-		// 주차실력과 점수 업데이트 API 호출
 		const response = await fetch(`${BACKEND_BASE_URL}/user/parking-skill/`, {
 			method: "POST",
 			headers: {
@@ -198,18 +249,14 @@ const completeSetup = async () => {
 		});
 
 		if (response.ok) {
-			console.log("주차실력 저장 성공:", selectedSkill.value, "점수:", userScore);
 			alert(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`);
 			router.push("/main");
 		} else {
-			// 응답이 JSON인지 확인
 			const contentType = response.headers.get("content-type");
 			if (contentType && contentType.includes("application/json")) {
 				const errorData = await response.json();
 				alert("주차실력 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
 			} else {
-				// HTML 응답인 경우 (보통 404, 401 등의 에러)
-				console.error("API 응답이 HTML입니다. 상태 코드:", response.status);
 				if (response.status === 404) {
 					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
@@ -225,15 +272,6 @@ const completeSetup = async () => {
 		alert("주차실력 저장 중 오류가 발생했습니다.");
 	}
 };
-
-// 페이지 접근 시 로그인 상태 확인
-onMounted(() => {
-	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
-	if (!token) {
-		alert("로그인이 필요합니다.");
-		router.push("/login");
-	}
-});
 </script>
 
 <style scoped>
@@ -286,13 +324,11 @@ onMounted(() => {
 	height: 100%;
 	position: relative;
 }
-
 .vehicle-info-content {
 	position: relative;
 	width: 100%;
 	height: 100%;
 }
-
 .vehicle-info-text {
 	position: absolute;
 	left: 42px;
@@ -335,7 +371,6 @@ onMounted(() => {
 	height: 100%;
 	object-fit: contain;
 }
-
 .add-vehicle-button {
 	position: absolute;
 	width: 38px;
@@ -350,12 +385,6 @@ onMounted(() => {
 	justify-content: center;
 }
 
-.plus-button-image {
-	width: 100%;
-	height: 100%;
-	object-fit: contain;
-}
-
 /* Parking Skill Section */
 .parking-skill-section {
 	position: absolute;
@@ -364,7 +393,6 @@ onMounted(() => {
 	top: 349px;
 	width: calc(100% - 52px);
 }
-
 .skill-title {
 	color: #333333;
 	font-size: 24px;
@@ -384,7 +412,6 @@ onMounted(() => {
 	border-radius: 8px;
 	overflow: hidden;
 }
-
 .skill-button {
 	width: 100%;
 	height: 50px;
@@ -399,16 +426,13 @@ onMounted(() => {
 	text-align: left;
 	padding: 0 15px;
 }
-
 .skill-button.selected {
 	background-color: #776b5d;
 	color: #f5f5f5;
 }
-
 .skill-button:hover {
 	background-color: #d4c8b8;
 }
-
 .skill-button.selected:hover {
 	background-color: #665a4d;
 }
@@ -421,7 +445,6 @@ onMounted(() => {
 	left: 48px;
 	top: 625px;
 }
-
 .complete-button {
 	width: 100%;
 	height: 100%;
@@ -434,13 +457,11 @@ onMounted(() => {
 	justify-content: center;
 	transition: all 0.3s ease;
 }
-
 .complete-button:hover {
 	background: #665a4d;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
 }
-
 .button-text {
 	color: white;
 	font-size: 16px;
@@ -462,22 +483,18 @@ onMounted(() => {
 	justify-content: center;
 	z-index: 1000;
 }
-
 .modal-content {
 	width: 375px;
-	height: 200px;
 	background-color: #f3eeea;
 	border-radius: 12px;
 	padding: 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 16px;
 }
-
 .modal-header {
 	text-align: center;
 }
-
 .modal-title {
 	font-size: 18px;
 	font-weight: 600;
@@ -485,13 +502,10 @@ onMounted(() => {
 	margin: 0;
 	line-height: 22px;
 }
-
 .modal-body {
-	flex: 1;
 	display: flex;
 	align-items: center;
 }
-
 .modal-input {
 	width: 100%;
 	height: 50px;
@@ -506,20 +520,16 @@ onMounted(() => {
 	transition: border-color 0.3s ease;
 	box-sizing: border-box;
 }
-
 .modal-input::placeholder {
 	color: #999999;
 }
-
 .modal-input:focus {
 	border-color: #776b5d;
 }
-
 .modal-footer {
 	display: flex;
 	justify-content: center;
 }
-
 .modal-complete-button {
 	width: 280px;
 	height: 50px;
@@ -532,11 +542,40 @@ onMounted(() => {
 	align-items: center;
 	justify-content: center;
 }
-
 .modal-complete-button:hover {
 	background-color: #665a4d;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+}
+
+/* ── 추가: 상태 표시 스타일 ── */
+.license-status {
+	margin: -6px 0 6px 0;
+	min-height: 20px;
+	display: flex;
+	align-items: center;
+	font-size: 14px;
+	font-weight: 600;
+	gap: 6px;
+	justify-content: center;
+}
+.status.ok {
+	color: #4caf50;
+}
+.status.duplicate {
+	color: #f44336;
+}
+.status.error {
+	color: #ff9800;
+}
+.status.checking {
+	color: #776b5d;
+}
+
+.error-message {
+	color: #f44336;
+	font-size: 14px;
+	text-align: center;
 }
 
 /* Responsive Design */
@@ -545,21 +584,17 @@ onMounted(() => {
 		width: 100vw;
 		height: 100vh;
 	}
-
 	.vehicle-info-section {
 		width: 100%;
 	}
-
 	.parking-skill-section {
 		left: 26px;
 		right: 26px;
 		width: calc(100% - 52px);
 	}
-
 	.skill-selection {
 		width: 100%;
 	}
-
 	.complete-button-container {
 		width: calc(100% - 96px);
 		left: 48px;

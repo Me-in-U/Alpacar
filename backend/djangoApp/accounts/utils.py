@@ -23,20 +23,35 @@ def create_notification(user, title, message, notification_type='system', data=N
     if data is None:
         data = {}
     
-    # 알림 생성
-    notification = Notification.objects.create(
-        user=user,
-        title=title,
-        message=message,
-        notification_type=notification_type,
-        data=data
-    )
-    
-    # 푸시 알림 전송 (사용자가 푸시 알림을 허용한 경우에만)
-    if user.push_enabled:
-        send_push_notification(user, title, message, data)
-    
-    return notification
+    try:
+        # 알림 생성
+        notification = Notification.objects.create(
+            user=user,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            data=data
+        )
+        
+        # 알림 생성 로그
+        print(f"[NOTIFICATION] 알림 생성: {notification.id}")
+        
+        # 푸시 알림 전송 (사용자가 푸시 알림을 허용한 경우에만)
+        if hasattr(user, 'push_enabled') and user.push_enabled:
+            try:
+                send_push_notification(user, title, message, data)
+                print(f"[PUSH] 푸시 알림 전송 요청: {user.email} - {title}")
+            except Exception as push_error:
+                print(f"[PUSH ERROR] 푸시 전송 실패: {str(push_error)}")
+                # 푸시 전송 실패해도 알림 생성은 성공으로 처리
+        else:
+            print(f"[PUSH] 푸시 알림 비활성화됨: {user.email} (push_enabled={getattr(user, 'push_enabled', 'N/A')})")
+        
+        return notification
+        
+    except Exception as e:
+        print(f"[ERROR] 알림 생성 실패: {str(e)}")
+        raise e
 
 
 def send_push_notification(user, title, message, data=None):
@@ -51,12 +66,17 @@ def send_push_notification(user, title, message, data=None):
     """
     if data is None:
         data = {}
-        
-    # 사용자의 모든 구독 정보 조회
-    subscriptions = PushSubscription.objects.filter(user=user)
     
-    if not subscriptions.exists():
-        print(f"[PUSH] 사용자 {user.email}의 구독 정보가 없습니다.")
+    try:
+        # 사용자의 모든 구독 정보 조회
+        subscriptions = PushSubscription.objects.filter(user=user)
+        
+        if not subscriptions.exists():
+            print(f"[PUSH] 구독 정보 없음: {user.email} - 프론트엔드에서 service worker 구독 등록 필요")
+            return
+        
+    except Exception as e:
+        print(f"[PUSH ERROR] 구독 정보 조회 실패: {str(e)}")
         return
     
     # 푸시 알림 페이로드 구성
@@ -70,15 +90,20 @@ def send_push_notification(user, title, message, data=None):
         'data': data
     }
     
-    # VAPID 설정
-    vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
-    vapid_public_key = getattr(settings, 'VAPID_PUBLIC_KEY', None)
-    vapid_claims = {
-        'sub': 'mailto:admin@i13e102.p.ssafy.io'
-    }
-    
-    if not vapid_private_key or not vapid_public_key:
-        print("[PUSH] VAPID 키가 설정되지 않았습니다.")
+    try:
+        # VAPID 설정
+        vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
+        vapid_public_key = getattr(settings, 'VAPID_PUBLIC_KEY', None)
+        vapid_claims = {
+            'sub': 'mailto:admin@i13e102.p.ssafy.io'
+        }
+        
+        if not vapid_private_key or not vapid_public_key:
+            print("[PUSH] VAPID 키 누락")
+            return
+        
+    except Exception as e:
+        print(f"[PUSH ERROR] VAPID 설정 확인 중 오류: {str(e)}")
         return
     
     # 각 구독 정보에 푸시 알림 전송
@@ -96,15 +121,39 @@ def send_push_notification(user, title, message, data=None):
                 vapid_private_key=vapid_private_key,
                 vapid_claims=vapid_claims
             )
-            print(f"[PUSH] 푸시 알림 전송 성공: {user.email}")
+            print(f"[PUSH SUCCESS] 푸시 전송 성공: {user.email}")
         except WebPushException as ex:
-            print(f"[PUSH] 푸시 알림 전송 실패: {user.email} - {ex}")
-            # 만료된 구독 정보 삭제 (선택적)
             if ex.response.status_code in [404, 410]:
-                print(f"[PUSH] 만료된 구독 정보 삭제: {subscription.endpoint}")
                 subscription.delete()
         except Exception as ex:
-            print(f"[PUSH] 예상치 못한 오류: {user.email} - {ex}")
+            print(f"[PUSH ERROR] {ex}")
+
+
+def send_vehicle_entry_notification(user, entry_data):
+    """
+    입차 알림 전송
+    
+    Args:
+        user: 알림을 받을 사용자
+        entry_data: 입차 정보 (차량번호, 주차장명 등)
+    """
+    plate_number = entry_data.get('plate_number', '차량')
+    parking_lot = entry_data.get('parking_lot', 'SSAFY 주차장')
+    
+    title = "🚗 입차 알림"
+    message = f"{plate_number} 차량이 {parking_lot}에 입차하였습니다. 알림을 클릭하면 추천 주차자리를 안내드리겠습니다."
+    
+    # 입차 알림 데이터에 페이지 라우팅 정보 추가
+    entry_data['action_url'] = '/parking-recommend'
+    entry_data['action_type'] = 'navigate'
+    
+    create_notification(
+        user=user,
+        title=title,
+        message=message,
+        notification_type='entry',
+        data=entry_data
+    )
 
 
 def send_parking_complete_notification(user, parking_data):
@@ -113,16 +162,24 @@ def send_parking_complete_notification(user, parking_data):
     
     Args:
         user: 알림을 받을 사용자
-        parking_data: 주차 정보 (시간, 위치 등)
+        parking_data: 주차 정보 (시간, 위치, 점수 등)
     """
-    title = "주차 완료 알림"
-    message = f"주차 일시: {parking_data.get('parking_time', '')}\n주차 공간: {parking_data.get('parking_space', '')}"
+    plate_number = parking_data.get('plate_number', '차량')
+    parking_space = parking_data.get('parking_space', 'A5')
+    score = parking_data.get('score')
+    
+    title = "🅿️ 주차 완료"
+    
+    if score is not None:
+        message = f"{plate_number} 차량이 {parking_space} 구역에 주차를 완료했습니다. 이번 주차의 점수는 {score}점입니다."
+    else:
+        message = f"{plate_number} 차량이 {parking_space} 구역에 주차를 완료했습니다."
     
     create_notification(
         user=user,
         title=title,
         message=message,
-        notification_type='parking_complete',
+        notification_type='general',
         data=parking_data
     )
 
@@ -135,15 +192,17 @@ def send_grade_upgrade_notification(user, grade_data):
         user: 알림을 받을 사용자
         grade_data: 등급 정보 (이전 등급, 새 등급 등)
     """
-    title = "등급 승급 알림"
-    old_grade = grade_data.get('old_grade', '')
-    new_grade = grade_data.get('new_grade', '')
-    message = f"주차 등급이 {old_grade}에서 {new_grade}로 승급되었습니다"
+    title = "🎉 등급 승급 축하!"
+    old_grade = grade_data.get('old_grade', '이전 등급')
+    new_grade = grade_data.get('new_grade', '새 등급')
+    current_score = grade_data.get('current_score', user.score)
+    
+    message = f"축하드립니다! 주차 등급이 {old_grade}에서 {new_grade}로 승급되었습니다. (현재 점수: {current_score}점)"
     
     create_notification(
         user=user,
         title=title,
         message=message,
-        notification_type='grade_upgrade',
+        notification_type='general',
         data=grade_data
     )

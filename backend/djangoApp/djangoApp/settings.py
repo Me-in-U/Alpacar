@@ -150,7 +150,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "vehicles",
     "parking",
-    "events",
+    "events.apps.EventsConfig",  # 시그널 연결
     "drf_yasg",
 ]
 SWAGGER_SETTINGS = {
@@ -309,7 +309,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Seoul"
 
 USE_I18N = True
 
