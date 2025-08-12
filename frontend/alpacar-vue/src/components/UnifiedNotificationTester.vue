@@ -323,41 +323,44 @@ export default defineComponent({
       }
     }
 
-    // API 연결 상태 확인
+    // API 연결 상태 확인 (실제 작동하는 엔드포인트 위주)
     const checkApiStatus = async () => {
       const testEndpoints = [
-        '/notifications/test-push/',
-        '/notifications/test-entry/',
-        '/notifications/test-parking/',
-        '/notifications/test-grade/',
-        '/vehicles/send-push/'
+        '/vehicles/send-push/',  // AdminParkingLogs.vue에서 사용하는 실제 작동 엔드포인트
+        '/vehicles/',            // 차량 정보 조회
+        '/vehicle-events/active/', // AdminMain.vue에서 사용
+        '/parking/assign/',      // AdminMain.vue에서 사용
+        '/notifications/test-push/', // 테스트용 (있을 수도 있음)
       ]
 
       const workingEndpoints: string[] = []
       
       for (const endpoint of testEndpoints) {
         try {
-          // OPTIONS 요청으로 엔드포인트 존재 확인
+          // HEAD 요청으로 엔드포인트 존재 확인 (더 가벼움)
           const response = await fetch(`${BACKEND_BASE_URL}${endpoint}`, {
-            method: 'OPTIONS',
+            method: 'HEAD',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('access_token')}`
             }
           })
-          if (response.ok || response.status === 405) { // 405는 메서드가 허용되지 않음 (엔드포인트는 존재)
+          if (response.ok || response.status === 405 || response.status === 401) { // 401도 엔드포인트 존재를 의미
             workingEndpoints.push(endpoint)
           }
         } catch (error) {
-          // 엔드포인트 없음
+          // 엔드포인트 없음 또는 네트워크 오류
         }
       }
 
+      // 핵심 엔드포인트 /vehicles/send-push/ 가 작동하면 연결된 것으로 간주
+      const isConnected = workingEndpoints.includes('/vehicles/send-push/')
+      
       apiStatus.value = {
-        connected: workingEndpoints.length > 0,
+        connected: isConnected,
         endpoints: workingEndpoints
       }
 
-      return workingEndpoints.length > 0
+      return isConnected
     }
 
     // 상태 새로고침
@@ -405,9 +408,6 @@ export default defineComponent({
         loading.value = true
         loadingMessage.value = '기본 알림 테스트 중...'
 
-        let success = false
-        let apiUsed = ''
-
         // 사용자 차량번호 가져오기 (있는 경우)
         const getUserLicensePlate = async () => {
           try {
@@ -423,30 +423,16 @@ export default defineComponent({
 
         const licensePlate = await getUserLicensePlate()
 
-        // 우선순위: 전용 테스트 API → 차량 API
-        const testApis = [
-          { url: '/notifications/test-push/', name: '테스트 API' },
-          { url: '/vehicles/send-push/', name: '차량 API', body: { 
-            license_plate: licensePlate, 
+        // AdminParkingLogs.vue에서 사용하는 동일한 방식으로 푸시 발송
+        try {
+          await apiCall('/vehicles/send-push/', 'POST', { 
+            license_plate: licensePlate,
             message: '🔔 푸시 알림 테스트입니다!' 
-          }}
-        ]
-
-        for (const api of testApis) {
-          try {
-            await apiCall(api.url, 'POST', api.body)
-            success = true
-            apiUsed = api.name
-            break
-          } catch (error) {
-            console.log(`${api.name} 실패, 다음 API 시도:`, error)
-          }
-        }
-
-        if (success) {
-          addResult(true, `기본 푸시 알림 테스트가 성공했습니다!`, apiUsed)
-        } else {
-          addResult(false, '모든 테스트 API가 실패했습니다. 서버 상태를 확인하세요.')
+          })
+          addResult(true, `기본 푸시 알림 테스트가 성공했습니다! (차량번호: ${licensePlate})`, '차량 API')
+        } catch (error) {
+          console.error('기본 테스트 실패:', error)
+          addResult(false, `기본 테스트 실패: ${error}`)
         }
 
       } catch (error) {
@@ -456,7 +442,7 @@ export default defineComponent({
       }
     }
 
-    // 주차 플로우 테스트
+    // 주차 플로우 테스트 (AdminMain.vue와 AdminParkingLogs.vue 패턴 기반)
     const runParkingFlowTest = async () => {
       try {
         loading.value = true
@@ -477,49 +463,64 @@ export default defineComponent({
 
         const licensePlate = await getUserLicensePlate()
 
-        // 입차 알림
-        let entrySuccess = false
+        // 1단계: 입차 알림 (AdminMain.vue의 입차 이벤트 시뮬레이션)
         try {
-          await apiCall('/notifications/test-entry/', 'POST')
-          addResult(true, '입차 알림이 전송되었습니다.', '테스트 API')
-          entrySuccess = true
+          await apiCall('/vehicles/send-push/', 'POST', {
+            license_plate: licensePlate,
+            message: `🚗 [${licensePlate}] 차량 입차가 감지되었습니다.`
+          })
+          addResult(true, `입차 알림 전송 완료 (차량번호: ${licensePlate})`, '차량 API')
         } catch (error) {
-          try {
-            // 폴백: 차량 API
-            await apiCall('/vehicles/send-push/', 'POST', {
-              license_plate: licensePlate,
-              message: '🚗 차량 입차가 감지되었습니다.'
-            })
-            addResult(true, '입차 알림이 전송되었습니다.', '차량 API')
-            entrySuccess = true
-          } catch (fallbackError) {
-            addResult(false, `입차 알림 실패: ${fallbackError}`)
-          }
+          addResult(false, `입차 알림 실패: ${error}`)
+          return
         }
 
-        if (entrySuccess) {
-          // 3초 대기
-          await new Promise(resolve => setTimeout(resolve, 3000))
+        // 2초 대기 (실제 주차 과정 시뮬레이션)
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        loadingMessage.value = '주차 배정 시뮬레이션 중...'
 
-          // 주차 완료 알림
-          try {
-            await apiCall('/notifications/test-parking/', 'POST')
-            addResult(true, '주차 완료 알림이 전송되었습니다.', '테스트 API')
-          } catch (error) {
-            try {
-              // 폴백: 차량 API
-              await apiCall('/vehicles/send-push/', 'POST', {
-                license_plate: licensePlate,
-                message: '🅿️ 주차가 완료되었습니다. 점수: 90점'
-              })
-              addResult(true, '주차 완료 알림이 전송되었습니다.', '차량 API')
-            } catch (fallbackError) {
-              addResult(false, `주차 완료 알림 실패: ${fallbackError}`)
-            }
-          }
-
-          addResult(true, '주차 플로우 테스트가 완료되었습니다!')
+        // 2단계: 주차 배정 알림 (AdminMain.vue의 배정 로직 시뮬레이션)
+        try {
+          await apiCall('/vehicles/send-push/', 'POST', {
+            license_plate: licensePlate,
+            message: `🅿️ [${licensePlate}] A3 구역에 주차 배정되었습니다.`
+          })
+          addResult(true, '주차 배정 알림 전송 완료', '차량 API')
+        } catch (error) {
+          addResult(false, `주차 배정 알림 실패: ${error}`)
         }
+
+        // 3초 대기 (주차 완료까지의 시간)
+        await new Promise(resolve => setTimeout(resolve, 3000))
+        loadingMessage.value = '주차 완료 처리 중...'
+
+        // 3단계: 주차 완료 알림 (AdminParkingLogs.vue의 주차완료 로직)
+        try {
+          await apiCall('/vehicles/send-push/', 'POST', {
+            license_plate: licensePlate,
+            message: `✅ [${licensePlate}] 주차가 완료되었습니다. 점수: ${Math.floor(Math.random() * 20) + 80}점`
+          })
+          addResult(true, '주차 완료 알림 전송 완료', '차량 API')
+        } catch (error) {
+          addResult(false, `주차 완료 알림 실패: ${error}`)
+        }
+
+        // 2초 대기 후 출차 시뮬레이션
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        loadingMessage.value = '출차 처리 중...'
+
+        // 4단계: 출차 알림 (AdminParkingLogs.vue의 출차 로직)
+        try {
+          await apiCall('/vehicles/send-push/', 'POST', {
+            license_plate: licensePlate,
+            message: `🚪 [${licensePlate}] 출차가 완료되었습니다. 이용해주셔서 감사합니다!`
+          })
+          addResult(true, '출차 알림 전송 완료', '차량 API')
+        } catch (error) {
+          addResult(false, `출차 알림 실패: ${error}`)
+        }
+
+        addResult(true, '🎉 주차 플로우 테스트가 모두 완료되었습니다! (입차 → 배정 → 주차완료 → 출차)')
 
       } catch (error) {
         addResult(false, `주차 플로우 테스트 실패: ${error}`)
@@ -528,13 +529,13 @@ export default defineComponent({
       }
     }
 
-    // 시스템 테스트
+    // 시스템 테스트 (관리자 페이지의 실제 작동 방식 기반)
     const runSystemTest = async () => {
       try {
         loading.value = true
         loadingMessage.value = '시스템 테스트 중...'
 
-        // 사용자 차량번호 가져오기 (폴백 API용)
+        // 사용자 차량번호 가져오기
         const getUserLicensePlate = async () => {
           try {
             const vehicleResponse = await apiCall('/vehicles/', 'GET')
@@ -549,67 +550,65 @@ export default defineComponent({
 
         const licensePlate = await getUserLicensePlate()
 
+        // AdminMain.vue와 AdminParkingLogs.vue에서 실제 사용되는 알림 패턴들
         const tests = [
-          { 
-            url: '/notifications/test-push/', 
-            name: '기본 푸시',
-            fallback: { 
-              url: '/vehicles/send-push/', 
-              body: { license_plate: licensePlate, message: '🔔 기본 푸시 테스트' }
-            }
+          {
+            name: '기본 푸시 알림',
+            message: '🔔 시스템 테스트: 기본 푸시 알림'
           },
-          { 
-            url: '/notifications/test-entry/', 
-            name: '입차 알림',
-            fallback: { 
-              url: '/vehicles/send-push/', 
-              body: { license_plate: licensePlate, message: '🚗 입차 알림 테스트' }
-            }
+          {
+            name: '입차 감지 알림',
+            message: '🚗 시스템 테스트: 차량 입차 감지'
           },
-          { 
-            url: '/notifications/test-parking/', 
-            name: '주차 완료',
-            fallback: { 
-              url: '/vehicles/send-push/', 
-              body: { license_plate: licensePlate, message: '🅿️ 주차 완료 테스트' }
-            }
+          {
+            name: '주차 배정 알림', 
+            message: '🅿️ 시스템 테스트: A1 구역 주차 배정'
           },
-          { 
-            url: '/notifications/test-grade/', 
-            name: '등급 승급',
-            fallback: { 
-              url: '/vehicles/send-push/', 
-              body: { license_plate: licensePlate, message: '🎉 등급 승급 테스트' }
-            }
+          {
+            name: '주차 완료 알림',
+            message: '✅ 시스템 테스트: 주차 완료 (점수: 95점)'
+          },
+          {
+            name: '출차 완료 알림',
+            message: '🚪 시스템 테스트: 출차 완료'
+          },
+          {
+            name: '등급 승급 알림',
+            message: '🎉 시스템 테스트: 골드 등급으로 승급'
           }
         ]
 
         let successCount = 0
-        for (const test of tests) {
-          let testSuccess = false
+        for (let i = 0; i < tests.length; i++) {
+          const test = tests[i]
+          loadingMessage.value = `${test.name} 테스트 중... (${i + 1}/${tests.length})`
           
-          // 기본 API 시도
           try {
-            await apiCall(test.url, 'POST')
-            addResult(true, `${test.name} 테스트 성공`, '테스트 API')
-            testSuccess = true
+            // AdminParkingLogs.vue의 sendPush 함수와 동일한 방식 사용
+            await apiCall('/vehicles/send-push/', 'POST', {
+              license_plate: licensePlate,
+              message: test.message
+            })
+            addResult(true, `${test.name} 성공 (차량번호: ${licensePlate})`, '차량 API')
             successCount++
           } catch (error) {
-            // 폴백 API 시도
-            try {
-              await apiCall(test.fallback.url, 'POST', test.fallback.body)
-              addResult(true, `${test.name} 테스트 성공`, '차량 API')
-              testSuccess = true
-              successCount++
-            } catch (fallbackError) {
-              addResult(false, `${test.name} 테스트 실패: ${fallbackError}`)
-            }
+            addResult(false, `${test.name} 실패: ${error}`)
           }
           
-          await new Promise(resolve => setTimeout(resolve, 1000))
+          // 각 테스트 간 1초 간격
+          if (i < tests.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
         }
 
-        addResult(true, `시스템 테스트 완료: ${successCount}/${tests.length} 성공`)
+        const resultMessage = successCount === tests.length 
+          ? '🎉 모든 시스템 테스트가 성공했습니다!'
+          : `⚠️ 시스템 테스트 완료: ${successCount}/${tests.length} 성공`
+        
+        addResult(
+          successCount === tests.length, 
+          resultMessage + ` (차량번호: ${licensePlate})`
+        )
 
       } catch (error) {
         addResult(false, `시스템 테스트 실패: ${error}`)
@@ -618,19 +617,45 @@ export default defineComponent({
       }
     }
 
-    // 사용자 정의 알림
+    // 사용자 정의 알림 (AdminParkingLogs.vue 패턴 사용)
     const sendCustomNotification = async () => {
       try {
         loading.value = true
         loadingMessage.value = '사용자 정의 알림 전송 중...'
 
-        await apiCall('/notifications/test-custom/', 'POST', {
-          title: customNotification.title,
-          message: customNotification.message,
-          notification_type: customNotification.type
+        // 사용자 차량번호 가져오기
+        const getUserLicensePlate = async () => {
+          try {
+            const vehicleResponse = await apiCall('/vehicles/', 'GET')
+            if (vehicleResponse?.results?.length > 0) {
+              return vehicleResponse.results[0].license_plate
+            }
+          } catch (error) {
+            console.log('사용자 차량 정보 조회 실패:', error)
+          }
+          return 'TEST123' // 기본값
+        }
+
+        const licensePlate = await getUserLicensePlate()
+        
+        // 타입별 이모지 추가
+        const typeEmojis: Record<string, string> = {
+          system: '🔔',
+          vehicle_entry: '🚗',
+          parking_complete: '🅿️',
+          grade_upgrade: '🎉'
+        }
+        
+        const emoji = typeEmojis[customNotification.type] || '📢'
+        const fullMessage = `${emoji} [${customNotification.title}] ${customNotification.message}`
+
+        // AdminParkingLogs.vue의 sendPush와 동일한 방식 사용
+        await apiCall('/vehicles/send-push/', 'POST', {
+          license_plate: licensePlate,
+          message: fullMessage
         })
 
-        addResult(true, `사용자 정의 알림 전송 성공: ${customNotification.title}`)
+        addResult(true, `사용자 정의 알림 전송 성공: ${customNotification.title} (차량번호: ${licensePlate})`, '차량 API')
         
         // 폼 초기화
         customNotification.title = ''
@@ -644,7 +669,7 @@ export default defineComponent({
       }
     }
 
-    // 배치 테스트
+    // 배치 테스트 (AdminParkingLogs.vue 패턴 기반)
     const runBatchTest = async () => {
       try {
         loading.value = true
@@ -665,23 +690,42 @@ export default defineComponent({
 
         const licensePlate = await getUserLicensePlate()
 
+        let successCount = 0
+        const batchMessages = [
+          '🔔 배치 테스트 알림',
+          '📱 모바일 알림 테스트',
+          '⚡ 실시간 알림 테스트',
+          '🎯 타겟 알림 테스트', 
+          '✨ 최종 알림 테스트'
+        ]
+
         for (let i = 0; i < batchSettings.count; i++) {
+          const messageTemplate = batchMessages[i % batchMessages.length]
+          loadingMessage.value = `${messageTemplate} #${i + 1} 전송 중...`
+          
           try {
+            // AdminParkingLogs.vue의 sendPush와 동일한 방식
             await apiCall('/vehicles/send-push/', 'POST', {
               license_plate: licensePlate,
-              message: `🔔 배치 테스트 알림 #${i + 1}`
+              message: `${messageTemplate} #${i + 1} (차량번호: ${licensePlate})`
             })
-            addResult(true, `배치 알림 #${i + 1} 전송 성공`)
+            addResult(true, `배치 알림 #${i + 1} 전송 성공`, '차량 API')
+            successCount++
           } catch (error) {
             addResult(false, `배치 알림 #${i + 1} 전송 실패: ${error}`)
           }
           
+          // 마지막이 아니면 대기
           if (i < batchSettings.count - 1) {
             await new Promise(resolve => setTimeout(resolve, batchSettings.delay * 1000))
           }
         }
 
-        addResult(true, `배치 테스트 완료: ${batchSettings.count}개 알림 전송`)
+        const finalMessage = successCount === batchSettings.count
+          ? `🎉 배치 테스트 완료: ${batchSettings.count}개 알림 모두 전송 성공!`
+          : `⚠️ 배치 테스트 완료: ${successCount}/${batchSettings.count} 성공`
+
+        addResult(successCount === batchSettings.count, finalMessage + ` (차량번호: ${licensePlate})`)
 
       } catch (error) {
         addResult(false, `배치 테스트 실패: ${error}`)
@@ -690,19 +734,23 @@ export default defineComponent({
       }
     }
 
-    // 테스트 알림 삭제
+    // 테스트 알림 삭제 (실제 API 엔드포인트가 없으므로 로컬 결과만 삭제)
     const clearTestNotifications = async () => {
-      if (!confirm('모든 테스트 알림을 삭제하시겠습니까?')) {
+      if (!confirm('테스트 결과를 모두 삭제하시겠습니까?')) {
         return
       }
 
       try {
         loading.value = true
-        const response = await apiCall('/notifications/test-clear/', 'DELETE')
-        addResult(true, `${response.deleted_count}개의 테스트 알림을 삭제했습니다.`)
-        await refreshStatus()
+        loadingMessage.value = '테스트 결과 정리 중...'
+        
+        // 실제 서버 알림 삭제 API가 없으므로 로컬 결과만 삭제
+        testResults.value = []
+        await refreshStatus() // 상태 새로고침
+        
+        addResult(true, '테스트 결과가 삭제되었습니다. 실제 푸시 알림은 디바이스에서 직접 삭제하세요.')
       } catch (error) {
-        addResult(false, `테스트 알림 삭제 실패: ${error}`)
+        addResult(false, `테스트 결과 삭제 실패: ${error}`)
       } finally {
         loading.value = false
       }
