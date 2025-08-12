@@ -42,7 +42,7 @@
 						:key="notification.id"
 						class="notification-item"
 						:class="{ 'unread': !notification.is_read }"
-						@click="markAsRead(notification.id)"
+						@click="handleNotificationClick(notification)"
 					>
 						<div class="notification-content">
 							<div class="notification-header">
@@ -85,7 +85,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import { useNotificationStore } from "@/stores/notification";
+import { useNotificationStore, type Notification } from "@/stores/notification";
 
 const router = useRouter();
 const showNotificationModal = ref(false);
@@ -118,6 +118,27 @@ const markAsRead = async (notificationId: number) => {
 		await notificationStore.markAsRead(notificationId);
 	} catch (error) {
 		console.error("알림 읽음 처리 실패:", error);
+	}
+};
+
+const handleNotificationClick = async (notification: Notification) => {
+	try {
+		// 알림을 읽음으로 표시
+		await notificationStore.markAsRead(notification.id);
+		
+		// 주차 관련 알림인 경우 parking-recommend 페이지로 리다이렉트
+		if (notification.notification_type === 'parking' ||
+			notification.title?.includes('주차 배정') ||
+			notification.message?.includes('주차 배정')) {
+			
+			// 모달 닫기
+			showNotificationModal.value = false;
+			
+			// parking-recommend 페이지로 이동
+			router.push('/parking-recommend');
+		}
+	} catch (error) {
+		console.error("알림 처리 실패:", error);
 	}
 };
 

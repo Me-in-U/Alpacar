@@ -5,7 +5,7 @@ export interface Notification {
 	id: number;
 	title: string;
 	message: string;
-	notification_type: 'parking_complete' | 'grade_upgrade' | 'system' | 'maintenance';
+	notification_type: 'parking_complete' | 'parking_assignment' | 'parking_recommend' | 'parking' | 'grade_upgrade' | 'system' | 'maintenance';
 	data: Record<string, any>;
 	is_read: boolean;
 	created_at: string;
@@ -254,6 +254,10 @@ export const useNotificationStore = defineStore("notification", {
 			switch (type) {
 				case 'parking_complete':
 					return '🚗';
+				case 'parking':
+				case 'parking_assignment':
+				case 'parking_recommend':
+					return '🅿️';
 				case 'grade_upgrade':
 					return '⭐';
 				case 'system':

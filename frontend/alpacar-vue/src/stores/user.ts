@@ -276,12 +276,15 @@ export const useUserStore = defineStore("user", {
 				// 사용자에게 구체적인 오류 메시지 제공
 				let errorMessage = '푸시 알림 설정에 실패했습니다.';
 				if (e instanceof Error) {
-					if (e.message.includes('VAPID')) {
+					if (e.message.includes('크롬 브라우저에서 알림이 차단')) {
+						// 크롬 브라우저 특화 메시지를 그대로 전달
+						errorMessage = e.message;
+					} else if (e.message.includes('VAPID')) {
 						errorMessage = '서버 설정 오류입니다. 관리자에게 문의하세요.';
 					} else if (e.message.includes('Service Worker')) {
 						errorMessage = 'HTTPS 환경에서 사용해주세요.';
-					} else if (e.message.includes('Permission')) {
-						errorMessage = '알림 권한을 허용해주세요.';
+					} else if (e.message.includes('알림 권한')) {
+						errorMessage = e.message; // 권한 관련 상세 메시지 유지
 					} else if (e.message.includes('인증')) {
 						errorMessage = '로그인 상태를 확인해주세요.';
 					}

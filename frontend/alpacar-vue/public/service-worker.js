@@ -1,5 +1,5 @@
 // public/service-worker.js - Alpacar PWA Service Worker (safe fetch)
-const SW_VERSION = "v3.3"; // ← 버전 업!
+const SW_VERSION = "v3.4"; // ← 버전 업!
 const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
 
