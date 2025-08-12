@@ -302,7 +302,24 @@ export default defineComponent({
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`API 호출 실패 (${response.status}): ${errorText}`)
+        // 더 상세한 에러 정보 제공
+        let errorDetail = `API 호출 실패 (${response.status})`
+        
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.error) {
+            errorDetail += `: ${errorJson.error}`
+          } else if (errorJson.detail) {
+            errorDetail += `: ${errorJson.detail}`
+          }
+        } catch {
+          // JSON 파싱 실패 시 원본 텍스트 사용
+          if (errorText) {
+            errorDetail += `: ${errorText}`
+          }
+        }
+        
+        throw new Error(errorDetail)
       }
 
       return await response.json()
@@ -363,6 +380,25 @@ export default defineComponent({
       return isConnected
     }
 
+    // 푸시 설정 자동 활성화
+    const enablePushNotifications = async (): Promise<boolean> => {
+      try {
+        // 현재 푸시 설정 확인
+        const currentSetting = await apiCall('/push/setting/', 'GET')
+        if (currentSetting.push_on) {
+          return true // 이미 활성화됨
+        }
+
+        // 푸시 설정 활성화
+        await apiCall('/push/setting/', 'POST', { push_on: true })
+        addResult(true, '푸시 알림이 자동으로 활성화되었습니다.', '푸시 설정 API')
+        return true
+      } catch (error) {
+        addResult(false, `푸시 설정 활성화 실패: ${error}`)
+        return false
+      }
+    }
+
     // 상태 새로고침
     const refreshStatus = async () => {
       try {
@@ -383,6 +419,17 @@ export default defineComponent({
           enabled: Boolean(userStore.me?.push_on),
           subscriptions: 1, // 임시값
           unreadCount: 0    // 임시값
+        }
+
+        // 푸시가 비활성화된 경우 자동 활성화 시도
+        if (!pushStatus.value.enabled) {
+          loadingMessage.value = '푸시 알림 설정 확인 중...'
+          const enableSuccess = await enablePushNotifications()
+          if (enableSuccess && token) {
+            // 사용자 정보 다시 불러오기
+            await userStore.fetchMe(token)
+            pushStatus.value.enabled = Boolean(userStore.me?.push_on)
+          }
         }
 
         // 알림 개수 조회 (가능한 경우)
@@ -406,6 +453,18 @@ export default defineComponent({
     const runBasicTest = async () => {
       try {
         loading.value = true
+        loadingMessage.value = '기본 알림 테스트 준비 중...'
+
+        // 푸시 설정 확인 및 활성화
+        if (!pushStatus.value.enabled) {
+          loadingMessage.value = '푸시 알림 설정 활성화 중...'
+          const enableSuccess = await enablePushNotifications()
+          if (!enableSuccess) {
+            addResult(false, '푸시 알림이 비활성화되어 있습니다. 설정에서 활성화해주세요.')
+            return
+          }
+        }
+
         loadingMessage.value = '기본 알림 테스트 중...'
 
         // 사용자 차량번호 가져오기 (있는 경우)
@@ -446,6 +505,18 @@ export default defineComponent({
     const runParkingFlowTest = async () => {
       try {
         loading.value = true
+        loadingMessage.value = '주차 플로우 테스트 준비 중...'
+
+        // 푸시 설정 확인 및 활성화
+        if (!pushStatus.value.enabled) {
+          loadingMessage.value = '푸시 알림 설정 활성화 중...'
+          const enableSuccess = await enablePushNotifications()
+          if (!enableSuccess) {
+            addResult(false, '푸시 알림이 비활성화되어 있습니다. 설정에서 활성화해주세요.')
+            return
+          }
+        }
+
         loadingMessage.value = '주차 플로우 테스트 중...'
 
         // 사용자 차량번호 가져오기 (있는 경우)
@@ -533,6 +604,18 @@ export default defineComponent({
     const runSystemTest = async () => {
       try {
         loading.value = true
+        loadingMessage.value = '시스템 테스트 준비 중...'
+
+        // 푸시 설정 확인 및 활성화
+        if (!pushStatus.value.enabled) {
+          loadingMessage.value = '푸시 알림 설정 활성화 중...'
+          const enableSuccess = await enablePushNotifications()
+          if (!enableSuccess) {
+            addResult(false, '푸시 알림이 비활성화되어 있습니다. 설정에서 활성화해주세요.')
+            return
+          }
+        }
+
         loadingMessage.value = '시스템 테스트 중...'
 
         // 사용자 차량번호 가져오기
@@ -623,6 +706,16 @@ export default defineComponent({
         loading.value = true
         loadingMessage.value = '사용자 정의 알림 전송 중...'
 
+        // 푸시 설정 확인 및 활성화
+        if (!pushStatus.value.enabled) {
+          loadingMessage.value = '푸시 알림 설정 활성화 중...'
+          const enableSuccess = await enablePushNotifications()
+          if (!enableSuccess) {
+            addResult(false, '푸시 알림이 비활성화되어 있습니다. 설정에서 활성화해주세요.')
+            return
+          }
+        }
+
         // 사용자 차량번호 가져오기
         const getUserLicensePlate = async () => {
           try {
@@ -674,6 +767,16 @@ export default defineComponent({
       try {
         loading.value = true
         loadingMessage.value = `배치 알림 ${batchSettings.count}개 전송 중...`
+
+        // 푸시 설정 확인 및 활성화
+        if (!pushStatus.value.enabled) {
+          loadingMessage.value = '푸시 알림 설정 활성화 중...'
+          const enableSuccess = await enablePushNotifications()
+          if (!enableSuccess) {
+            addResult(false, '푸시 알림이 비활성화되어 있습니다. 설정에서 활성화해주세요.')
+            return
+          }
+        }
 
         // 사용자 차량번호 가져오기 (있는 경우)
         const getUserLicensePlate = async () => {
@@ -808,7 +911,8 @@ export default defineComponent({
       clearTestNotifications,
       exportResults,
       clearResults,
-      formatTime
+      formatTime,
+      enablePushNotifications
     }
   }
 })
