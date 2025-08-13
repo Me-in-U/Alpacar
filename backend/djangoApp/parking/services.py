@@ -104,3 +104,58 @@ def add_score_from_jetson(license_plate: str, score: int):
         score=int(score),
     )
     return True, "ok"
+
+
+@transaction.atomic
+def mark_parking_complete_from_ai(license_plate: str, zone_label: str | None = None):
+    """
+    Jetson의 score 수신을 '주차 완료'로 간주하여 상태를 갱신한다.
+    - 진행 중(VehicleEvent.exit_time is null) 이벤트를 찾고 Parking 시각/상태 저장
+    - 배정된 슬롯이 있다면 해당 슬롯을 occupied로 전환
+    - zone_label이 들어오면 우선 일치 검증(선택)
+    Returns: (ok: bool, msg: str, occupied_label: str | None)
+    """
+    now = timezone.now()
+
+    ev = (
+        VehicleEvent.objects.select_related("vehicle", "assignment__space")
+        .filter(vehicle__license_plate=license_plate, exit_time__isnull=True)
+        .order_by("-id")
+        .first()
+    )
+    if not ev:
+        return False, "active vehicle_event not found", None
+
+    # 이미 Parking 처리되어 있으면 그대로 성공 반환
+    if ev.parking_time and ev.status == "Parking":
+        label = None
+        if getattr(ev, "assignment", None) and ev.assignment.space:
+            s = ev.assignment.space
+            label = f"{s.zone}{s.slot_number}"
+        return True, "already parked", label
+
+    # 배정 슬롯
+    space = None
+    if getattr(ev, "assignment", None) and ev.assignment.space:
+        space = ev.assignment.space
+
+    # 선택적으로 zone_label과 일치 여부 체크
+    if zone_label and space:
+        expected = f"{space.zone}{space.slot_number}".upper()
+        if zone_label.upper() != expected:
+            return False, f"slot mismatch: expected {expected}, got {zone_label}", None
+
+    # VehicleEvent → Parking 전환
+    ev.parking_time = now
+    ev.status = "Parking"
+    ev.save(update_fields=["parking_time", "status"])
+
+    occupied_label = None
+    # 슬롯을 occupied 로 전환
+    if space:
+        if space.status != "occupied":
+            space.status = "occupied"
+            space.save(update_fields=["status", "updated_at"])
+        occupied_label = f"{space.zone}{space.slot_number}"
+
+    return True, "ok", occupied_label

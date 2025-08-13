@@ -4,8 +4,16 @@ from channels.layers import get_channel_layer
 from django.db.models import Q
 from events.models import VehicleEvent
 from parking.models import ParkingSpace
+from parking.origin import get_ws_origin
 
 PARKING_STATUS_GROUP = "parking-status"
+
+
+def _with_origin(payload: dict) -> dict:
+    origin = get_ws_origin() or "system"
+    if "origin" not in payload:
+        payload["origin"] = origin
+    return payload
 
 
 def _build_space_snapshot(labels: list[str] | None = None) -> dict:
@@ -75,8 +83,10 @@ def _build_active_vehicles_snapshot() -> dict:
 
 def broadcast_parking_space(labels: list[str] | None = None) -> None:
     payload = {"message_type": "parking_space", "spaces": _build_space_snapshot(labels)}
+    # ✅ origin 자동 주입
     async_to_sync(get_channel_layer().group_send)(
-        PARKING_STATUS_GROUP, {"type": "broadcast", "payload": payload}
+        PARKING_STATUS_GROUP,
+        {"type": "broadcast", "payload": _with_origin(payload)},
     )
 
 
@@ -85,6 +95,8 @@ def broadcast_active_vehicles() -> None:
         "message_type": "active_vehicles",
         "results": _build_active_vehicles_snapshot().get("results", []),
     }
+    # ✅ origin 자동 주입
     async_to_sync(get_channel_layer().group_send)(
-        PARKING_STATUS_GROUP, {"type": "broadcast", "payload": payload}
+        PARKING_STATUS_GROUP,
+        {"type": "broadcast", "payload": _with_origin(payload)},
     )
