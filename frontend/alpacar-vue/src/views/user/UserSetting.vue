@@ -3,33 +3,23 @@
     <!-- Header -->
     <Header />
 
+    <!-- Back to UserProfile -->
+    <button
+      class="back-link"
+      type="button"
+      @click="goToUserProfile"
+      aria-label="프로필로 돌아가기"
+    >
+      <svg viewBox="0 0 24 24" class="back-link__icon" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="back-link__text">돌아가기</span>
+    </button>
+
     <!-- Content -->
     <div class="user-setting__content">
-      <!-- 프로필 섹션: 닉네임 / 전화번호 / 비밀번호 (행 + 우측 꺾쇠) -->
+      <!-- 프로필 섹션: 전화번호 / 비밀번호 (행 + 우측 꺾쇠) -->
       <div class="profile-card">
-        <!-- 닉네임 행 -->
-        <button
-          class="setting-row"
-          type="button"
-          @click="openNicknameModal"
-        >
-          <div class="setting-row__text">
-            <div class="setting-row__label">
-              닉네임
-            </div>
-            <div class="setting-row__value">
-              {{ userInfo?.nickname || '-' }}
-            </div>
-          </div>
-          <span class="chevron" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-        </button>
-
-        <div class="divider"></div>
-
         <!-- 전화번호 행 -->
         <button
           class="setting-row"
@@ -74,105 +64,10 @@
           </span>
         </button>
       </div>
-
-      <!-- 알림 설정 -->
-      <div class="section-title">
-        알림 설정
-      </div>
-
-      <div class="notification-settings">
-        <div class="notification-item">
-          <div class="notification-item__content">
-            <div class="notification-item__label">
-              푸시 알림
-            </div>
-            <div class="notification-item__desc">
-              주차 입출차 및 중요 알림 수신
-            </div>
-          </div>
-          <div class="notification-item__toggle">
-            <button
-              class="toggle-button"
-              :class="{ 'toggle-button--active': isNotificationEnabled }"
-              @click="toggleNotifications"
-            >
-              {{ isNotificationEnabled ? '켜짐' : '꺼짐' }}
-            </button>
-          </div>
-        </div>
-
-
-        <div class="notification-item">
-          <div class="notification-item__content">
-            <div class="notification-item__label">
-              앱 설치하기
-            </div>
-            <div class="notification-item__desc">
-              앱처럼 사용하기
-            </div>
-          </div>
-          <div class="notification-item__toggle">
-            <button
-              class="install-button"
-              @click="installPWA"
-              :disabled="!canInstallPWA"
-            >
-              {{ canInstallPWA ? '설치' : '설치됨' }}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Bottom Navigation -->
     <BottomNavigation />
-
-    <!-- 닉네임 수정 모달 -->
-    <div
-      v-if="showNicknameModal"
-      class="modal-overlay"
-      @click="showNicknameModal = false"
-    >
-      <div
-        class="modal modal--nickname"
-        @click.stop
-      >
-        <h3 class="modal__title">
-          수정할 닉네임을 입력하세요
-        </h3>
-
-        <div class="modal__input-field">
-          <input
-            v-model="newNickname"
-            @input="handleNicknameInput"
-            @beforeinput="preventNicknameLengthExceed"
-            @compositionstart="onNicknameCompositionStart"
-            @compositionupdate="onNicknameCompositionUpdate"
-            @compositionend="onNicknameCompositionEnd"
-            @keypress="preventInvalidNicknameChars"
-            type="text"
-            placeholder="예: 주차하는알파카"
-            class="modal__input"
-            maxlength="18"
-          />
-        </div>
-
-        <div
-          v-if="newNickname && !isNicknameValid"
-          class="error-message"
-        >
-          닉네임은 한글, 영문, 숫자만 사용 가능 (2-18자)
-        </div>
-
-        <button
-          class="modal__button"
-          @click="updateNickname"
-          :disabled="!isNicknameValid"
-        >
-          설정 완료
-        </button>
-      </div>
-    </div>
 
     <!-- 전화번호 변경 모달 -->
     <div
@@ -394,28 +289,28 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
-import {
-  subscribeToPushNotifications,
-  unsubscribeFromPushNotifications,
-  getSubscriptionStatus,
-  showLocalNotification
-} from "@/utils/pwa";
 
 /* ====== 스토어 ====== */
 const router = useRouter();
 const userStore = useUserStore();
 const userInfo = computed(() => userStore.me);
 
-// 소셜 로그인 유저 여부 확인
+const goToUserProfile = () => {
+  router.push('/user-profile'); // 또는 router.back();
+};
+
+// 소셜 로그인 유저 여부 확인 (보안 검증용)
 const isSocialUser = computed(() => {
-	// 백엔드에서 제공하는 is_social_user 필드 사용
-	return userInfo.value?.is_social_user || false;
+  return userInfo.value?.is_social_user || false;
 });
 
+const getAccessToken = () =>
+  localStorage.getItem("access_token") ||
+  sessionStorage.getItem("access_token") ||
+  localStorage.getItem("access") ||
+  sessionStorage.getItem("access");
+
 /* ====== 행(꺾쇠) 클릭 핸들러 ====== */
-const openNicknameModal = () => {
-  showNicknameModal.value = true;
-};
 const openPhoneModal = () => {
   showPhoneModal.value = true;
   // 입력창 자동완성 방지용 readonly 제거 타이밍 보정
@@ -429,83 +324,6 @@ const closePhoneModal = () => {
 };
 const openPasswordModal = () => {
   showPasswordModal.value = true;
-};
-
-/* ====== 닉네임 ====== */
-const showNicknameModal = ref(false);
-const newNickname = ref("");
-const isNicknameComposing = ref(false);
-const isNicknameValid = computed(() => {
-  const noSpecialChars = /^[a-zA-Z가-힣0-9]+$/.test(newNickname.value);
-  const lengthValid = newNickname.value.length >= 2 && newNickname.value.length <= 18;
-  return noSpecialChars && lengthValid;
-});
-
-const onNicknameCompositionStart = () => { isNicknameComposing.value = true; };
-const onNicknameCompositionUpdate = (e: CompositionEvent) => {
-  const input = e.target as HTMLInputElement;
-  if (input.value.length > 18) {
-    const truncated = input.value.slice(0, 18);
-    input.value = truncated;
-    newNickname.value = truncated;
-  }
-};
-const onNicknameCompositionEnd = (e: Event) => {
-  isNicknameComposing.value = false;
-  const input = e.target as HTMLInputElement;
-  const cleaned = input.value.replace(/[^a-zA-Z가-힣0-9]/g, "").slice(0, 18);
-  if (input.value !== cleaned) {
-    newNickname.value = cleaned;
-    setTimeout(() => { input.value = cleaned; }, 0);
-  }
-};
-const handleNicknameInput = (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  if (input.value.length > 18) {
-    const truncated = input.value.slice(0, 18);
-    newNickname.value = truncated;
-    input.value = truncated;
-    return;
-  }
-  if (isNicknameComposing.value) return;
-  const cleaned = input.value.replace(/[^a-zA-Z가-힣0-9]/g, "").slice(0, 18);
-  if (input.value !== cleaned) {
-    newNickname.value = cleaned;
-    setTimeout(() => { if (input.value !== cleaned) input.value = cleaned; }, 0);
-  }
-};
-const preventNicknameLengthExceed = (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  const ev = e as InputEvent;
-  const len = input.value.length;
-  if (ev.inputType && (ev.inputType.includes("insert") || ev.inputType.includes("replace") || ev.inputType === "insertText" || ev.inputType === "insertCompositionText")) {
-    if (len >= 18) { e.preventDefault(); return; }
-    const data = ev.data || "";
-    if (len + data.length > 18) { e.preventDefault(); return; }
-  }
-};
-const preventInvalidNicknameChars = (e: KeyboardEvent) => {
-  if (isNicknameComposing.value) return;
-  const char = e.key;
-  const input = e.target as HTMLInputElement;
-  if (["Backspace","Delete","ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Tab","Enter","Escape"].includes(char)) return;
-  if (e.isComposing || char === "Process") return;
-  if (input.value.length >= 18) { e.preventDefault(); return; }
-  if (!/[a-zA-Z가-힣0-9]/.test(char)) e.preventDefault();
-};
-
-const updateNickname = async () => {
-  const nick = newNickname.value.trim();
-  if (!nick) return alert("닉네임을 입력해주세요.");
-  try {
-    await userStore.updateProfile({ nickname: nick }); // 서버 의존(테스트 시 주석 가능)
-    alert("닉네임이 변경되었습니다.");
-    showNicknameModal.value = false;
-    newNickname.value = "";
-  } catch (err: any) {
-    console.error(err);
-    alert("변경 실패: " + err.message);
-  }
 };
 
 /* ====== 전화번호 ====== */
@@ -559,39 +377,62 @@ const executePhoneChange = async () => {
   if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
   if (!newPhoneNumber.value || !isPhoneValid.value) { alert("올바른 전화번호를 입력해주세요."); return; }
 
+  const token = getAccessToken();
+  if (!token) {
+    alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+    router.push("/login");
+    return;
+  }
+
+  // PUT을 요구하는 백엔드 대비: 필요한 필드는 모두 채워서 보냄
+  const payload = {
+    phone: newPhoneNumber.value,
+    nickname: userInfo.value?.nickname ?? "",
+    name: userInfo.value?.name ?? ""
+    // email은 보통 서버에서 읽기전용이므로 보내지 않음
+  };
+
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
-      method: "PUT",
+    const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
+      method: "PUT",                        // ★ PATCH 대신 PUT
       headers: {
-        "Content-Type": "application/json"
-        // "Authorization": `Bearer ${token}`
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${token}` // ★ 인증 헤더 추가
       },
-      body: JSON.stringify({
-        phone: newPhoneNumber.value,
-        nickname: userInfo.value?.nickname,
-        name: userInfo.value?.name
-      })
+      body: JSON.stringify(payload)
+      // (만약 쿠키 세션 기반이라면) credentials: "include" 도 추가
     });
 
-    if (response.ok) {
-      alert("전화번호가 성공적으로 변경되었습니다. (테스트)");
-      showEmailVerificationModal.value = false;
-      showPhoneModal.value = false;
-      newPhoneNumber.value = "";
-      phoneDisplay.value = "";
-      emailSent.value = false;
-      emailVerified.value = false;
-      verificationCode.value = "";
-      // await userStore.fetchMe(token!)
-    } else {
-      const errorData = await response.json();
-      alert("전화번호 변경 실패: " + (errorData.detail || errorData.message || "서버 오류"));
+    if (res.status === 401) {
+      alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+      router.push("/login");
+      return;
     }
+    if (!res.ok) {
+      let msg = "서버 오류";
+      try { const e = await res.json(); msg = e.detail || e.message || msg; } catch {}
+      alert("전화번호 변경 실패: " + msg);
+      return;
+    }
+
+    alert("전화번호가 성공적으로 변경되었습니다.");
+    showEmailVerificationModal.value = false;
+    showPhoneModal.value = false;
+    newPhoneNumber.value = "";
+    phoneDisplay.value = "";
+    emailSent.value = false;
+    emailVerified.value = false;
+    verificationCode.value = "";
+    // 최신 정보 반영
+    // await userStore.fetchMe(token);
   } catch (e) {
     console.error(e);
-    alert("전화번호 변경 중 오류가 발생했습니다. (테스트 모드)");
+    alert("전화번호 변경 중 오류가 발생했습니다.");
   }
 };
+
+
 
 /* ====== 비밀번호 ====== */
 const showPasswordModal = ref(false);
@@ -617,8 +458,6 @@ const isPasswordValid = computed(() =>
   [passwordLengthValid, passwordLetterValid, passwordNumberValid, passwordSpecialValid, passwordNoTripleValid, passwordNoSeqValid].every(v => v.value)
 );
 const isPasswordConfirmValid = computed(() => confirmPassword.value === newPassword.value && confirmPassword.value.length > 0);
-
-const showPasswordConfirmModal = ref(false);
 
 const requestPasswordChange = () => {
   verificationTarget.value = "password";
@@ -646,7 +485,6 @@ const confirmPasswordChange = async () => {
     console.error(e);
     alert("변경 실패: " + e.message);
   } finally {
-    showPasswordConfirmModal.value = false;
     currentPassword.value = "";
     newPassword.value = "";
     confirmPassword.value = "";
@@ -694,136 +532,42 @@ const verifyEmailCode = async () => {
   }
 };
 
-/* ====== 알림(PWA) ====== */
-const isNotificationEnabled = ref(false);
-const canInstallPWA = ref(false);
-let deferredPrompt: any = null;
-
-const toggleNotifications = async () => {
-  try {
-    if (isNotificationEnabled.value) {
-      await unsubscribeFromPushNotifications();
-      isNotificationEnabled.value = false;
-      alert("푸시 알림이 해제되었습니다.");
-    } else {
-      if (!("Notification" in window)) { alert("이 브라우저는 알림을 지원하지 않습니다."); return; }
-      if (!("serviceWorker" in navigator)) { alert("이 브라우저는 푸시 알림을 지원하지 않습니다."); return; }
-      let permission = Notification.permission;
-      if (permission === "default") permission = await Notification.requestPermission();
-      if (permission !== "granted") { alert("알림 권한이 필요합니다. 브라우저 설정에서 알림을 허용해주세요."); return; }
-      const subscription = await subscribeToPushNotifications();
-      if (subscription) {
-        isNotificationEnabled.value = true;
-        alert("푸시 알림이 활성화되었습니다.");
-        setTimeout(() => {
-          showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
-        }, 1000);
-      }
-    }
-  } catch (e) {
-    console.error(e);
-    alert("알림 설정 변경 중 오류가 발생했습니다.");
-  }
-};
-
-const installPWA = async () => {
-  if (deferredPrompt) {
-    try {
-      deferredPrompt.prompt();
-      const choiceResult = await deferredPrompt.userChoice;
-      if (choiceResult.outcome === "accepted") { canInstallPWA.value = false; }
-      deferredPrompt = null;
-    } catch (e) {
-      console.error(e);
-      alert("PWA 설치 중 오류가 발생했습니다.");
-    }
-  } else if (window.matchMedia("(display-mode: standalone)").matches) {
-    alert("이미 PWA로 설치되어 실행 중입니다.");
-  } else {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("android")) alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
-    else if (ua.includes("iphone") || ua.includes("ipad")) alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
-    else alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
-  }
-};
-
-const checkNotificationStatus = async () => {
-  try {
-    const hasPermission = Notification.permission === "granted";
-    const subscription = await getSubscriptionStatus();
-    isNotificationEnabled.value = hasPermission && !!subscription;
-    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
-    const isInWebAppiOS = (window.navigator as any).standalone === true;
-    const isInstalled = isStandalone || isInWebAppiOS;
-    canInstallPWA.value = !isInstalled && (!!deferredPrompt || "serviceWorker" in navigator);
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const setupPWAListeners = () => {
-  window.addEventListener("beforeinstallprompt", (e) => {
-    (e as Event).preventDefault?.();
-    deferredPrompt = e;
-    canInstallPWA.value = true;
-  });
-  window.addEventListener("appinstalled", () => {
-    canInstallPWA.value = false;
-    deferredPrompt = null;
-  });
-};
-
 /* ====== 보안 검증 ====== */
 const checkAuthenticationStatus = () => {
-	// 1. 소셜 로그인 유저인 경우 접근 차단
-	if (isSocialUser.value) {
-		alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
-		router.push('/user-profile');
-		return false;
-	}
-	
-	// 2. 일회용 토큰이 여전히 남아있다면 삭제
-	// Router Guard에서 이미 삭제했지만, 혹시 모를 경우를 대비
-	const remainingToken = sessionStorage.getItem('user-setting-one-time-auth');
-	if (remainingToken) {
-		sessionStorage.removeItem('user-setting-one-time-auth');
-		console.log('[UserSetting] 남은 일회용 토큰 삭제');
-	}
-	
-	// 3. 이 페이지는 Router Guard를 통과했으므로 정상 접근으로 간주
-	console.log('[UserSetting] 정상적인 인증 절차를 통한 접근');
-	return true;
+  // 1. 소셜 로그인 유저인 경우 접근 차단
+  if (isSocialUser.value) {
+    alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
+    router.push('/user-profile');
+    return false;
+  }
+  // 2. 남아있는 일회용 토큰 정리
+  const remainingToken = sessionStorage.getItem('user-setting-one-time-auth');
+  if (remainingToken) {
+    sessionStorage.removeItem('user-setting-one-time-auth');
+    console.log('[UserSetting] 남은 일회용 토큰 삭제');
+  }
+  // 3. 정상 접근
+  console.log('[UserSetting] 정상적인 인증 절차를 통한 접근');
+  return true;
 };
 
 /* ====== 마운트(테스트용) ====== */
 onMounted(async () => {
-  // 페이지 접근 시 보안 검증 수행
-  if (!checkAuthenticationStatus()) {
-  	return; // 검증 실패 시 라우터에서 리다이렉트됨
-  }
-  
-  // 페이지 이탈 시 남은 토큰 정리
+  if (!checkAuthenticationStatus()) return;
+
   const cleanupTokens = () => {
-  	sessionStorage.removeItem('user-setting-one-time-auth');
-  	console.log('[UserSetting] 페이지 이탈 시 토큰 정리');
+    sessionStorage.removeItem('user-setting-one-time-auth');
+    console.log('[UserSetting] 페이지 이탈 시 토큰 정리');
   };
-  
-  // 브라우저 이벤트 리스너 등록
+
   window.addEventListener('beforeunload', cleanupTokens);
   window.addEventListener('pagehide', cleanupTokens);
-  
-  // const token = localStorage.getItem("access_token");
-  // if (token) {
-  //   await userStore.fetchMe(token);
-  // }
-  setupPWAListeners();
-  await checkNotificationStatus();
-  
+
   // 컴포넌트 언마운트 시 정리
   return () => {
-  	window.removeEventListener('beforeunload', cleanupTokens);
-  	window.removeEventListener('pagehide', cleanupTokens);
-  	cleanupTokens();
+    window.removeEventListener('beforeunload', cleanupTokens);
+    window.removeEventListener('pagehide', cleanupTokens);
+    cleanupTokens();
   };
 });
 
@@ -849,12 +593,28 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 
 .user-setting__content {
   position: relative;
-  padding-top: 80px;
+  padding-top: 40px;
   height: calc(100% - 160px);
   overflow-y: auto;
   padding-left: 20px;
   padding-right: 20px;
 }
+
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 80px 0px 0 20px; /* 상단 여백만 주어 Header와 간격 확보 */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #776b5d;
+  font-size: 14px;
+  font-weight: 700;
+}
+.back-link:hover { opacity: 0.85; }
+.back-link__icon { width: 20px; height: 20px; }
+.back-link__text { line-height: 1; }
 
 /* ── 프로필 카드(행 리스트) ── */
 .profile-card {
@@ -925,116 +685,6 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   margin-right: 16px;
 }
 
-/* ── 알림 카드 ── */
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-
-.notification-settings {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(119, 107, 93, 0.1);
-}
-
-.notification-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(119, 107, 93, 0.1);
-}
-
-.notification-item:last-child {
-  border-bottom: none;
-}
-
-.notification-item__content {
-  flex: 1;
-}
-
-.notification-item__label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333333;
-  margin-bottom: 4px;
-}
-
-.notification-item__desc {
-  font-size: 14px;
-  color: #776b5d;
-}
-
-.notification-item__toggle {
-  margin-left: 16px;
-}
-
-.toggle-button {
-  padding: 8px 16px;
-  border: 2px solid #776b5d;
-  border-radius: 20px;
-  background: #ffffff;
-  color: #776b5d;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 60px;
-}
-
-.toggle-button:hover {
-  background: rgba(119, 107, 93, 0.1);
-}
-
-.toggle-button--active {
-  background: #776b5d;
-  color: #ffffff;
-}
-
-.install-button {
-  padding: 8px 16px;
-  border: 2px solid #4caf50;
-  border-radius: 20px;
-  background: #ffffff;
-  color: #4caf50;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 60px;
-}
-
-.install-button:hover:not(:disabled) {
-  background: rgba(76, 175, 80, 0.1);
-}
-
-.install-button:disabled {
-  border-color: #cccccc;
-  color: #cccccc;
-  cursor: not-allowed;
-}
-
-.test-button {
-  padding: 8px 16px;
-  border: 2px solid #2196f3;
-  border-radius: 20px;
-  background: #ffffff;
-  color: #2196f3;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 60px;
-}
-
-.test-button:hover {
-  background: rgba(33, 150, 243, 0.1);
-}
-
 /* ── 모달 공통 ── */
 .modal-overlay {
   position: fixed;
@@ -1078,7 +728,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   font-size: 16px;
   padding: 0;
   box-sizing: border-box;
-  background: transparent;
+  background: transparent
 }
 
 .modal__button {
@@ -1099,7 +749,6 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 .modal__button--success {
   background: #4caf50;
 }
-
 
 /* 비밀번호 유효성 안내 */
 .password-rules {
