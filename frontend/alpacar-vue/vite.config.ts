@@ -17,7 +17,7 @@ export default defineConfig({
 		VitePWA({
 			registerType: "prompt",
 			devOptions: {
-				enabled: true,
+				enabled: false,
 				type: "module",
 			},
 			includeAssets: ["favicon.ico", "alpaca-192.png", "alpaca-512.png", "service-worker.js"],

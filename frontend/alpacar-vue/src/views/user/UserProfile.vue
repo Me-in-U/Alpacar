@@ -203,14 +203,8 @@ const vehicles = computed(() => userStore.vehicles);
 
 // 소셜 로그인 유저 여부 확인
 const isSocialUser = computed(() => {
-	// 소셜 로그인 유저는 Google OAuth를 통해 가입한 경우
-	// 이메일이 Google 이메일이거나 별도 플래그가 있을 수 있음
-	const email = userInfo.value?.email;
-	if (!email) return false;
-	
-	// Google OAuth 사용자는 보통 소셜 로그인 정보를 별도로 저장
-	// 여기서는 간단히 구글 이메일로 판단
-	return email.includes('gmail.com');
+	// 백엔드에서 제공하는 is_social_user 필드 사용
+	return userInfo.value?.is_social_user || false;
 });
 
 const showAllVehicles = ref(false);
