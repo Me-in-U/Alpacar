@@ -153,11 +153,12 @@ def send_parking_complete_notification(user, parking_data):
     else:
         message = f"{plate_number} 차량이 {parking_space} 구역에 주차를 완료했습니다."
     
+    # 주차 완료 알림의 notification_type을 'entry'로 변경하여 parking-history 페이지로 라우팅
     create_notification(
         user=user,
         title=title,
         message=message,
-        notification_type='parking',  # parking 타입으로 변경하여 Service Worker에서 올바른 라우팅
+        notification_type='entry',  # parking-history로 라우팅하기 위해 entry 타입 사용
         data=parking_data
     )
 
