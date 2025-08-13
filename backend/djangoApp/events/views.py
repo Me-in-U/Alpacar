@@ -56,19 +56,8 @@ def manual_entrance(request):
             status="Entrance",
         )
 
-        # 입차 푸시(운영 로직 유지) — 실패는 무시
-        try:
-            entry_data = {
-                "plate_number": vehicle.license_plate,
-                "parking_lot": "SSAFY 주차장",
-                "entry_time": timezone.now().isoformat(),
-                "admin_action": True,
-                "action_url": "/parking-recommend",  # 알림 클릭 시 이동
-                "action_type": "navigate",
-            }
-            send_vehicle_entry_notification(vehicle.user, entry_data)
-        except Exception:
-            pass
+        # 입차 알림 제거 - 수동 입차 시에는 알림 발송하지 않음
+        print(f"[ADMIN] 수동 입차 기록됨: {vehicle.license_plate} (알림 없음)")
 
         # VehicleEvent 저장으로 signals가 실시간 갱신 방송 처리
         return Response(VehicleEventSerializer(ev).data, status=201)
