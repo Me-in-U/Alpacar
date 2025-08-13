@@ -2,11 +2,9 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db.models import Q
-
 from events.models import VehicleEvent
 from parking.models import ParkingSpace
 
-# 프론트 구독 그룹
 PARKING_STATUS_GROUP = "parking-status"
 
 
@@ -22,7 +20,6 @@ def _build_space_snapshot(labels: list[str] | None = None) -> dict:
                 q |= Q(zone=zone, slot_number=int(num))
         if q:
             qs = qs.filter(q)
-
     rows = qs.values(
         "zone",
         "slot_number",
@@ -31,7 +28,6 @@ def _build_space_snapshot(labels: list[str] | None = None) -> dict:
         "current_vehicle_id",
         "current_vehicle__license_plate",
     )
-
     out = {}
     for r in rows:
         key = f"{r['zone']}{r['slot_number']}"
@@ -78,10 +74,7 @@ def _build_active_vehicles_snapshot() -> dict:
 
 
 def broadcast_parking_space(labels: list[str] | None = None) -> None:
-    payload = {
-        "message_type": "parking_space",
-        "spaces": _build_space_snapshot(labels),
-    }
+    payload = {"message_type": "parking_space", "spaces": _build_space_snapshot(labels)}
     async_to_sync(get_channel_layer().group_send)(
         PARKING_STATUS_GROUP, {"type": "broadcast", "payload": payload}
     )
