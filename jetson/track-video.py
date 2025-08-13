@@ -1591,6 +1591,7 @@ class TrackerApp:
                         "message_type": "score",
                         "license_plate": assigned_vehicle,
                         "score": round(score, 4),
+                        "zone_id": zid_upper,
                     })
                     self._reserved_upper.discard(zid_upper)
                     self._assigned_by_plate.pop(assigned_vehicle, None)
