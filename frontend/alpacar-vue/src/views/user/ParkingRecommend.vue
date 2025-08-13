@@ -3,8 +3,8 @@
 		<Header />
 
 		<div class="main-content">
-			<!-- 1) 차량 미인식 -->
-			<div v-if="!isCarRecognized" class="unrecognized-container">
+			<!-- 1) 차량 미인식 (건너뛰기 버튼만 남김) -->
+			<div v-if="!forceShowMap && !isCarRecognized" class="unrecognized-container">
 				<div class="center-content">
 					<img src="@/assets/alert_black.png" width="67" height="67" alt="경고" />
 					<h2 class="title">아직 인식된 차량이 없습니다</h2>
@@ -13,15 +13,13 @@
 						자동으로 주차배정이 시작됩니다
 					</p>
 				</div>
-				<div v-if="isDev" class="test-panel">
-					<input v-model="testPlate" class="test-input" type="text" placeholder="예: 12가3456" @keyup.enter="simulateRecognized" />
-					<button class="test-btn" @click="simulateRecognized">인식 시뮬레이션</button>
-					<button class="test-btn ghost" @click="simulateComplete" :disabled="!recommendedId">주차 완료(시뮬레이션)</button>
-				</div>
+
+				<!-- 🔻 새 버튼: 인식 건너뛰기 -->
+				<button class="skip-btn" @click="forceShowMap = true">인식 건너뛰기</button>
 			</div>
 
-			<!-- 2) 추천 계산 중 -->
-			<div v-else-if="isLoading" class="loading-container">
+			<!-- 2) 추천 계산 중 (강제 표시 중이면 건너뛰고 지도 표시) -->
+			<div v-else-if="!forceShowMap && isLoading" class="loading-container">
 				<div class="car-animation-wrapper">
 					<img src="@/assets/car-with-alpaca.png" alt="알파카 자동차" class="car-animation" />
 				</div>
@@ -29,9 +27,11 @@
 				<div class="info-inline" v-if="currentPlate">
 					현재 <b>{{ currentPlate }}</b> 차량 주차 중
 				</div>
+				<!-- 필요하면 여기에도 버튼 노출 가능 -->
+				<button class="skip-btn ghost" @click="forceShowMap = true">지도를 먼저 볼래요</button>
 			</div>
 
-			<!-- 3) 추천 완료 + 실시간 맵 -->
+			<!-- 3) 지도 (forceShowMap=true면 항상 이쪽으로 진입) -->
 			<div v-else>
 				<section class="recommend-header">
 					<p class="title">추천 주차 위치</p>
@@ -41,6 +41,17 @@
 						<div class="info-detail">예상 소요시간: 약 2분</div>
 						<div class="info-detail">난이도: 쉬움 (초급자 적합)</div>
 						<div class="info-detail" v-if="currentPlate">현재 차량: {{ currentPlate }}</div>
+					</div>
+
+					<!-- 🔻 강제 표시 중 알림 & 되돌리기 -->
+					<div v-if="forceShowMap" class="force-hint">
+						카메라 인식 없이 지도를 표시 중입니다.
+						<button class="skip-btn ghost sm" @click="forceShowMap = false">라이브로 전환</button>
+					</div>
+					<!-- 🔻 새 토글 버튼 -->
+					<div class="view-toggle">
+						<button :class="['toggle-btn', { active: !showOnlyMine }]" @click="showOnlyMine = false">다른 차도 보기</button>
+						<button :class="['toggle-btn', { active: showOnlyMine }]" @click="showOnlyMine = true">내 차만 보기</button>
 					</div>
 				</section>
 
@@ -65,9 +76,18 @@
 						}"
 						ref="mapWrapper"
 					>
+						<!-- 🔻 차단바: 위/아래 각 1개 -->
+						<div class="gate gate--top" title="입구 차단바">
+							<div class="gate-pole"></div>
+							<div class="gate-box"></div>
+						</div>
+						<div class="gate gate--bottom" title="출구 차단바">
+							<div class="gate-pole"></div>
+							<div class="gate-box"></div>
+						</div>
 						<!-- 차량 오버레이 (내 차량 하이라이트) -->
 						<svg class="overlay" viewBox="0 0 900 550" preserveAspectRatio="none">
-							<g v-for="obj in vehicles" :key="obj.track_id">
+							<g v-for="obj in filteredVehicles" :key="obj.track_id">
 								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" :stroke="myPlatesSet.has(obj.track_id) ? '#00e5ff' : '#ff0'" stroke-width="3" />
 								<template v-if="myPlatesSet.has(obj.track_id)">
 									<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="14" fill="#00e5ff" text-anchor="middle">
@@ -81,10 +101,10 @@
 						<template v-for="(row, idx) in layout.rows" :key="'row-' + idx">
 							<div class="row" :style="{ marginLeft: (idx === 0 ? layout.offsetTopX : layout.offsetBottomX) + 'px' }">
 								<!-- 왼쪽 -->
-								<template v-for="spot in row.left" :key="'L-' + spot">
-									<div v-if="spot === 'x'" class="spot spot--placeholder" aria-hidden="true"></div>
-									<div v-else class="spot" :data-spot-id="spot" :class="spotClasses(spot)">
-										{{ spot }}
+								<template v-for="slot in row.left" :key="'L-' + slot">
+									<div v-if="slot === 'x'" class="slot slot-placeholder" aria-hidden="true"></div>
+									<div v-else class="slot" :data-spot-id="slot" :class="spotClasses(slot)">
+										{{ slot }}
 									</div>
 								</template>
 
@@ -93,8 +113,8 @@
 
 								<!-- 오른쪽 -->
 								<template v-for="spot in row.right" :key="'R-' + spot">
-									<div v-if="spot === 'x'" class="spot spot--placeholder" aria-hidden="true"></div>
-									<div v-else class="spot" :data-spot-id="spot" :style="idx === 0 ? { height: layout.topRightSlotH + 'px' } : undefined" :class="spotClasses(spot)">
+									<div v-if="spot === 'x'" class="slot slot-placeholder" aria-hidden="true"></div>
+									<div v-else class="slot" :data-spot-id="spot" :style="idx === 0 ? { height: layout.topRightSlotH + 'px' } : undefined" :class="spotClasses(spot)">
 										{{ spot }}
 									</div>
 								</template>
@@ -145,93 +165,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, watch, nextTick, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
-import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 
-// 개발여부
-const isDev = import.meta.env.DEV;
-const testPlate = ref("");
-// 첫 번째 free 슬롯 찾기
-function findFirstFreeSpot(): string | null {
-	for (const [label, st] of Object.entries(statusMap)) {
-		if (st === "free") return label;
-	}
-	return null;
-}
-// 차량 폴리곤(대충 직사각형) 만들어 주는 헬퍼
-function makeFakeCar(plate: string): TelemetryCar {
-	// 화면 중앙 근처 임의 좌표
-	const cx = 450,
-		cy = 275,
-		w = 50,
-		h = 30;
-	const corners = [cx - w, cy - h, cx + w, cy - h, cx + w, cy + h, cx - w, cy + h];
-	return {
-		track_id: plate,
-		center: [cx, cy],
-		corners,
-		state: "moving",
-		suggested: "", // 추천은 아래에서 결정
-	};
-} // ▶️ 인식 시뮬레이션: 번호판 등록 + 차량 생성 + 추천 슬롯 지정
-function simulateRecognized() {
-	const plate = (testPlate.value || "").trim();
-	if (!plate) {
-		alert("번호판을 입력하세요.");
-		return;
-	}
+/* ==== 지도 강제 표시 토글 ==== */
+const forceShowMap = ref(false);
 
-	// myPlatesSet/로컬스토리지에 추가(내 차량으로 인식되도록)
-	myPlatesSet.add(plate);
-	const raw = (localStorage.getItem("my_plates") || "")
-		.split(",")
-		.map((s) => s.trim())
-		.filter(Boolean);
-	if (!raw.includes(plate)) {
-		raw.push(plate);
-		localStorage.setItem("my_plates", raw.join(","));
-	}
+/* ==== 내 차만 보기 토글 ==== */
+const showOnlyMine = ref(false);
 
-	// 차량 목록에 내 차량 주입
-	const mine = makeFakeCar(plate);
-	vehicles.splice(0, vehicles.length, mine);
+// 인식 확정/해제 지연(ms)
+const SEEN_CONFIRM_MS = 800;
+const LOST_GRACE_MS = 5000;
 
-	// 추천 슬롯 선정(첫 free), 없으면 그대로 대기
-	const slot = findFirstFreeSpot();
-	if (slot) {
-		mine.suggested = slot;
-		recommendedId.value = slot;
-		isCarRecognized.value = true;
+// 내부 상태
+let seenTimer: number | null = null;
+let lostTimer: number | null = null;
+
+// 현재 프레임에서 "내 차"가 있는지 마지막 판단 캐시
+let lastFrameHasMine = false;
+
+// 안전하게 상태 전환하는 헬퍼
+function setRecognizedStable(next: boolean) {
+	if (next === isCarRecognized.value) return;
+	isCarRecognized.value = next;
+
+	if (!next) {
+		// 미인식 전환 시에만 초기화(필요 시 원하는 값만 리셋)
 		isLoading.value = false;
-		currentPlate.value = plate;
-		// 추천 핀 위치 갱신
-		updatePin();
-		// 예약 상태로 미리 표시해도 된다면(선택):
-		// statusMap[slot] = 'reserved';
-		// spaceVehicleMap[slot] = { plate };
-	} else {
-		isCarRecognized.value = true;
-		isLoading.value = true;
-		currentPlate.value = plate;
+		// recommendedId.value = ""; // 추천 유지하고 싶으면 주석 처리 유지
+		// resetPin();                // 핀 초기화도 원치 않으면 주석
 	}
-}
-
-// ▶️ 주차 완료 시뮬레이션: 내 차량 배정 슬롯을 occupied로 변경 → 자동 라우팅
-function simulateComplete() {
-	const plate = currentPlate.value;
-	if (!plate || !recommendedId.value) return;
-	const slot = recommendedId.value;
-
-	// 배정 매핑/상태 지정
-	spaceVehicleMap[slot] = { plate };
-	statusMap[slot] = "occupied";
-
-	// 자동 이동 트리거
-	checkAutoComplete();
 }
 
 /* ===== WS 엔드포인트 (관리자와 동일) ===== */
@@ -253,17 +220,17 @@ const SCALE = 0.45;
 const layout = reactive({
 	mapW: 900 * SCALE,
 	mapH: 550 * SCALE,
-	slotW: 85 * SCALE,
+	slotW: 71 * SCALE,
 	slotH: 150 * SCALE,
-	slotGap: 6 * SCALE,
-	aisleW: 30 * SCALE,
+	slotGap: 0 * SCALE,
+	aisleW: 20 * SCALE,
 	dividerMargin: 110 * SCALE,
 	showDivider: true,
 	bgColor: "#4c4c4c",
-	carOffsetX: 5 * SCALE,
+	carOffsetX: 0 * SCALE,
 	carOffsetY: 0 * SCALE,
-	offsetTopX: 0 * SCALE,
-	offsetBottomX: 200 * SCALE,
+	offsetTopX: 210 * SCALE,
+	offsetBottomX: 230 * SCALE,
 	topRightSlotH: 135 * SCALE,
 	rows: [
 		{ left: ["B1", "B2", "B3"], right: ["C1", "C2", "C3"] },
@@ -292,7 +259,22 @@ type TelemetryCar = {
 	state?: string;
 	suggested?: string;
 };
-const vehicles = reactive<TelemetryCar[]>([]);
+const vehicles = ref<TelemetryCar[]>([]);
+
+/* ==== 필터링된 차량 목록 getter ==== */
+const filteredVehicles = computed(() => {
+	const list = vehicles.value;
+	// Set의 변경사항을 추적시키기 위한 접근 (Vue 3 reactive Set size는 추적 대상)
+	const _size = (myPlatesSet as Set<string>).size;
+
+	if (!showOnlyMine.value) return list;
+
+	if (currentPlate.value) {
+		return list.filter((v) => v.track_id === currentPlate.value);
+	}
+	// currentPlate가 아직 없으면 내 번호판 목록 기준으로 표시
+	return list.filter((v) => myPlatesSet.has(v.track_id));
+});
 
 /* 내 번호판 세트: Pinia에서 가져옴 */
 const myPlatesSet = reactive(new Set<string>());
@@ -336,7 +318,38 @@ function connectWS() {
 						state: v?.state,
 						suggested: v?.suggested ?? "",
 					})) as TelemetryCar[];
-					vehicles.splice(0, vehicles.length, ...converted);
+					vehicles.value.splice(0, vehicles.value.length, ...converted);
+
+					// 내 차가 프레임에 있는지 판단
+					const mine = vehicles.value.find((v) => myPlatesSet.has(v.track_id));
+					lastFrameHasMine = !!mine;
+
+					// 내 차가 보이면: 해제 타이머 중단, 일정시간 후 '인식됨' 확정
+					if (lastFrameHasMine) {
+						if (lostTimer) {
+							clearTimeout(lostTimer);
+							lostTimer = null;
+						}
+						if (!isCarRecognized.value && !seenTimer) {
+							seenTimer = window.setTimeout(() => {
+								setRecognizedStable(true);
+								seenTimer = null;
+							}, SEEN_CONFIRM_MS);
+						}
+					}
+					// 내 차가 안 보이면: 확정 타이머 중단, 일정시간 후 '미인식' 확정
+					else {
+						if (seenTimer) {
+							clearTimeout(seenTimer);
+							seenTimer = null;
+						}
+						if (isCarRecognized.value && !lostTimer) {
+							lostTimer = window.setTimeout(() => {
+								setRecognizedStable(false);
+								lostTimer = null;
+							}, LOST_GRACE_MS);
+						}
+					}
 					updateMyStateFromVehicles();
 					break;
 				}
@@ -350,6 +363,18 @@ function connectWS() {
 					checkAutoComplete();
 					break;
 				}
+				// ParkingStatus WS onmessage switch에 추가
+				case "re-assignment": {
+					const { license_plate, assignment } = data;
+					// 내 차량이면 추천/핀 갱신 트리거
+					if (myPlatesSet.has(String(license_plate))) {
+						recommendedId.value = assignment || "";
+						updatePin();
+						isLoading.value = false;
+					}
+					break;
+				}
+
 				case "active_vehicles": {
 					// 필요시 확장
 					break;
@@ -365,7 +390,7 @@ function connectWS() {
 
 /* 내 차량 인식/추천 상태 갱신 */
 function updateMyStateFromVehicles() {
-	const mine = vehicles.find((v) => myPlatesSet.has(v.track_id));
+	const mine = vehicles.value.find((v) => myPlatesSet.has(v.track_id));
 	if (mine) {
 		isCarRecognized.value = true;
 		currentPlate.value = mine.track_id;
@@ -458,7 +483,11 @@ onMounted(async () => {
 	await ensureMyPlates(); // Pinia에서 내 차량 번호판 확보
 	connectWS(); // 실시간 연결
 });
-onBeforeUnmount(() => ws?.close());
+onBeforeUnmount(() => {
+	ws?.close();
+	if (seenTimer) clearTimeout(seenTimer);
+	if (lostTimer) clearTimeout(lostTimer);
+});
 </script>
 
 <style scoped>
@@ -628,30 +657,36 @@ onBeforeUnmount(() => ws?.close());
 	margin: var(--divider-m) 0; /* 절대포지션 → 변수 마진 */
 }
 /* 슬롯은 전부 변수 기반 크기 */
-.spot {
+.slot {
+	position: relative;
 	width: var(--slot-w);
 	height: var(--slot-h);
-	border: 2px solid #fff;
+	border: 3px solid #fff;
+	color: #fff;
+	font-weight: 600;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: #fff;
-	font-size: 14px;
-	background: #999;
+	box-sizing: border-box;
+	overflow: hidden;
 }
-.spot.recommended {
+/* 슬롯이 슬롯을 바로 이어받을 때만 왼쪽 보더 제거 → 가운데 경계선이 한 번만 보임 */
+.row .slot + .slot {
+	border-left: 0;
+}
+.slot.recommended {
 	background: #8fcd2b;
 }
-.spot.occupied {
+.slot.occupied {
 	background: #fe5454;
 }
-.spot.empty {
+.slot.empty {
 	background: #9c9c9c;
 }
-.spot.reserved {
+.slot.reserved {
 	background: #f5dd29;
 }
-.spot--placeholder {
+.slot-placeholder {
 	visibility: hidden;
 	border: 0;
 	background: transparent;
@@ -773,5 +808,112 @@ onBeforeUnmount(() => ws?.close());
 .test-btn:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
+}
+/* 인식 건너뛰기 버튼 */
+.skip-btn {
+	margin-top: 14px;
+	padding: 10px 14px;
+	border-radius: 8px;
+	background: #6b7280; /* slate-500 느낌 */
+	color: #fff;
+	border: none;
+	font-weight: 700;
+	cursor: pointer;
+}
+.skip-btn:hover {
+	background: #4b5563;
+}
+.skip-btn.ghost {
+	background: #9ca3af;
+}
+.skip-btn.ghost:hover {
+	background: #6b7280;
+}
+.skip-btn.sm {
+	padding: 6px 10px;
+	font-size: 12px;
+}
+
+.force-hint {
+	margin-top: 8px;
+	font-size: 12px;
+	color: #334155;
+}
+
+.view-toggle {
+	display: flex;
+	gap: 6px;
+	margin-top: 10px;
+}
+
+.toggle-btn {
+	padding: 6px 10px;
+	border: 1px solid #cbd5e1;
+	background: #f1f5f9;
+	border-radius: 6px;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.toggle-btn.active {
+	background: #3b82f6;
+	color: white;
+	border-color: #2563eb;
+}
+/* ===== 차단바(Gate) - 사진 스타일 ===== */
+.gate {
+	/* 크기/색 변수 */
+	--pole-w: 10px; /* 기둥 너비 */
+	--pole-h: 80px; /* 기둥 높이 */
+	--box: 30px; /* 작은 네모 한 변 */
+	--gap-x: 0px; /* 기둥과 상자 사이 간격 */
+	--pole-background: #ff2d2d; /* 기둥 테두리(밝은 빨강) */
+	--box-background: #ffe100; /* 상자 테두리(짙은 자주/빨강) */
+
+	position: absolute;
+	left: 215px; /* 지도 왼쪽에서의 위치(필요시 조정) */
+	width: calc(var(--pole-w) + var(--gap-x) + var(--box));
+	height: var(--pole-h);
+	z-index: 2; /* 슬롯 위, SVG 오버레이 아래 */
+	pointer-events: none;
+}
+
+/* 위/아래 게이트의 수직 위치만 다름 */
+.gate--top {
+	top: 170px;
+} /* 필요시 숫자만 조정 */
+.gate--bottom {
+	bottom: 170px;
+}
+
+/* 기둥: 속 빈 사각형 */
+.gate-pole {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: var(--pole-w);
+	height: var(--pole-h);
+	background: var(--pole-background);
+	box-sizing: border-box;
+}
+
+/* 작은 네모: 오른쪽으로 떨어져서 위치 */
+.gate-box {
+	position: absolute;
+	left: calc(var(--pole-w) + var(--gap-x));
+	width: var(--box);
+	height: var(--box);
+	background: var(--box-background);
+	box-sizing: border-box;
+}
+
+/* ⬆️ 위 게이트: 상단에 붙여 배치 */
+.gate--top .gate-box {
+	top: -10px; /* 살짝 위로(음수면 테두리 맞춤) */
+}
+
+/* ⬇️ 아래 게이트: 하단에 붙여 배치 */
+.gate--bottom .gate-box {
+	bottom: -10px;
 }
 </style>
