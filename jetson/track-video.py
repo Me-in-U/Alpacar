@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 # VIDEO_PATH = 0
 VIDEO_PATH = "data/video_part_1.mp4"
-MODEL_PATH = "last (2).pt"
+MODEL_PATH = "track-obb.pt"
 TRACKER_CFG_NAME = "bytetrack.yaml"
 WSS_URL = "wss://i13e102.p.ssafy.io/ws/jetson/"
 
@@ -575,6 +575,7 @@ def build_logging_snapshot(
     plate_mgr: PlateManager,
     parking: "ParkingManager",
     reserved_upper: set[str],
+    assigned_by_plate: Dict[str, str],
 ) -> Dict[str, Any]:
     slot_map = parking.assemble_slot_status(reserved_upper)
 
@@ -602,7 +603,8 @@ def build_logging_snapshot(
 
         is_parked = tid in occupant_to_zone_upper
         state_str = "parked" if is_parked else "running"
-        suggested_zone = occupant_to_zone_upper.get(tid, "")
+        # 제안 구역: plate 기반 예약/배정 정보가 있으면 그 값을, 없으면 현재 점유 구역(있다면)을 제공
+        suggested_zone = assigned_by_plate.get(plate, occupant_to_zone_upper.get(tid, ""))
         
         vehicles_log.append(
             {
@@ -700,6 +702,229 @@ def build_wss_payload_from_result(
 
 
 # =============================
+# Ideal Parking Template Generator
+# =============================
+
+class IdealParkingTemplate:
+    """이상적인 주차 템플릿 생성기"""
+    
+    def __init__(self):
+        self.default_angle = 90.0  # 기본 주차 각도 (수직)
+        self.default_margin = 0.1  # 기본 여백 (10%)
+    
+    def generate_template(self, zone_rect: List[float], frame_width: int, frame_height: int, 
+                         vehicle_specs: Optional[Dict] = None) -> Dict:
+        """
+        주차 구역에 대한 이상적인 템플릿 생성
+        
+        Args:
+            zone_rect: 주차 구역 좌표 [x1, y1, x2, y2] (정규화됨)
+            frame_width: 프레임 너비
+            frame_height: 프레임 높이
+            vehicle_specs: 차량 사양 정보 (선택사항)
+            
+        Returns:
+            dict: 이상적인 템플릿 정보
+        """
+        # 정규화된 좌표를 픽셀 좌표로 변환
+        x1n, y1n, x2n, y2n = zone_rect
+        x1 = int(x1n * frame_width)
+        y1 = int(y1n * frame_height)
+        x2 = int(x2n * frame_width)
+        y2 = int(y2n * frame_height)
+        
+        # 여백 적용
+        margin_x = int((x2 - x1) * self.default_margin)
+        margin_y = int((y2 - y1) * self.default_margin)
+        
+        ideal_x1 = x1 + margin_x
+        ideal_y1 = y1 + margin_y
+        ideal_x2 = x2 - margin_x
+        ideal_y2 = y2 - margin_y
+        
+        # 이상적인 주차 구역 폴리곤 생성
+        zone_poly = np.array([
+            [ideal_x1, ideal_y1],
+            [ideal_x2, ideal_y1],
+            [ideal_x2, ideal_y2],
+            [ideal_x1, ideal_y2]
+        ])
+        
+        # 차량 크기에 따른 이상적인 박스 크기 계산
+        if vehicle_specs:
+            ideal_width = vehicle_specs.get('width', 2.5) * 100  # 미터를 픽셀로 변환
+            ideal_length = vehicle_specs.get('length', 5.0) * 100
+        else:
+            ideal_width = 250  # 기본값 (픽셀)
+            ideal_length = 500
+        
+        # 이상적인 중심점 계산
+        center_x = (ideal_x1 + ideal_x2) / 2
+        center_y = (ideal_y1 + ideal_y2) / 2
+        
+        return {
+            'angle': self.default_angle,
+            'center': (center_x, center_y),
+            'zone_poly': zone_poly,
+            'ideal_width': ideal_width,
+            'ideal_length': ideal_length,
+            'zone_rect': [ideal_x1, ideal_y1, ideal_x2, ideal_y2],
+            'margin': self.default_margin
+        }
+
+
+# =============================
+# Template Matching Scorer
+# =============================
+
+class TemplateMatchingScorer:
+    """템플릿 매칭 기반 점수 계산기"""
+    
+    def __init__(self):
+        self.template_generator = IdealParkingTemplate()
+    
+    def calculate_template_matching_score(self, actual_vehicle_box, ideal_template, actual_angle, vehicle_specs):
+        """
+        실제 차량과 이상적 템플릿 비교하여 각도 점수 계산
+        
+        Args:
+            actual_vehicle_box: 실제 검출된 차량 박스 (4개 점)
+            ideal_template: 이상적인 템플릿 정보
+            actual_angle: 실제 차량 각도
+            vehicle_specs: 차량 사양 정보 (사용 안함, 호환성 유지)
+            
+        Returns:
+            dict: 점수 정보
+        """
+        # 각도 편차 계산
+        ideal_angle = ideal_template['angle']
+        corrected_angle = self.apply_yolo_angle_correction(actual_angle)
+        
+        angle_diffs = [
+            abs(corrected_angle - ideal_angle),
+            abs(corrected_angle - ideal_angle + 180),
+            abs(corrected_angle - ideal_angle - 180),
+            abs(corrected_angle - (ideal_angle + 90)),
+            abs(corrected_angle - (ideal_angle - 90))
+        ]
+        
+        angle_diff = min(angle_diffs)
+        if angle_diff > 90:
+            angle_diff = 180 - angle_diff
+        
+        # 각도 점수 (3단계 기준 + 차선 침범 감점)
+        angle_score = self._calculate_tiered_angle_score(angle_diff, actual_vehicle_box, ideal_template)
+        
+        # 최종 점수 (각도만 사용)
+        total_score = angle_score
+        
+        return {
+            'total_score': round(total_score, 1),
+            'angle_score': round(angle_score, 1),
+            'details': {
+                'angle_diff': round(angle_diff, 1),
+                'ideal_angle': ideal_angle,
+                'actual_angle': round(actual_angle, 1),
+                'corrected_angle': round(corrected_angle, 1),
+                'skill_level': self._get_skill_level(angle_diff),
+                'lane_violation': self._check_lane_violation(actual_vehicle_box, ideal_template)
+            }
+        }
+    
+    def _calculate_tiered_angle_score(self, angle_diff, actual_vehicle_box, ideal_template):
+        """
+        3단계 각도 평가 시스템
+        - 5도 이하: 고득점 (상급자) 80-100점
+        - 6-10도: 중급자 40-79점  
+        - 11도 이상: 초급자 0-39점
+        + 6도 이상 + 차선 침범 시 추가 큰 감점
+        """
+        base_score = 0
+        
+        # 1. 기본 3단계 점수
+        if angle_diff <= 5:
+            # 고득점 구간 (상급자): 80-100점
+            base_score = 100 - (angle_diff * 4)  # 0도=100점, 5도=80점
+            
+        elif angle_diff <= 10:
+            # 중급자 구간: 40-79점
+            base_score = 80 - ((angle_diff - 5) * 8)  # 6도=72점, 10도=40점
+            
+        else:
+            # 초급자 구간: 0-39점
+            base_score = max(0, 40 - ((angle_diff - 10) * 2))  # 11도=38점, 30도=0점
+        
+        # 2. 차선 침범 추가 감점 (6도 이상일 때만)
+        if angle_diff >= 6:
+            lane_violation = self._check_lane_violation(actual_vehicle_box, ideal_template)
+            if lane_violation:
+                # 큰 감점: 기본 점수의 30-50% 추가 감점
+                penalty = base_score * 0.4  # 40% 감점
+                base_score = max(0, base_score - penalty)
+                print(f"🚨 차선 침범 감점! 각도: {angle_diff:.1f}도, 감점: -{penalty:.1f}점")
+        
+        return base_score
+    
+    def _get_skill_level(self, angle_diff):
+        """각도에 따른 숙련도 레벨 반환"""
+        if angle_diff <= 5:
+            return "Expert"
+        elif angle_diff <= 10:
+            return "Intermediate"
+        else:
+            return "Beginner"
+    
+    def _check_lane_violation(self, actual_vehicle_box, ideal_template):
+        """
+        차선 침범 검사
+        실제 차량이 주차 구역을 얼마나 벗어났는지 확인
+        """
+        try:
+            # 차량 박스와 주차 구역의 교집합 계산
+            vehicle_poly = actual_vehicle_box.reshape(-1, 1, 2).astype(np.int32)
+            zone_poly = ideal_template['zone_poly'].reshape(-1, 1, 2).astype(np.int32)
+            
+            # 교집합 면적 계산
+            intersection = cv2.intersectConvexConvex(vehicle_poly, zone_poly)[1]
+            if intersection is None:
+                return True  # 교집합이 없으면 완전히 벗어남
+            
+            intersection_area = cv2.contourArea(intersection)
+            vehicle_area = cv2.contourArea(vehicle_poly)
+            
+            if vehicle_area == 0:
+                return False
+            
+            # 차량이 구역 내에 있는 비율
+            overlap_ratio = intersection_area / vehicle_area
+            
+            # 70% 미만이 구역 내에 있으면 차선 침범으로 판정
+            return overlap_ratio < 0.7
+            
+        except Exception as e:
+            print(f"⚠️ 차선 침범 검사 오류: {e}")
+            return False
+    
+    def apply_yolo_angle_correction(self, angle):
+        """YOLO 각도 인식 오류 보정"""
+        # 87-93도 범위: 완벽한 보정 (90도로 인식됨)
+        if 87 <= angle <= 93:
+            return 90.0
+        
+        # 73-77도 범위: 부분 보정 (실제로는 더 작은 각도)
+        elif 73 <= angle <= 77:
+            return angle - 60
+        
+        # -3도에서 +3도 범위: 0도로 보정
+        elif -3 <= angle <= 3 or 177 <= angle <= 183:
+            return 0.0
+        
+        # 그 외: 원본 그대로
+        else:
+            return angle
+
+
+# =============================
 # Main Application
 # =============================
 
@@ -710,6 +935,7 @@ class TrackerApp:
         self.ws = ws
         self.plate_mgr = PlateManager()
         self.parking = ParkingManager(PARKING_ZONES_NORM)
+        self.template_scorer = TemplateMatchingScorer()  # 새로운 스코어러 추가
         self.vis = Visualizer(self.plate_mgr, self.parking)
         self._last_snapshot_ts = 0.0
         self._reserved_upper: set[str] = set()
@@ -719,6 +945,8 @@ class TrackerApp:
         self._completed_zones: set[str] = set()
         self._last_angle_by_id: Dict[int, float] = {}
         self._last_zone_to_tid: Dict[str, int] = {}
+        self._last_poly_by_id: Dict[int, np.ndarray] = {}
+        self._last_frame_wh: Tuple[int, int] = (0, 0)
 
         self.recommender_model = None
         self._event_queue: "asyncio.Queue[Dict[str, Any]]" = asyncio.Queue()
@@ -759,6 +987,7 @@ class TrackerApp:
 
     # --- Score strategy injection ---
     def _default_score(self, occupant_tid: int, zone_id_lower: str) -> float:
+        """기본 스코어링 방법 (기존 로직 유지)"""
         angle_rad = float(self._last_angle_by_id.get(occupant_tid, 0.0))
         angle_deg = abs(math.degrees(angle_rad)) % 180.0
         if angle_deg > 90.0:
@@ -783,32 +1012,122 @@ class TrackerApp:
         score = clamp(base + time_adj, 0.0, 100.0)
         return float(round(score, 1))
 
+    def _template_matching_score(self, occupant_tid: int, zone_id_lower: str) -> float:
+        """템플릿 매칭 기반 스코어링 (새로운 방법)"""
+        try:
+            # 차량 정보 가져오기
+            angle_rad = float(self._last_angle_by_id.get(occupant_tid, 0.0))
+            angle_deg = math.degrees(angle_rad)
+            
+            # 차량 박스 정보 가져오기 (실제 구현에서는 추적 정보에서 가져와야 함)
+            vehicle_box = self._get_vehicle_box(occupant_tid)
+            if vehicle_box is None:
+                return self._default_score(occupant_tid, zone_id_lower)
+            
+            # 주차 구역 정보 찾기
+            zone_info = None
+            for zone in PARKING_ZONES_NORM:
+                if zone["id"] == zone_id_lower:
+                    zone_info = zone
+                    break
+            
+            if zone_info is None:
+                return self._default_score(occupant_tid, zone_id_lower)
+            
+            # 이상적인 템플릿 생성
+            fw, fh = self._last_frame_wh
+            fw = fw or OUTPUT_WIDTH
+            fh = fh or OUTPUT_HEIGHT
+            ideal_template = self.template_scorer.template_generator.generate_template(
+                zone_info["rect"],
+                fw,
+                fh,
+            )
+            
+            # 차량 사양 정보 (선택사항)
+            vehicle_specs = None
+            license_plate = self.plate_mgr.get(occupant_tid)
+            if license_plate:
+                size_class = self.plate_mgr.get_size_class(license_plate)
+                if size_class:
+                    vehicle_specs = self._get_vehicle_specs_from_size_class(size_class)
+            
+            # 템플릿 매칭 점수 계산
+            score_result = self.template_scorer.calculate_template_matching_score(
+                vehicle_box, ideal_template, angle_deg, vehicle_specs
+            )
+            
+            # 시간 보정 적용 (기존 로직과 동일)
+            st = self.parking.state.get(zone_id_lower)
+            time_adj = 0.0
+            if st and st.parked_since is not None:
+                now_ts = time.time()
+                actual_sec = float(max(0.0, now_ts - st.parked_since))
+                expected_sec = float(os.getenv("EXPECTED_PARKING_TIME_S", "10"))
+                delta = actual_sec - expected_sec
+                time_adj = float(clamp(-0.5 * delta, -10.0, 10.0))
+            
+            final_score = clamp(score_result['total_score'] + time_adj, 0.0, 100.0)
+            
+            # 디버그 정보 출력
+            print(f"🎯 템플릿 매칭 점수: {final_score:.1f}점")
+            print(f"   - 각도 점수: {score_result['angle_score']:.1f}점")
+            print(f"   - 각도 편차: {score_result['details']['angle_diff']:.1f}도")
+            print(f"   - 숙련도: {score_result['details']['skill_level']}")
+            print(f"   - 차선 침범: {score_result['details']['lane_violation']}")
+            
+            return float(round(final_score, 1))
+            
+        except Exception as e:
+            print(f"⚠️ 템플릿 매칭 점수 계산 오류: {e}")
+            return self._default_score(occupant_tid, zone_id_lower)
+
+    def _get_vehicle_box(self, track_id: int) -> Optional[np.ndarray]:
+        """트랙 ID에 해당하는 차량 박스 정보 반환 (최근 프레임 기준)"""
+        poly = self._last_poly_by_id.get(int(track_id))
+        if poly is None:
+            return None
+        # cv2.intersectConvexConvex는 (N,1,2) int32 형태를 선호
+        try:
+            if isinstance(poly, np.ndarray):
+                if poly.ndim == 2 and poly.shape[1] == 2:
+                    return poly.reshape((-1, 1, 2)).astype(np.int32)
+                elif poly.ndim == 3 and poly.shape[2] == 2:
+                    return poly.astype(np.int32)
+        except Exception:
+            return None
+        return None
+
+    def _get_vehicle_specs_from_size_class(self, size_class: str) -> Dict:
+        """차량 크기 분류에 따른 사양 정보 반환"""
+        specs_map = {
+            "compact": {"width": 2.0, "length": 4.2},
+            "midsize": {"width": 2.5, "length": 5.0},
+            "suv": {"width": 2.8, "length": 5.2}
+        }
+        return specs_map.get(size_class.lower(), {"width": 2.5, "length": 5.0})
+
     def set_score_strategy(self, fn: Callable[[int, str], float]) -> None:
         self._score_strategy = fn
 
     def _calculate_parking_score(self, occupant_tid: int, zone_id_lower: str) -> float:
-        fn = getattr(self, "_score_strategy", None) or self._default_score
+        fn = getattr(self, "_score_strategy", None) or self._template_matching_score  # 기본값을 템플릿 매칭으로 변경
         return float(fn(occupant_tid, zone_id_lower))
 
-    def _build_features_for_free_zones(self, size_class: Optional[str], slot_map: Dict[str, str]) -> List[Dict]:
+    def _build_features_for_free_zones(self, size_class: Optional[str], free_zones: List[str]) -> List[Dict]:
         # size_class 문자열을 (폭[m], 길이[m])로 파싱
-        width_m, length_m = 2.5, 5.0
+        # _get_vehicle_specs_from_size_class 메서드 활용
+        width_m, length_m = 2.0, 4.5
         if size_class:
             try:
-                s = size_class.strip().lower()
-                if "," in s:
-                    width_m, length_m = map(float, s.split(","))
-                elif s == "compact":
-                    width_m, length_m = 2.0, 4.2
-                elif s == "midsize":
-                    width_m, length_m = 2.5, 5.0
-                elif s == "suv":
-                    width_m, length_m = 2.8, 5.2
+                specs = self._get_vehicle_specs_from_size_class(size_class)
+                width_m = specs.get("width", 2.0)
+                length_m = specs.get("length", 4.5)
             except Exception:
                 pass
 
         features: List[Dict] = []
-        for i in range(5):
+        for zid_upper in free_zones:
             feature = {
                 "left_occupied": 0,
                 "left_angle": 0.0,
@@ -824,11 +1143,11 @@ class TrackerApp:
                 "right_width": 2.5,
                 "right_length": 5.0,
                 "right_has_pillar": 0,
-                "controlled_x": 10.0 + i,
-                "controlled_y": 20.0 + i,
+                "controlled_x": 0.0,
+                "controlled_y": 0.0,
                 "controlled_width": width_m,
                 "controlled_length": length_m,
-                "zone_id": f"zone_{i+1}"
+                "zone_id": str(zid_upper),
             }
             features.append(feature)
 
@@ -887,18 +1206,31 @@ class TrackerApp:
                         self.plate_mgr.plate_to_size_class[license_plate] = size_class
                         self._size_class_by_plate[license_plate] = size_class
 
+                    # free인 구역들만 추출
+                    free_zones = [zid_upper for zid_upper, state in slot_map.items() if state == "free"]
+                    
                     suggested_zone = ""
                     if self.recommender_model is not None and recommend_best_zone is not None:
                         try:
-                            feats = self._build_features_for_free_zones(size_class, slot_map)
+                            feats = self._build_features_for_free_zones(size_class, free_zones)
                             logger.debug(f"[Recommender] features: {feats}")
                             best = recommend_best_zone(self.recommender_model, feats)
-                            if best and isinstance(best, dict):
-                                suggested_zone = str(best.get("zone_id") or "")
+                            if best:
+                                top = best[0] if isinstance(best, list) else best
+                                suggested_zone = str(top.get("zone_id") or "").strip().upper()
+                                logger.info(f"[Recommender] 추천 구역: {suggested_zone}")
                         except Exception as e:
                             logger.exception(f"[Recommender] 예측 실패: {e}")
 
-                    assigned_zone_upper = self._choose_zone_for_assignment(slot_map, size_class)
+                    # 추천 구역이 free이면 사용, 아니면 fallback
+                    assigned_zone_upper = ""
+                    if suggested_zone and suggested_zone in free_zones:
+                        assigned_zone_upper = suggested_zone
+                        logger.info(f"[Assignment] 추천 구역 사용: {assigned_zone_upper}")
+                    elif free_zones:
+                        # fallback: 첫 번째 free 구역
+                        assigned_zone_upper = free_zones[0]
+                        logger.info(f"[Assignment] fallback 구역 사용: {assigned_zone_upper}")
 
                     await self._reserve_zone(license_plate, assigned_zone_upper, slot_map)
 
@@ -936,8 +1268,15 @@ class TrackerApp:
                 payload = build_wss_payload_from_result(result_obj, frame_w, frame_h)
             else:
                 payload = []
-            await asyncio.to_thread(self.ws.send_json, 
-                build_logging_snapshot(payload, self.plate_mgr, self.parking, self._reserved_upper)
+            await asyncio.to_thread(
+                self.ws.send_json,
+                build_logging_snapshot(
+                    payload,
+                    self.plate_mgr,
+                    self.parking,
+                    self._reserved_upper,
+                    self._assigned_by_plate,
+                ),
             )
             slot_map_now = self.parking.assemble_slot_status(self._reserved_upper)
             self._log_slot_changes(slot_map_now)
@@ -981,20 +1320,25 @@ class TrackerApp:
     def _choose_zone_for_assignment(
         self, slot_map: Dict[str, str], size_class: Optional[str]
     ) -> str:
-        suggested_zone = ""
+        # free인 구역들만 추출
+        free_zones = [zid_upper for zid_upper, state in slot_map.items() if state == "free"]
+        
+        # 추천 모델이 있으면 사용
         if self.recommender_model is not None and recommend_best_zone is not None:
             try:
-                feats = self._build_features_for_free_zones(size_class or "", slot_map)
+                feats = self._build_features_for_free_zones(size_class or "", free_zones)
                 best = recommend_best_zone(self.recommender_model, feats)
-                if best and isinstance(best, dict):
-                    suggested_zone = str(best.get("zone_id") or "").strip().upper()
+                if best:
+                    top = best[0] if isinstance(best, list) else best
+                    suggested_zone = str(top.get("zone_id") or "").strip().upper()
+                    if suggested_zone in free_zones:
+                        return suggested_zone
             except Exception:
-                suggested_zone = ""
-        if suggested_zone and slot_map.get(suggested_zone) == "free":
-            return suggested_zone
-        for zid_upper, state in slot_map.items():
-            if state == "free":
-                return zid_upper
+                pass
+        
+        # fallback: 첫 번째 free 구역
+        if free_zones:
+            return free_zones[0]
         return ""
 
     async def _reserve_zone(self, license_plate: str, assigned_zone_upper: str, slot_map: Dict[str, str]) -> None:
@@ -1152,9 +1496,20 @@ class TrackerApp:
                     
                     boxes_size = self.extract_boxes_size(ids)
 
-                    _, centers = self.vis.draw_boxes(im0, r, angles, boxes_size=boxes_size)
+                    polys, centers = self.vis.draw_boxes(im0, r, angles, boxes_size=boxes_size)
                     
                     self.parking.update(centers, ids, w_full, h_full, now_ts)
+
+                    # 최근 프레임 정보 보관 (템플릿 매칭용)
+                    try:
+                        self._last_frame_wh = (w_full, h_full)
+                        if polys and ids:
+                            # ids와 polys의 순서가 일치한다고 가정
+                            for idx, tid in enumerate(ids):
+                                if idx < len(polys):
+                                    self._last_poly_by_id[int(tid)] = polys[idx]
+                    except Exception:
+                        pass
 
                     await self._handle_exit_events()
 
