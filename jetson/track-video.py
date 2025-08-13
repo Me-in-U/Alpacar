@@ -1328,7 +1328,6 @@ class TrackerApp:
         return None
 
     def _get_vehicle_specs_from_size_class(self, size_class: str) -> Dict:
-        """차량 크기 분류에 따른 사양 정보 반환"""
         return VehicleSpecsHelper.get_specs_from_size_class(size_class)
 
     def set_score_strategy(self, fn: Callable[[int, str], float]) -> None:
@@ -1384,6 +1383,7 @@ class TrackerApp:
                 "goal_position_x": goal_x,
                 "goal_position_y": goal_y,
             }
+            logger.info(f"feature: {feature}")
             features.append(feature)
 
         return features
@@ -1682,7 +1682,6 @@ class TrackerApp:
             verbose=False,
         )
 
-        # UI 분리: headless 모드 지원
         headless = os.getenv("HEADLESS", "0") == "1"
         window_name = "Tracking"
         if not headless:
