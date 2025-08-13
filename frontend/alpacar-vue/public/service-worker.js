@@ -10,8 +10,8 @@ const precacheResources = ["/", "/index.html"];
 const NOTIFICATION_SETTINGS = {
 	parking_assigned: { title: "🚗 주차 배정", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-assigned-notification" },
 	parking_complete: { title: "🅿️ 주차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-complete-notification" },
-	entry: { title: "🅿️ 입차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "entry-notification" },
-	exit: { title: "🚪 출차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "exit-notification" },
+	entry: { title: "🚪 입차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "entry-notification" },
+	exit: { title: "🚗 출차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "exit-notification" },
 	warning: { title: "⚠️ 주차 경고", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "warning-notification" },
 };
 

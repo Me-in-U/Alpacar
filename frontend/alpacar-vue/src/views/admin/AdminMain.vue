@@ -55,6 +55,15 @@
 							'--bg': layout.bgColor,
 						}"
 					>
+						<!-- 🔻 차단바: 위/아래 각 1개 -->
+						<div class="gate gate--top" title="입구 차단바">
+							<div class="gate-pole"></div>
+							<div class="gate-box"></div>
+						</div>
+						<div class="gate gate--bottom" title="출구 차단바">
+							<div class="gate-pole"></div>
+							<div class="gate-box"></div>
+						</div>
 						<svg class="overlay" :width="layout.mapW" :height="layout.mapH">
 							<g v-for="obj in vehicles" :key="obj.track_id">
 								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" stroke="#ff0" stroke-width="2" />
@@ -256,17 +265,17 @@ export default defineComponent({
 		const layout = reactive({
 			mapW: 900,
 			mapH: 550,
-			slotW: 85,
+			slotW: 71,
 			slotH: 150,
-			slotGap: 6,
-			aisleW: 28,
+			slotGap: 0,
+			aisleW: 20,
 			dividerMargin: 110,
 			showDivider: true,
 			bgColor: "#4c4c4c",
-			carOffsetX: 5,
+			carOffsetX: 0,
 			carOffsetY: 0,
-			offsetTopX: 0,
-			offsetBottomX: 0,
+			offsetTopX: 210,
+			offsetBottomX: 230,
 			topRightSlotH: 135,
 			rows: [
 				{ left: ["B1", "B2", "B3"], right: ["C1", "C2", "C3"] },
@@ -627,7 +636,7 @@ export default defineComponent({
 	position: relative;
 	width: var(--slot-w);
 	height: var(--slot-h);
-	border: 2px solid #fff;
+	border: 7px solid #fff;
 	color: #fff;
 	font-weight: 600;
 	display: flex;
@@ -635,6 +644,10 @@ export default defineComponent({
 	justify-content: center;
 	box-sizing: border-box;
 	overflow: hidden;
+}
+/* 슬롯이 슬롯을 바로 이어받을 때만 왼쪽 보더 제거 → 가운데 경계선이 한 번만 보임 */
+.row .slot + .slot {
+	border-left: 0;
 }
 /* 중앙 차도 */
 .aisle {
@@ -662,11 +675,11 @@ export default defineComponent({
 	position: absolute;
 	left: 4px;
 	right: 4px;
-	bottom: 4px;
+	bottom: 0px;
 	display: flex;
-	gap: 4px;
+	gap: 0px;
 	justify-content: center;
-	z-index: 2;
+	z-index: 3;
 }
 .slot-label {
 	position: absolute;
@@ -834,5 +847,61 @@ export default defineComponent({
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 	pointer-events: none;
 	z-index: 2;
+}
+/* ===== 차단바(Gate) - 사진 스타일 ===== */
+.gate {
+	/* 크기/색 변수 */
+	--pole-w: 10px; /* 기둥 너비 */
+	--pole-h: 80px; /* 기둥 높이 */
+	--box: 30px; /* 작은 네모 한 변 */
+	--gap-x: 0px; /* 기둥과 상자 사이 간격 */
+	--pole-background: #ff2d2d; /* 기둥 테두리(밝은 빨강) */
+	--box-background: #ffe100; /* 상자 테두리(짙은 자주/빨강) */
+
+	position: absolute;
+	left: 215px; /* 지도 왼쪽에서의 위치(필요시 조정) */
+	width: calc(var(--pole-w) + var(--gap-x) + var(--box));
+	height: var(--pole-h);
+	z-index: 2; /* 슬롯 위, SVG 오버레이 아래 */
+	pointer-events: none;
+}
+
+/* 위/아래 게이트의 수직 위치만 다름 */
+.gate--top {
+	top: 170px;
+} /* 필요시 숫자만 조정 */
+.gate--bottom {
+	bottom: 170px;
+}
+
+/* 기둥: 속 빈 사각형 */
+.gate-pole {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: var(--pole-w);
+	height: var(--pole-h);
+	background: var(--pole-background);
+	box-sizing: border-box;
+}
+
+/* 작은 네모: 오른쪽으로 떨어져서 위치 */
+.gate-box {
+	position: absolute;
+	left: calc(var(--pole-w) + var(--gap-x));
+	width: var(--box);
+	height: var(--box);
+	background: var(--box-background);
+	box-sizing: border-box;
+}
+
+/* ⬆️ 위 게이트: 상단에 붙여 배치 */
+.gate--top .gate-box {
+	top: -10px; /* 살짝 위로(음수면 테두리 맞춤) */
+}
+
+/* ⬇️ 아래 게이트: 하단에 붙여 배치 */
+.gate--bottom .gate-box {
+	bottom: -10px;
 }
 </style>
