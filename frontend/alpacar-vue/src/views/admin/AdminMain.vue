@@ -83,11 +83,6 @@
 										<small v-if="spaceVehicleMap[spot]?.plate" class="slot-plate">
 											{{ spaceVehicleMap[spot].plate }}
 										</small>
-										<div class="slot-actions">
-											<button class="btn-mini" @click.stop="setSlot(spot, 'free')">F</button>
-											<button class="btn-mini" @click.stop="setSlot(spot, 'occupied')">O</button>
-											<button class="btn-mini" @click.stop="setSlot(spot, 'reserved')">R</button>
-										</div>
 									</div>
 								</template>
 
@@ -109,11 +104,6 @@
 										<small v-if="spaceVehicleMap[spot]?.plate" class="slot-plate">
 											{{ spaceVehicleMap[spot].plate }}
 										</small>
-										<div class="slot-actions">
-											<button class="btn-mini" @click.stop="setSlot(spot, 'free')">F</button>
-											<button class="btn-mini" @click.stop="setSlot(spot, 'occupied')">O</button>
-											<button class="btn-mini" @click.stop="setSlot(spot, 'reserved')">R</button>
-										</div>
 									</div>
 								</template>
 							</div>
@@ -135,7 +125,31 @@
 								<span class="pvalue">{{ selectedSpot || "-" }}</span>
 							</div>
 							<button class="btn-assign" :disabled="!canAssign" @click="assignSelected">배정하기</button>
-							<p class="hint">• 차량을 고르고, 지도에서 <b>비어있는</b> 슬롯을 클릭하세요.</p>
+							<p class="hint" :class="{ warn: jetsonLive }">
+								{{ jetsonLive ? "• AI가 자리를 배정하고 있습니다. 수동 자리배정이 불가능합니다." : "• 차량을 고르고, 지도에서 비어있는 슬롯을 클릭하세요." }}
+							</p>
+						</div>
+						<!--  수동 상태 변경 -->
+						<div class="panel-card">
+							<div class="panel-title">수동 상태 변경</div>
+							<div class="panel-line">
+								<span class="plabel">슬롯</span>
+								<span class="pvalue">{{ selectedSpot || "-" }}</span>
+							</div>
+							<div class="panel-line">
+								<span class="plabel">현재 상태</span>
+								<span class="pvalue">{{ selectedSpot ? statusMap[selectedSpot] : "-" }}</span>
+							</div>
+
+							<div class="manual-status-controls">
+								<button class="btn-status" :disabled="!canChangeStatus" @click="changeSelectedStatus('free')">Free</button>
+								<button class="btn-status" :disabled="!canChangeStatus" @click="changeSelectedStatus('occupied')">Occupied</button>
+								<button class="btn-status" :disabled="!canChangeStatus" @click="changeSelectedStatus('reserved')">Reserved</button>
+							</div>
+
+							<p class="hint" :class="{ warn: jetsonLive }">
+								{{ jetsonLive ? "• 자동으로 주차칸 상태를 확인하고있습니다. 수동 변경이 불가능합니다." : "•  슬롯을 선택한 뒤 상태를 변경하세요." }}
+							</p>
 						</div>
 					</aside>
 				</div>
@@ -163,6 +177,9 @@ const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
 export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },
 	setup() {
+		const jetsonLive = ref(false);
+
+		let liveDebounce: ReturnType<typeof setTimeout> | null = null;
 		const showModal = ref(false);
 
 		type AssignedSpace = {
@@ -228,13 +245,19 @@ export default defineComponent({
 		}
 
 		function onSpotClick(spot: string) {
+			if (jetsonLive.value) return; // 실시간일 땐 선택 자체 금지
 			if (statusMap[spot] !== "free") return;
 			selectedSpot.value = selectedSpot.value === spot ? null : spot;
 		}
-		const canAssign = computed(() => !!selectedVehicle.value && !!selectedSpot.value);
+		const canAssign = computed(() => !!selectedVehicle.value && !!selectedSpot.value && !jetsonLive.value);
 
 		async function assignSelected() {
 			if (!canAssign.value) return;
+			if (jetsonLive.value) {
+				// 추가 방어
+				alert("실시간 수신 중에는 수동 배정이 비활성화됩니다.");
+				return;
+			}
 			const token = localStorage.getItem("access_token");
 			const plate = selectedVehicle.value!.license_plate;
 			const { zone, slot_number } = parseSpot(selectedSpot.value!);
@@ -323,13 +346,27 @@ export default defineComponent({
 		let ws: WebSocket | null = null;
 		let usageTimer: ReturnType<typeof setInterval>;
 
+		const canChangeStatus = computed(() => !!selectedSpot.value && !jetsonLive.value);
+		async function changeSelectedStatus(status: "free" | "occupied" | "reserved") {
+			if (!canChangeStatus.value || !selectedSpot.value) return;
+			await setSlot(selectedSpot.value, status);
+		}
+
 		function connectWS() {
 			ws = new WebSocket(WSS_PARKING_STATUS_URL);
 			ws.onopen = () => console.log("[ParkingStatus WS] ✅ Connected");
 			ws.onerror = (e) => console.error("[ParkingStatus WS] ❌ Error:", e);
-			ws.onclose = () => console.warn("[ParkingStatus WS] 🔒 Closed");
+			ws.onclose = () => {
+				console.warn("[ParkingStatus WS] 🔒 Closed");
+				jetsonLive.value = false; // 연결 종료 시 수동 변경 가능
+				if (liveDebounce) clearTimeout(liveDebounce);
+			};
 
 			ws.onmessage = (e) => {
+				// 🔻 실시간 수신 플래그 (디바운스)
+				if (liveDebounce) clearTimeout(liveDebounce);
+				jetsonLive.value = true;
+				liveDebounce = setTimeout(() => (jetsonLive.value = false), 3000);
 				try {
 					const data = JSON.parse(e.data);
 
@@ -495,6 +532,9 @@ export default defineComponent({
 			assignSelected,
 			formatDate,
 			spaceVehicleMap,
+			jetsonLive,
+			canChangeStatus,
+			changeSelectedStatus,
 		};
 	},
 });
@@ -712,7 +752,7 @@ export default defineComponent({
 /* 좌측 리스트 + 지도 + 우측 패널 3열 레이아웃 */
 .assign-layout {
 	display: grid;
-	grid-template-columns: 280px auto 260px;
+	grid-template-columns: 280px auto auto;
 	justify-content: center;
 	gap: 16px;
 	width: 100%;
@@ -775,6 +815,7 @@ export default defineComponent({
 .assign-panel {
 	display: flex;
 	flex-direction: column;
+	gap: 16px;
 }
 .panel-card {
 	background: #fff;
@@ -903,5 +944,31 @@ export default defineComponent({
 /* ⬇️ 아래 게이트: 하단에 붙여 배치 */
 .gate--bottom .gate-box {
 	bottom: -10px;
+}
+.manual-status-controls {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px;
+	margin-top: 8px;
+}
+.btn-status {
+	padding: 8px 10px;
+	border: 0;
+	border-radius: 8px;
+	font-weight: 800;
+	background: #6b7280;
+	color: #fff;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+.btn-status:hover {
+	background: #4b5563;
+}
+.btn-status:disabled {
+	background: #cbd5e1;
+	cursor: not-allowed;
+}
+.hint.warn {
+	color: #b45309;
 }
 </style>
