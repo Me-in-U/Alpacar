@@ -6,19 +6,32 @@
 		<!-- Content -->
 		<div class="user-profile__content">
 			<!-- 내 정보 카드 -->
-			<div class="user-info">
+			<div class="user-info" :class="{ 'is-compact': isInfoExpanded }">
 				<div class="user-info__header">
 					<!-- 좌측 스페이서(타이틀 중앙정렬 유지용) -->
 					<div class="user-info__spacer"></div>
 
-					<!-- 중앙: 닉네임 + 이메일(두 줄) -->
+					<!-- 중앙: 닉네임 + (이메일 제거) + 토글 -->
 					<div class="user-info__headline">
 						<div class="headline-name">
 							{{ userInfo?.nickname || "-" }}
 						</div>
-						<div class="headline-email">
-							{{ userInfo?.email || "-" }}
-						</div>
+
+						<!-- ↓ 이메일 줄 삭제하고, 토글 배치 -->
+						<button
+							class="headline-expand"
+							type="button"
+							@click="isInfoExpanded = !isInfoExpanded"
+							:aria-label="isInfoExpanded ? '기본 정보 닫기' : '기본 정보 보기'"
+						>
+							<span class="expand-label">
+								{{ isInfoExpanded ? '기본 정보 닫기' : '기본 정보 보기' }}
+							</span>
+							<svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"
+									:class="{ 'is-open': isInfoExpanded }">
+								<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" fill="currentColor" />
+							</svg>
+						</button>
 					</div>
 
 					<!-- 우측 설정 아이콘: 비밀번호 확인 모달 (소셜 로그인 유저는 숨김) -->
@@ -97,12 +110,6 @@
 					</div>
 				</transition>
 
-				<!-- 화살표 토글 버튼 -->
-				<button class="expand-toggle" :class="{ 'is-open': isInfoExpanded }" @click="isInfoExpanded = !isInfoExpanded" aria-label="자세히 보기">
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" fill="currentColor" />
-					</svg>
-				</button>
 			</div>
 
 			<!-- 내 차량정보 -->
@@ -767,10 +774,38 @@ onMounted(async () => {
 /* 헤더 안 닉네임/이메일 두 줄 */
 .user-info__headline {
 	flex: 1 1 auto;
-	text-align: center;
+	text-align: left;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
+	align-items: flex-start;
+}
+
+/* 펼쳐졌을 때(compact) 항목 높이 축소 */
+.user-info.is-compact .user-info__item {
+  /* 상하 여백 ↓ */
+  padding: 10px 16px;
+  /* min-height가 행 높이를 잡고 있으니 낮추거나 제거 */
+  min-height: 52px; /* 필요하면 48px까지 낮춰도 OK */
+}
+
+/* 아이콘이 너무 커서 행 높이를 밀면 살짝만 줄이기(선택) */
+.user-info.is-compact .user-info__icon {
+  height: 36px;
+  width: 36px;
+}
+.user-info.is-compact .user-info__icon::before {
+  height: 18px;
+  width: 18px;
+}
+
+/* Divider 좌우 여백도 살짝 줄이기(선택) */
+.user-info.is-compact .user-info__divider {
+  margin: 0 16px 0 64px;
+}
+
+/* 라벨-값 사이 간격 미세 조정(선택) */
+.user-info.is-compact .user-info__label {
+  margin-bottom: 1px;
 }
 
 .headline-name {
@@ -778,13 +813,28 @@ onMounted(async () => {
 	font-weight: 800;
 	color: #333333;
 	line-height: 1.2;
+	margin: 0;
 }
 
-.headline-email {
-	font-size: 14px;
-	color: #666666;
-	line-height: 1.2;
-	margin-top: 2px;
+/* 닉네임 아래 토글(텍스트+아이콘) */
+.headline-expand {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;            /* 글자와 아이콘 간격 */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #6b6257;
+  cursor: pointer;
+  border-radius: 6px;
+	align-self: flex-start;
+  margin-left: 0;
+}
+
+.headline-expand:focus-visible {
+  outline: 2px solid rgba(119,107,93,0.4);
+  outline-offset: 2px;
 }
 
 .settings-icon {
@@ -795,12 +845,32 @@ onMounted(async () => {
 }
 
 /* ▼ 화살표 토글 버튼 */
+/* 새 래퍼: 우측 정렬, 라벨-버튼 나란히 */
+.user-info__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 12px 12px 12px; /* 카드 하단 패딩 */
+  gap: 2px;                 /* 라벨과 버튼 간격 */
+  color: #6b6257;
+}
+
+/* 라벨 모양 */
+.expand-label {
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
+	margin: 0;
+}
+
 .expand-toggle {
 	appearance: none;
 	background: transparent;
 	border: none;
-	margin-left: auto;
-	padding: 8px 12px 12px 12px;
+	margin-left: 0;
+	padding: 8px 8px 12px 4px;
 	cursor: pointer;
 	color: #6b6257;
 	display: flex;
@@ -814,6 +884,15 @@ onMounted(async () => {
 }
 .expand-toggle.is-open svg {
 	transform: rotate(180deg);
+}
+
+.expand-icon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.18s ease;
+}
+.expand-icon.is-open {
+  transform: rotate(180deg);
 }
 
 /* ── User Info Rows (펼쳐질 내용) ── */
@@ -834,57 +913,80 @@ onMounted(async () => {
 }
 
 .user-info__icon {
-	width: 40px;
-	height: 40px;
-	border-radius: 10px;
-	position: relative;
-	transition: transform 0.2s ease;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  position: relative;
+  transition: transform 0.2s ease;
+  background: transparent;
 }
 .user-info__icon::before {
-	content: "";
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	width: 20px;
-	height: 20px;
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: contain;
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+
+  /* 아이콘 색상 */
+  background-color: #212730;
+
+  /* 마스크 공통 옵션 */
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+
+  /* 혹시 남아있을 기존 배경이미지 무효화 */
+  background-image: none !important;
 }
 
-/* 이메일 */
-.user-info__icon--email {
-	background: linear-gradient(135deg, #4285f4, #34a853);
+/* 닉네임: 큰 별 아이콘으로 변경 */
+.user-info__icon--nickname { 
+  background: transparent; 
 }
-.user-info__icon--email::before {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
+.user-info__icon--nickname::before {
+  /* 아이콘 자체를 조금 더 키워서 눈에 띄게 */
+  width: 22px;
+  height: 22px;
+
+  /* 단색 채우기 */
+  background-color: #212730;
+
+  /* 마스크(별) */
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 17.27L18.18 21 16.54 13.97 22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 17.27L18.18 21 16.54 13.97 22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-size: contain;
+          mask-size: contain;
 }
 
 /* 이름 */
-.user-info__icon--name {
-	background: linear-gradient(135deg, #ff6b6b, #ff8e53);
-}
+.user-info__icon--name { background: transparent; }
 .user-info__icon--name::before {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
 }
 
-/* 닉네임(보라 그라데이션 + 별 배지) */
-.user-info__icon--nickname {
-	background: linear-gradient(135deg, #7c4dff, #536dfe);
-}
-.user-info__icon--nickname::before {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='white'%3E%3Cpath d='M12 12a4 4 0 1 0-0.001-8.001A4 4 0 0 0 12 12z'/%3E%3Cpath d='M4 20c0-3.313 4.477-6 8-6s8 2.687 8 6v1H4v-1z'/%3E%3C/g%3E%3Cpath d='M18.5 3.8l.7 1.6 1.7.2-1.3 1.2.4 1.6-1.5-.8-1.5.8.4-1.6-1.3-1.2 1.7-.2.7-1.6z' fill='%23FFD54F'/%3E%3C/svg%3E");
+/* 이메일 */
+.user-info__icon--email { background: transparent; }
+.user-info__icon--email::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
 }
 
 /* 전화번호 */
-.user-info__icon--phone {
-	background: linear-gradient(135deg, #00bcd4, #2196f3);
-}
+.user-info__icon--phone { background: transparent; }
 .user-info__icon--phone::before {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
 }
-
 .user-info__content {
 	flex: 1;
 	min-width: 0;
