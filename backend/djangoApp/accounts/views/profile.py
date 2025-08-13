@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from allauth.socialaccount.models import SocialAccount
 
 from accounts.serializers.profile import ProfileSerializer
 
@@ -29,6 +30,11 @@ class UserProfileAPI(APIView):
         data = serializer.data  # 직렬화된 프로필 데이터 취득
         # DEBUG: 프로필 데이터 로그 출력
         print(f"[DEBUG] PROFILE GET for {user.email} → {data!r}")
+        
+        # 소셜 로그인 사용자 여부 확인 (user_id 기반)
+        is_social_user = SocialAccount.objects.filter(user_id=user.id).exists()
+        data["is_social_user"] = is_social_user
+        
         data["vapid_public_key"] = settings.VAPID_PUBLIC_KEY
         # DEBUG: VAPID 키 로그 출력
         print(f"[DEBUG]   + vapid_public_key → {data['vapid_public_key']}")

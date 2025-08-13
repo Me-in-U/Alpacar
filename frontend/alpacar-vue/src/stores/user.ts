@@ -24,6 +24,7 @@ export interface User {
 	score: number;
 	is_staff: boolean;
 	vapid_public_key: string;
+	is_social_user?: boolean;
 }
 
 export const useUserStore = defineStore("user", {
