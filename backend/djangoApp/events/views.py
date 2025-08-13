@@ -70,11 +70,12 @@ def manual_entrance(request):
 @permission_classes([IsAdminUser])
 def manual_parking_complete(request, vehicle_id):
     now = timezone.now()
+    # '주차완료' 여부와 상관없이, 입차 후 아직 출차 안 된 이벤트를 대상으로 허용
     ev = (
         VehicleEvent.objects.filter(
             vehicle_id=vehicle_id,
             entrance_time__isnull=False,
-            parking_time__isnull=True,
+            exit_time__isnull=True,
         )
         .order_by("-id")
         .first()
@@ -103,14 +104,13 @@ def manual_parking_complete(request, vehicle_id):
             # 임시 점수/알림(유지)
             import random
 
-            score = random.randint(70, 95)
             send_parking_complete_notification(
                 vehicle.user,
                 {
                     "plate_number": vehicle.license_plate,
                     "parking_space": f"{space.zone}{space.slot_number}",
                     "parking_time": now.isoformat(),
-                    "score": score,
+                    "score": 0,
                     "admin_action": True,
                 },
             )

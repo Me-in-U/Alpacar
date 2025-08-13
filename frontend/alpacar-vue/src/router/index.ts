@@ -18,7 +18,6 @@ import AdminLogin from "@/views/admin/AdminLogin.vue";
 import AdminMain from "@/views/admin/AdminMain.vue";
 import AdminParkingLogs from "@/views/admin/AdminParkingLogs.vue";
 import AdminPlateOcr from "@/views/admin/AdminPlateOcr.vue";
-import AdminParkingReassign from "@/views/admin/AdminParkingReassign.vue";
 import ParkingRecommend from "@/views/user/ParkingRecommend.vue";
 import ParkingComplete from "@/views/user/ParkingComplete.vue";
 import ParkingHistory from "@/views/user/ParkingHistory.vue";
@@ -37,7 +36,7 @@ async function isAuthenticated(): Promise<boolean> {
 	try {
 		// 보안 토큰 매니저에서 토큰 확인
 		const token = SecureTokenManager.getSecureToken("access_token");
-		
+
 		if (!token) {
 			return false;
 		}
@@ -150,12 +149,6 @@ const router = createRouter({
 			meta: { requiresAuth: true },
 		},
 		{
-			path: "/admin-parkingreassign",
-			name: "admin-parkingreassign",
-			component: AdminParkingReassign,
-			meta: { requiresAuth: true },
-		},
-		{
 			path: "/parking-recommend",
 			name: "parking-recommend",
 			component: ParkingRecommend,
@@ -195,11 +188,11 @@ const router = createRouter({
 			name: "holo",
 			component: MainWithHolo,
 		},
-		{ 
-			path: "/user-setting", 
-			name: "user-setting", 
+		{
+			path: "/user-setting",
+			name: "user-setting",
 			component: UserSetting,
-			meta: { requiresAuth: true, requiresPasswordAuth: true }
+			meta: { requiresAuth: true, requiresPasswordAuth: true },
 		},
 	],
 });
@@ -207,15 +200,15 @@ const router = createRouter({
 // 네비게이션 가드 추가
 router.beforeEach(async (to, from, next) => {
 	const isLoggedIn = await isAuthenticated();
-	
+
 	console.log(`[ROUTER GUARD] 페이지 접근: ${to.path}, 로그인 상태: ${isLoggedIn}`);
-	
+
 	// 주차 히스토리 페이지 접근 디버그
-	if (to.path === '/parking-history') {
+	if (to.path === "/parking-history") {
 		console.log(`[PARKING HISTORY DEBUG] 접근 시도:`, {
 			path: to.path,
 			isLoggedIn: isLoggedIn,
-			from: from.path
+			from: from.path,
 		});
 	}
 
@@ -223,7 +216,7 @@ router.beforeEach(async (to, from, next) => {
 	if (isLoggedIn) {
 		const userStore = useUserStore();
 		console.log(`[ROUTER GUARD] 사용자 스토어 상태:`, userStore.me);
-		
+
 		// 사용자 정보가 없으면 보안 저장소에서 복원 시도
 		if (!userStore.me) {
 			const userData = userStore.restoreUserFromStorage();
@@ -231,54 +224,47 @@ router.beforeEach(async (to, from, next) => {
 				console.log(`[ROUTER GUARD] 보안 저장소에서 사용자 정보 복구:`, userData);
 			}
 		}
-		
+
 		const isAdmin = userStore.me?.is_staff ?? false;
 		console.log(`[ROUTER GUARD] 관리자 여부: ${isAdmin}`, {
 			user: userStore.me,
 			is_staff: userStore.me?.is_staff,
-			is_staff_type: typeof userStore.me?.is_staff
+			is_staff_type: typeof userStore.me?.is_staff,
 		});
-		
+
 		// 주차 히스토리 페이지에 대한 관리자 체크 디버그
-		if (to.path === '/parking-history') {
+		if (to.path === "/parking-history") {
 			console.log(`[PARKING HISTORY DEBUG] 접근 시도:`, {
 				isAdmin: isAdmin,
 				user_is_staff: userStore.me?.is_staff,
-				will_be_blocked: isAdmin
+				will_be_blocked: isAdmin,
 			});
 		}
-		
+
 		if (isAdmin) {
 			console.log(`[ROUTER GUARD] 관리자가 ${to.path} 접근 시도`);
-			
-					// 관리자 허용 페이지 목록 (화이트리스트)
-		const adminAllowedPages = [
-			"/admin-main", "/admin-parkinglogs", "/admin-parkingreassign",
-			"/admin-plate-ocr", "/admin-login", "/modal-test", "/admin-error-test", 
-			"/holo"
-		];
-		
-		// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
-		const adminBlockedPages = [
-			"/social-login-info", "/main", "/user-profile",
-			"/parking-recommend", "/parking-complete"
-		];
-			
-					// 관리자가 접근하면 안 되는 페이지인지 먼저 확인
-		if (adminBlockedPages.includes(to.path)) {
-			console.log(`[ROUTER GUARD] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
-			return next("/admin-main");
-		}
-		
-		// 관리자 페이지이거나 허용된 테스트 페이지인 경우
-		if (to.path.startsWith("/admin") || adminAllowedPages.includes(to.path)) {
-			console.log(`[ROUTER GUARD] 관리자 허용 페이지 접근: ${to.path}`);
-			return next();
-		} else {
-			// 관리자가 허용되지 않은 모든 페이지에 접근하려는 경우 차단
-			console.log(`[ROUTER GUARD] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
-			return next("/admin-main");
-		}
+
+			// 관리자 허용 페이지 목록 (화이트리스트)
+			const adminAllowedPages = ["/admin-main", "/admin-parkinglogs", "/admin-plate-ocr", "/admin-login", "/modal-test", "/admin-error-test", "/holo"];
+
+			// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
+			const adminBlockedPages = ["/social-login-info", "/main", "/user-profile", "/parking-recommend", "/parking-complete"];
+
+			// 관리자가 접근하면 안 되는 페이지인지 먼저 확인
+			if (adminBlockedPages.includes(to.path)) {
+				console.log(`[ROUTER GUARD] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
+				return next("/admin-main");
+			}
+
+			// 관리자 페이지이거나 허용된 테스트 페이지인 경우
+			if (to.path.startsWith("/admin") || adminAllowedPages.includes(to.path)) {
+				console.log(`[ROUTER GUARD] 관리자 허용 페이지 접근: ${to.path}`);
+				return next();
+			} else {
+				// 관리자가 허용되지 않은 모든 페이지에 접근하려는 경우 차단
+				console.log(`[ROUTER GUARD] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
+				return next("/admin-main");
+			}
 		}
 	}
 
@@ -298,55 +284,55 @@ router.beforeEach(async (to, from, next) => {
 			// 비밀번호 인증이 필요한 페이지 체크 (user-setting)
 			if (to.meta.requiresPasswordAuth) {
 				console.log(`[ROUTER GUARD] 비밀번호 인증이 필요한 페이지 접근: ${to.path}`);
-				
+
 				const userStore = useUserStore();
 				const userEmail = userStore.me?.email;
-				
+
 				// 소셜 로그인 유저 여부 확인
 				const isSocialUser = userStore.me?.is_social_user || false;
 				if (isSocialUser) {
 					console.log("[ROUTER GUARD] 소셜 로그인 유저는 user-setting 접근 불가");
-					alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
+					alert("소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.");
 					return next("/user-profile");
 				}
-				
+
 				// 일회용 인증 토큰 확인
-				const oneTimeAuth = sessionStorage.getItem('user-setting-one-time-auth');
+				const oneTimeAuth = sessionStorage.getItem("user-setting-one-time-auth");
 				if (!oneTimeAuth) {
 					console.log("[ROUTER GUARD] 일회용 인증 토큰 없음");
-					alert('비밀번호 인증이 필요합니다. 프로필 페이지의 설정 아이콘을 눌러주세요.');
+					alert("비밀번호 인증이 필요합니다. 프로필 페이지의 설정 아이콘을 눌러주세요.");
 					return next("/user-profile");
 				}
-				
+
 				try {
 					const authData = JSON.parse(oneTimeAuth);
 					const currentTime = Date.now();
-					
+
 					// 일회용 토큰 유효시간: 5초 (5,000ms)
 					if (currentTime - authData.timestamp > 5000) {
 						console.log("[ROUTER GUARD] 일회용 인증 토큰 만료");
-						sessionStorage.removeItem('user-setting-one-time-auth');
-						alert('인증 시간이 만료되었습니다. 다시 인증해주세요.');
+						sessionStorage.removeItem("user-setting-one-time-auth");
+						alert("인증 시간이 만료되었습니다. 다시 인증해주세요.");
 						return next("/user-profile");
 					}
-					
+
 					// 인증 토큰 확인 후 즉시 삭제 (일회용)
-					sessionStorage.removeItem('user-setting-one-time-auth');
+					sessionStorage.removeItem("user-setting-one-time-auth");
 					console.log("[ROUTER GUARD] 일회용 인증 토큰 검증 완료 및 삭제");
 				} catch (error) {
 					console.log("[ROUTER GUARD] 일회용 인증 토큰 손상");
-					sessionStorage.removeItem('user-setting-one-time-auth');
-					alert('인증 정보가 올바르지 않습니다.');
+					sessionStorage.removeItem("user-setting-one-time-auth");
+					alert("인증 정보가 올바르지 않습니다.");
 					return next("/user-profile");
 				}
 			}
-			
+
 			// 일반 사용자 로직 (관리자 체크는 이미 위에서 완료)
 			// 일반 사용자인 경우 차량 등록 여부 확인
 			console.log("일반 사용자입니다. 차량 등록 여부를 확인합니다.");
-			
+
 			// 주차 히스토리 페이지 접근 시 추가 디버깅
-			if (to.path === '/parking-history') {
+			if (to.path === "/parking-history") {
 				console.log(`[PARKING HISTORY DEBUG] 일반 사용자가 접근 중`);
 			}
 			const hasVehicle = await hasVehicleRegistered();
@@ -371,7 +357,7 @@ router.beforeEach(async (to, from, next) => {
 			// 관리자인지 확인하여 적절한 페이지로 리다이렉트
 			const userStore = useUserStore();
 			const isAdmin = userStore.me?.is_staff ?? false;
-			
+
 			if (isAdmin) {
 				console.log("이미 로그인된 관리자입니다. 관리자 메인 페이지로 이동합니다.");
 				next("/admin-main");
@@ -384,33 +370,22 @@ router.beforeEach(async (to, from, next) => {
 			if (isLoggedIn) {
 				const userStore = useUserStore();
 				const isAdmin = userStore.me?.is_staff ?? false;
-				
+
 				if (isAdmin) {
 					console.log(`[ADMIN ACCESS - 비인증페이지] 관리자가 ${to.path} 접근 시도`);
-					
+
 					// 관리자 허용 페이지 목록 (화이트리스트)
-					const adminAllowedPages = [
-						"/admin-main",
-						"/admin-parkinglogs", 
-						"/admin-parkingreassign",
-						"/admin-plate-ocr",
-						"/modal-test",
-						"/admin-error-test", 
-						"/holo",
-					];
-					
+					const adminAllowedPages = ["/admin-main", "/admin-parkinglogs", "/admin-plate-ocr", "/modal-test", "/admin-error-test", "/holo"];
+
 					// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
-					const adminBlockedPages = [
-						"/social-login-info", "/main", "/user-profile",
-						"/parking-recommend", "/parking-complete"
-					];
-					
+					const adminBlockedPages = ["/social-login-info", "/main", "/user-profile", "/parking-recommend", "/parking-complete"];
+
 					// 관리자가 접근하면 안 되는 페이지인지 먼저 확인
 					if (adminBlockedPages.includes(to.path)) {
 						console.log(`[ADMIN ACCESS - 비인증페이지] 관리자 차단 페이지 접근 시도: ${to.path} -> /admin-main 리다이렉트`);
 						return next("/admin-main");
 					}
-					
+
 					// 관리자 페이지이거나 허용된 테스트 페이지인 경우
 					if (to.path.startsWith("/admin") || adminAllowedPages.includes(to.path)) {
 						console.log(`[ADMIN ACCESS - 비인증페이지] 허용된 페이지 접근: ${to.path}`);

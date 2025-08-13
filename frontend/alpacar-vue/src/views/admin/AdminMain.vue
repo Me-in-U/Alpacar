@@ -58,12 +58,15 @@
 						<!-- 🔻 차단바: 위/아래 각 1개 -->
 						<div class="gate gate--top" title="입구 차단바">
 							<div class="gate-pole"></div>
+							<div class="gate-arm"></div>
 							<div class="gate-box"></div>
 						</div>
 						<div class="gate gate--bottom" title="출구 차단바">
 							<div class="gate-pole"></div>
+							<div class="gate-arm"></div>
 							<div class="gate-box"></div>
 						</div>
+
 						<svg class="overlay" :width="layout.mapW" :height="layout.mapH">
 							<g v-for="obj in vehicles" :key="obj.track_id">
 								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" stroke="#ff0" stroke-width="2" />
@@ -114,41 +117,43 @@
 
 					<!-- 우: 선택 요약/배정 -->
 					<aside class="assign-panel">
+						<!--  공통: 선택 슬롯 요약 (한 줄) -->
+						<div class="panel-card selection-card">
+							<div class="selection-row flash-in" :key="(selectedSpot || 'none') + '-' + (selectedSpot ? statusMap[selectedSpot] : 'none')">
+								<span class="selection-label">주차칸</span>
+								<span class="selection-slot">
+									{{ selectedSpot ? `${selectedSpot} 선택됨` : "미선택" }}
+								</span>
+								<span class="dot">·</span>
+								<span class="status-pill" :data-status="selectedSpot ? statusMap[selectedSpot] : 'none'">
+									{{ selectedSpot ? statusMap[selectedSpot] : "상태 없음" }}
+								</span>
+							</div>
+						</div>
+
+						<!-- 수동 배정 -->
 						<div class="panel-card">
 							<div class="panel-title">수동 배정</div>
 							<div class="panel-line">
 								<span class="plabel">차량</span>
-								<span class="pvalue">{{ selectedVehicle?.license_plate || "-" }}</span>
-							</div>
-							<div class="panel-line">
-								<span class="plabel">슬롯</span>
-								<span class="pvalue">{{ selectedSpot || "-" }}</span>
+								<span class="pvalue">{{ selectedVehicle?.license_plate || "- 선택 안됨 -" }}</span>
 							</div>
 							<button class="btn-assign" :disabled="!canAssign" @click="assignSelected">배정하기</button>
 							<p class="hint" :class="{ warn: jetsonLive }">
-								{{ jetsonLive ? "• AI가 자리를 배정하고 있습니다. 수동 자리배정이 불가능합니다." : "• 차량을 고르고, 지도에서 비어있는 슬롯을 클릭하세요." }}
+								{{ jetsonLive ? "• AI가 자리를 배정하고 있습니다. 수동 자리배정이 불가능합니다." : "• 차량을 고르고, 지도에서 비어있는 주차칸을 클릭하세요." }}
 							</p>
 						</div>
-						<!--  수동 상태 변경 -->
+
+						<!-- 수동 상태 변경 -->
 						<div class="panel-card">
 							<div class="panel-title">수동 상태 변경</div>
-							<div class="panel-line">
-								<span class="plabel">슬롯</span>
-								<span class="pvalue">{{ selectedSpot || "-" }}</span>
-							</div>
-							<div class="panel-line">
-								<span class="plabel">현재 상태</span>
-								<span class="pvalue">{{ selectedSpot ? statusMap[selectedSpot] : "-" }}</span>
-							</div>
-
 							<div class="manual-status-controls">
 								<button class="btn-status" :disabled="!canChangeStatus" @click="changeSelectedStatus('free')">Free</button>
 								<button class="btn-status" :disabled="!canChangeStatus" @click="changeSelectedStatus('occupied')">Occupied</button>
 								<button class="btn-status" :disabled="!canChangeStatus" @click="changeSelectedStatus('reserved')">Reserved</button>
 							</div>
-
 							<p class="hint" :class="{ warn: jetsonLive }">
-								{{ jetsonLive ? "• 자동으로 주차칸 상태를 확인하고있습니다. 수동 변경이 불가능합니다." : "•  슬롯을 선택한 뒤 상태를 변경하세요." }}
+								{{ jetsonLive ? "• 자동으로 주차칸 상태를 확인하고있습니다. 수동 변경이 불가능합니다." : "• 주차칸을 선택한 뒤 상태를 변경하세요." }}
 							</p>
 						</div>
 					</aside>
@@ -166,18 +171,17 @@ import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { SecureTokenManager } from "@/utils/security";
 
-/* 
-  백엔드 엔드포인트
-  - REST: BACKEND_BASE_URL 사용(예: https://api.example.com)
-  - WS: 배포 환경에 맞춰 wss:// 로 교체
-*/
-
 const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
 // const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
 
 export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },
 	setup() {
+		const authHeaders = () => ({
+			Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+			"Content-Type": "application/json",
+		});
+
 		const jetsonLive = ref(false);
 
 		let liveDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -198,15 +202,6 @@ export default defineComponent({
 			status: string;
 			assigned_space?: AssignedSpace | null;
 		};
-		type SpacePayload = Record<
-			string,
-			{
-				status: "free" | "occupied" | "reserved";
-				size: string | null;
-				vehicle_id?: number | null;
-				license_plate?: string | null;
-			}
-		>;
 
 		const spaceVehicleMap = reactive<Record<string, { vehicle_id: number | null; plate: string | null }>>({});
 		const selectedVehicle = ref<null | ActiveVehicleItem>(null);
@@ -216,7 +211,7 @@ export default defineComponent({
 		async function fetchActiveVehicles() {
 			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicle-events/active/`, {
-				headers: { Authorization: `Bearer ${token}` },
+				headers: authHeaders(),
 			});
 			if (!res.ok) return;
 			const data = await res.json();
@@ -246,12 +241,17 @@ export default defineComponent({
 		}
 
 		function onSpotClick(spot: string) {
-			if (jetsonLive.value) return; // 실시간일 땐 선택 자체 금지
-			if (statusMap[spot] !== "free") return;
+			if (jetsonLive.value) return; // AI가 배정 중이면 선택 자체만 막음(요구조건 유지)
+			// ✅ 상태와 관계없이 선택 허용 (상태 변경을 위해)
 			selectedSpot.value = selectedSpot.value === spot ? null : spot;
 		}
-		const canAssign = computed(() => !!selectedVehicle.value && !!selectedSpot.value && !jetsonLive.value);
-
+		const canAssign = computed(
+			() =>
+				!!selectedVehicle.value &&
+				!!selectedSpot.value &&
+				statusMap[selectedSpot.value!] === "free" && // ✅ free 슬롯만 수동 배정 허용
+				!jetsonLive.value
+		);
 		async function assignSelected() {
 			if (!canAssign.value) return;
 			if (jetsonLive.value) {
@@ -266,7 +266,7 @@ export default defineComponent({
 			try {
 				const res = await fetch(`${BACKEND_BASE_URL}/parking/assign/`, {
 					method: "POST",
-					headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+					headers: authHeaders(),
 					body: JSON.stringify({ license_plate: plate, zone, slot_number }),
 				});
 				if (!res.ok) throw new Error(await res.text());
@@ -327,8 +327,8 @@ export default defineComponent({
 		const usageToday = ref(0);
 		const cards = computed(() => [
 			{ key: "total", title: "전체 주차 공간", value: totalSlots.value, unit: "개", color: "c-blue", icon: "🚗", live: true },
-			{ key: "occupied", title: "사용중", value: occupiedCount.value, unit: "개", color: "c-orange", icon: "🅿️", live: true },
 			{ key: "free", title: "빈 공간", value: freeCount.value, unit: "개", color: "c-green", icon: "✅", live: true },
+			{ key: "occupied", title: "사용중", value: occupiedCount.value, unit: "개", color: "c-orange", icon: "🅿️", live: true },
 			{ key: "reserved", title: "예약됨", value: reservedCount.value, unit: "개", color: "c-yellow", icon: "📌", live: true },
 			{ key: "usage", title: "오늘 이용량", value: usageToday.value, unit: "대", color: "c-purple", icon: "📈", live: false },
 		]);
@@ -348,6 +348,7 @@ export default defineComponent({
 		let usageTimer: ReturnType<typeof setInterval>;
 
 		const canChangeStatus = computed(() => !!selectedSpot.value && !jetsonLive.value);
+
 		async function changeSelectedStatus(status: "free" | "occupied" | "reserved") {
 			if (!canChangeStatus.value || !selectedSpot.value) return;
 			await setSlot(selectedSpot.value, status);
@@ -364,12 +365,17 @@ export default defineComponent({
 			};
 
 			ws.onmessage = (e) => {
-				// 🔻 실시간 수신 플래그 (디바운스)
-				if (liveDebounce) clearTimeout(liveDebounce);
-				jetsonLive.value = true;
-				liveDebounce = setTimeout(() => (jetsonLive.value = false), 3000);
 				try {
 					const data = JSON.parse(e.data);
+
+					// ✅ 진짜 AI 신호일 때만 라이브 플래그 토글
+					const isAiSignal = data?.origin === "ai";
+
+					if (isAiSignal) {
+						if (liveDebounce) clearTimeout(liveDebounce);
+						jetsonLive.value = true;
+						liveDebounce = setTimeout(() => (jetsonLive.value = false), 1500);
+					}
 
 					switch (data?.message_type) {
 						case "car_position": {
@@ -457,7 +463,7 @@ export default defineComponent({
 			try {
 				const token = SecureTokenManager.getSecureToken("access_token");
 				const res = await fetch(`${BACKEND_BASE_URL}/parking/stats/today/`, {
-					headers: { Authorization: `Bearer ${token}` },
+					headers: authHeaders(),
 				});
 				if (!res.ok) throw new Error(await res.text());
 				const d = await res.json();
@@ -500,7 +506,7 @@ export default defineComponent({
 			try {
 				const res = await fetch(`${BACKEND_BASE_URL}/parking/space/set-status/`, {
 					method: "POST",
-					headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+					headers: authHeaders(),
 					body: JSON.stringify({ zone, slot_number, status }),
 				});
 				if (!res.ok) throw new Error(await res.text());
@@ -656,6 +662,17 @@ export default defineComponent({
 	border-radius: 14px;
 	padding: 10px 0;
 	box-sizing: border-box;
+	--slot-border: 6px;
+	--slot-border-color: #ece9e4;
+	/* 상태 팔레트(저채도, 대비 확보) */
+	--c-free: #63b99b; /* soft green */
+	--c-free-2: #6aa992;
+
+	--c-reserved: #f0c245; /* warm pastel yellow */
+	--c-reserved-2: #e6c75e;
+
+	--c-occupied: #e88f8f; /* muted rose */
+	--c-occupied-2: #d37c7c;
 }
 /* 차량 오버레이는 상단 고정 */
 .overlay {
@@ -674,10 +691,11 @@ export default defineComponent({
 }
 /* 개별 슬롯 */
 .slot {
+	z-index: 1;
 	position: relative;
 	width: var(--slot-w);
 	height: var(--slot-h);
-	border: 7px solid #fff;
+	border: var(--slot-border, 7px) solid var(--slot-border-color, #fff);
 	color: #fff;
 	font-weight: 600;
 	display: flex;
@@ -685,8 +703,10 @@ export default defineComponent({
 	justify-content: center;
 	box-sizing: border-box;
 	overflow: hidden;
+	transition: transform 120ms ease, box-shadow 120ms ease, outline-color 120ms ease;
+	will-change: transform, box-shadow;
 }
-/* 슬롯이 슬롯을 바로 이어받을 때만 왼쪽 보더 제거 → 가운데 경계선이 한 번만 보임 */
+/* 이웃 슬롯 사이 중앙선: 왼쪽 보더 제거*/
 .row .slot + .slot {
 	border-left: 0;
 }
@@ -702,26 +722,19 @@ export default defineComponent({
 
 /* 상태 색상 */
 .status-free {
-	background: #9c9c9c;
-}
-.status-occupied {
-	background: #e75757;
+	background: linear-gradient(180deg, var(--c-free) 0%, var(--c-free-2) 100%);
+	box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 .status-reserved {
-	background: #f5dd29;
+	background: linear-gradient(180deg, var(--c-reserved) 0%, var(--c-reserved-2) 100%);
+	box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.05);
+}
+.status-occupied {
+	background: linear-gradient(180deg, var(--c-occupied) 0%, var(--c-occupied-2) 100%);
+	box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08);
 }
 
 /* 슬롯 라벨/버튼 */
-.slot-actions {
-	position: absolute;
-	left: 4px;
-	right: 4px;
-	bottom: 0px;
-	display: flex;
-	gap: 0px;
-	justify-content: center;
-	z-index: 3;
-}
 .slot-label {
 	position: absolute;
 	top: 8px;
@@ -730,19 +743,6 @@ export default defineComponent({
 	text-align: center;
 	pointer-events: none;
 	z-index: 1;
-}
-.btn-mini {
-	padding: 2px 6px;
-	border: none;
-	border-radius: 3px;
-	font-size: 12px;
-	cursor: pointer;
-	background: #222;
-	color: #fff;
-	opacity: 0.9;
-}
-.btn-mini:hover {
-	opacity: 1;
 }
 .slot--placeholder {
 	visibility: hidden;
@@ -817,6 +817,7 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
+	height: var(--map-h); /* 지도와 동일 높이 */
 }
 .panel-card {
 	background: #fff;
@@ -870,11 +871,71 @@ export default defineComponent({
 	background: #d7cec4;
 	cursor: not-allowed;
 }
-
+.is-spot-selected::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0; /* overflow:hidden 때문에 음수로 빼지 말고 내부에 그린다 */
+	width: var(--slot-border); /* 보더 두께만큼 */
+	height: 100%;
+	background: var(--slot-border-color);
+	pointer-events: none;
+	z-index: 1; /* 라벨(1)과 겹치면 0~1 사이로 조절 */
+}
+.row > .slot.is-spot-selected:first-child::before,
+.row > .aisle + .slot.is-spot-selected::before {
+	display: none;
+}
 /* 슬롯 클릭 선택 하이라이트 */
 .is-spot-selected {
-	outline: 3px solid rgba(162, 146, 128, 0.55);
-	box-shadow: inset 0 0 0 2px #fff;
+	z-index: 4; /* 게이트/이웃 슬롯보다 위 */
+	transform: translateY(-2px) scale(1.04);
+	/* ⛔ outline 제거해서 이중 테두리 방지 */
+	outline: none;
+
+	/* 펄스는 drop-shadow로 → overflow에 안 잘리고 훨씬 잘 보임 */
+	filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.35)) drop-shadow(0 0 10px rgba(162, 146, 128, 0.35));
+
+	animation: glowPulse 1.2s ease-in-out infinite;
+}
+/* 더 잘 보이는 글로우 펄스 */
+@keyframes glowPulse {
+	0% {
+		filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.25)) drop-shadow(0 0 8px rgba(162, 146, 128, 0.25));
+	}
+	50% {
+		filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 24px rgba(162, 146, 128, 0.65));
+	}
+	100% {
+		filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.25)) drop-shadow(0 0 8px rgba(162, 146, 128, 0.25));
+	}
+}
+/* 모션 줄이기 선호시 최소화 */
+@media (prefers-reduced-motion: reduce) {
+	.slot {
+		transition: none;
+	}
+	.is-spot-selected {
+		transform: none;
+		animation: none;
+		filter: none;
+		box-shadow: inset 0 0 0 2px #fff; /* 정적 하이라이트만 */
+	}
+}
+
+@keyframes slotPulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(162, 146, 128, 0.45);
+		opacity: 1;
+	}
+	70% {
+		box-shadow: 0 0 0 14px rgba(162, 146, 128, 0);
+		opacity: 0.85;
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(162, 146, 128, 0);
+		opacity: 1;
+	}
 }
 .slot-plate {
 	position: absolute;
@@ -882,9 +943,8 @@ export default defineComponent({
 	left: 0;
 	right: 0;
 	text-align: center;
-	font-size: 14px;
+	font-size: 17px;
 	font-weight: 800;
-	color: #000000;
 	color: #000000;
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 	pointer-events: none;
@@ -897,8 +957,8 @@ export default defineComponent({
 	--pole-h: 80px; /* 기둥 높이 */
 	--box: 30px; /* 작은 네모 한 변 */
 	--gap-x: 0px; /* 기둥과 상자 사이 간격 */
-	--pole-background: #ff2d2d; /* 기둥 테두리(밝은 빨강) */
-	--box-background: #ffe100; /* 상자 테두리(짙은 자주/빨강) */
+	--pole-background: #ff5b5b; /* 기둥 테두리(밝은 빨강) */
+	--box-background: #ffe521; /* 상자 테두리(짙은 자주/빨강) */
 
 	position: absolute;
 	left: 215px; /* 지도 왼쪽에서의 위치(필요시 조정) */
@@ -950,7 +1010,7 @@ export default defineComponent({
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
 	gap: 8px;
-	margin-top: 8px;
+	margin-top: 19px;
 }
 .btn-status {
 	padding: 8px 10px;
@@ -971,5 +1031,94 @@ export default defineComponent({
 }
 .hint.warn {
 	color: #b45309;
+}
+/* ===== 공통 선택 카드 ===== */
+.selection-card {
+	background: #fff;
+	border: 1px solid #e6dfd6;
+	border-radius: 12px;
+	padding: 12px 14px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+.selection-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 28px;
+	font-weight: 800;
+	color: #403a34;
+}
+
+.selection-label {
+	color: #6b6257;
+	font-weight: 900;
+	letter-spacing: 0.2px;
+}
+.selection-slot {
+	color: #0f172a;
+	font-weight: 900;
+}
+.dot {
+	color: #9aa0a6;
+}
+.selection-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.selection-title {
+	font-weight: 900;
+	color: #403a34;
+}
+
+.status-pill {
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 800;
+	text-transform: capitalize;
+	background: #e5e7eb;
+	color: #374151;
+}
+.status-pill[data-status="free"] {
+	background: #e8f7ec;
+	color: #166534;
+}
+.status-pill[data-status="reserved"] {
+	background: #fff7cc;
+	color: #92400e;
+}
+.status-pill[data-status="occupied"] {
+	background: #fde2e2;
+	color: #991b1b;
+}
+.status-pill[data-status="none"] {
+	background: #e5e7eb;
+	color: #6b7280;
+}
+/* 빠르게 나타나는 짧은 애니메이션 (장식 없음) */
+@keyframes flashIn {
+	0% {
+		opacity: 0;
+		transform: translateY(2px) scale(0.995);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+.flash-in {
+	animation: flashIn 300ms ease-out;
+}
+
+.assign-panel .panel-card + .panel-card {
+	margin-top: 8px;
+}
+
+/* 패널 간격 살짝 조정 */
+.assign-panel .panel-card + .panel-card {
+	margin-top: 8px;
 }
 </style>
