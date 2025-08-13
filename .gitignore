@@ -286,3 +286,6 @@ pyrightconfig.json
 /.vscode
 
 .claude/
+*.mp4
+*.avi
+*.pt
