@@ -1,6 +1,6 @@
 <template>
   <div class="main-page-container">
-    <HeaderTest />
+    <Header />
 
     <!-- Main Content -->
     <div class="main-content">
@@ -132,7 +132,7 @@ import BottomNavigation from '@/components/BottomNavigation.vue'
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import HeaderTest from '@/components/HeaderTest.vue'
+// HeaderTest import removed - using regular Header component
 
 
 const router = useRouter()
