@@ -11,12 +11,24 @@
 			<div class="login-form">
 				<!-- Email Input -->
 				<div class="input-field">
-					<input type="email" placeholder="이메일 입력" v-model="email" class="input" />
+					<input 
+						type="email" 
+						placeholder="이메일 입력" 
+						v-model="email" 
+						class="input"
+						@keyup.enter="handleLogin" 
+					/>
 				</div>
 
 				<!-- Password Input -->
 				<div class="input-field">
-					<input type="password" placeholder="비밀번호 입력" v-model="password" class="input" />
+					<input 
+						type="password" 
+						placeholder="비밀번호 입력" 
+						v-model="password" 
+						class="input"
+						@keyup.enter="handleLogin" 
+					/>
 				</div>
 
 				<!-- Login Button -->
