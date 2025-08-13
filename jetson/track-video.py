@@ -27,6 +27,16 @@ except Exception:
 # Module logger
 logger = logging.getLogger(__name__)
 
+# 로깅 설정
+logging.basicConfig(
+    level=logging.DEBUG,  # DEBUG 레벨로 설정하여 더 자세한 로그 출력
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # 콘솔 출력
+        # logging.FileHandler('track-video.log')  # 파일 출력
+    ]
+)
+
 # =============================
 # Configuration
 # =============================
