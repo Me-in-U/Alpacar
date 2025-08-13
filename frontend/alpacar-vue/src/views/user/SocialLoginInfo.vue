@@ -76,6 +76,7 @@ import { ref, reactive, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
+import { SecureTokenManager } from "@/utils/security";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -109,14 +110,46 @@ onMounted(() => {
 	}
 });
 
+// 보안 토큰 가져오기 함수
+const getSecureToken = () => {
+	return SecureTokenManager.getSecureToken("access_token");
+};
+
 // 로그인 확인
 onMounted(() => {
-	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+	const token = getSecureToken();
 	if (!token) {
 		alert("로그인이 필요합니다.");
 		router.push("/login");
+		return;
 	}
+	
+	// 토큰이 만료되었는지 확인하는 API 호출
+	verifyToken(token);
 });
+
+// 토큰 검증 함수
+const verifyToken = async (token: string) => {
+	try {
+		const response = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+		});
+
+		if (response.status === 401) {
+			// 토큰이 만료된 경우 - userStore의 clearUser 사용
+			userStore.clearUser();
+			alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+			router.push("/login");
+		}
+	} catch (error) {
+		console.error("토큰 검증 중 오류:", error);
+		// 네트워크 오류 등의 경우 로그인 페이지로 이동
+		router.push("/login");
+	}
+};
 
 // 차량번호 입력 시 숫자/한글만 허용 + 상태 초기화
 const handleVehicleNumberInput = (event: Event) => {
@@ -162,7 +195,7 @@ const addVehicle = async () => {
 		return;
 	}
 
-	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+	const token = getSecureToken();
 	if (!token) {
 		alert("로그인이 필요합니다.");
 		router.push("/login");
@@ -202,7 +235,9 @@ const addVehicle = async () => {
 				if (response.status === 404) {
 					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
-					alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+					// 세션 만료 시 로그인 페이지로 이동
+					userStore.clearUser();
+					alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
 					router.push("/login");
 				} else {
 					alert("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
@@ -226,7 +261,7 @@ const completeSetup = async () => {
 	}
 
 	try {
-		const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+		const token = getSecureToken();
 		if (!token) {
 			alert("로그인이 필요합니다.");
 			router.push("/login");
@@ -260,7 +295,9 @@ const completeSetup = async () => {
 				if (response.status === 404) {
 					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
-					alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+					// 세션 만료 시 로그인 페이지로 이동
+					userStore.clearUser();
+					alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
 					router.push("/login");
 				} else {
 					alert("주차실력 저장에 실패했습니다. (오류 코드: " + response.status + ")");

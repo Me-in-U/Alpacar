@@ -1,11 +1,16 @@
 // public/service-worker.js - Alpacar PWA Service Worker (safe fetch)
-// ✅ Workbox 프리캐시 주입 지점 (injectManifest가 이 줄을 치환해서 정적파일 목록을 주입)
-import { precacheAndRoute } from "workbox-precaching";
-precacheAndRoute(self.__WB_MANIFEST || []);
+// ✅ Workbox 프리캐시 주입 지점 (빌드 시 자동으로 매니페스트 주입됨)
+const precacheManifest = self.__WB_MANIFEST || [];
 
 const SW_VERSION = "v3.4";
 const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
+
+// Workbox 매니페스트와 기본 리소스 결합
+const allPrecacheResources = [
+  ...precacheResources,
+  ...precacheManifest.map(entry => typeof entry === 'string' ? entry : entry.url)
+];
 
 const NOTIFICATION_SETTINGS = {
 	parking_assigned: { title: "🚗 주차 배정", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-assigned-notification" },
@@ -17,7 +22,8 @@ const NOTIFICATION_SETTINGS = {
 
 self.addEventListener("install", (event) => {
 	console.log(`Alpacar SW install ${SW_VERSION}`);
-	event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(precacheResources)));
+	console.log(`Precaching ${allPrecacheResources.length} resources`);
+	event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(allPrecacheResources)));
 	self.skipWaiting();
 });
 
