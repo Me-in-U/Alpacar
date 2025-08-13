@@ -53,17 +53,94 @@ SNAPSHOT_PATH = str(Path(__file__).with_name("status_snapshot.json"))
 
 # Parking zones (normalized)
 PARKING_ZONES_NORM: List[Dict[str, Any]] = [
-    {"id": "b1", "rect": [0.371914, 0.00823, 0.45216, 0.26749]},
-    {"id": "b2", "rect": [0.448302, 0.010974, 0.527778, 0.268861]},
-    {"id": "b3", "rect": [0.522377, 0.006859, 0.603395, 0.266118]},
-    {"id": "c1", "rect": [0.633488, 0.005487, 0.709105, 0.237311]},
-    {"id": "c2", "rect": [0.706019, 0.006859, 0.783951, 0.242798]},
-    {"id": "c3", "rect": [0.783951, 0.009602, 0.858796, 0.238683]},
-    {"id": "a1", "rect": [0.374228, 0.727023, 0.450617, 0.969822]},
-    {"id": "a2", "rect": [0.448302, 0.727023, 0.524691, 0.973937]},
-    {"id": "a3", "rect": [0.523148, 0.72428, 0.60108, 0.973937]},
-    {"id": "a4", "rect": [0.631173, 0.73251, 0.707562, 0.971193]},
-    {"id": "a5", "rect": [0.704475, 0.733882, 0.781636, 0.975309]},
+    {
+        "id": "b1", 
+        "rect": [0.371914, 0.00823, 0.45216, 0.26749],
+        "left_zone": "",
+        "right_zone": "b2",
+        "left_pillar": True,
+        "right_pillar": False,
+    },
+    {
+        "id": "b2", 
+        "rect": [0.448302, 0.010974, 0.527778, 0.268861],
+        "left_zone": "b1",
+        "right_zone": "b3",
+        "left_pillar": False,
+        "right_pillar": False,
+    },
+    {
+        "id": "b3", 
+        "rect": [0.522377, 0.006859, 0.603395, 0.266118],
+        "left_zone": "b2",
+        "right_zone": "",
+        "left_pillar": False,
+        "right_pillar": True,
+    },
+    {
+        "id": "c1", 
+        "rect": [0.633488, 0.005487, 0.709105, 0.237311],
+        "left_zone": "",
+        "right_zone": "c2",
+        "left_pillar": True,
+        "right_pillar": False,
+    },
+    {
+        "id": "c2", 
+        "rect": [0.706019, 0.006859, 0.783951, 0.242798],
+        "left_zone": "c1",
+        "right_zone": "c3",
+        "left_pillar": False,
+        "right_pillar": False,
+    },
+    {
+        "id": "c3", 
+        "rect": [0.783951, 0.009602, 0.858796, 0.238683],
+        "left_zone": "c2",
+        "right_zone": "",
+        "left_pillar": False,
+        "right_pillar": True,
+    },
+    {
+        "id": "a1", 
+        "rect": [0.374228, 0.727023, 0.450617, 0.969822],
+        "left_zone": "a2",
+        "right_zone": "",
+        "left_pillar": False,
+        "right_pillar": True,
+    },
+    {
+        "id": "a2", 
+        "rect": [0.448302, 0.727023, 0.524691, 0.973937],
+        "left_zone": "a3",
+        "right_zone": "a1",
+        "left_pillar": False,
+        "right_pillar": False,
+    },
+    {
+        "id": "a3", 
+        "rect": [0.523148, 0.72428, 0.60108, 0.973937],
+        "left_zone": "",
+        "right_zone": "a2",
+        "left_pillar": True,
+        "right_pillar": False,
+    },
+    {
+        "id": "a4", 
+        "rect": [0.631173, 0.73251, 0.707562, 0.971193],
+        "left_zone": "a5",
+        "right_zone": "",
+        "left_pillar": False,
+        "right_pillar": True,
+    },
+    {
+        "id": "a5", 
+        "rect": [0.704475, 0.733882, 0.781636, 0.975309],
+        "left_zone": "",
+        "right_zone": "a4",
+        "left_pillar": True,
+        "right_pillar": False,
+    },
 ]
 
 
@@ -83,6 +160,151 @@ def point_in_norm_rect(
     x1, y1 = x1n * frame_w, y1n * frame_h
     x2, y2 = x2n * frame_w, y2n * frame_h
     return x1 <= cx <= x2 and y1 <= cy <= y2
+
+
+class VehicleSpecsHelper:
+    """차량 사양 정보 관련 헬퍼 클래스"""
+    
+    # 차량 크기별 사양 정보 (미터 단위)
+    SIZE_CLASS_SPECS = {
+        "compact": {"width": 2.0, "length": 4.2, "size_code": 1},
+        "midsize": {"width": 2.5, "length": 5.0, "size_code": 2},
+        "suv": {"width": 2.8, "length": 5.2, "size_code": 3}
+    }
+    
+    # 차량 크기별 박스 크기 (픽셀 단위)
+    SIZE_CLASS_BOXES = {
+        "compact": (200, 80),
+        "midsize": (250, 100),
+        "suv": (300, 120)
+    }
+    
+    @classmethod
+    def get_specs_from_size_class(cls, size_class: Optional[str]) -> Dict[str, Any]:
+        """size_class로부터 차량 사양 정보 반환 (미터 단위)"""
+        if not size_class:
+            return {"width": 2.5, "length": 5.0, "size_code": 2}
+        
+        return cls.SIZE_CLASS_SPECS.get(size_class.lower(), {"width": 2.5, "length": 5.0, "size_code": 2})
+    
+    @classmethod
+    def get_box_size_from_size_class(cls, size_class: Optional[str]) -> Tuple[int, int]:
+        """size_class로부터 박스 크기 반환 (픽셀 단위)"""
+        if not size_class:
+            return (250, 100)
+        
+        return cls.SIZE_CLASS_BOXES.get(size_class.lower(), (250, 100))
+    
+    @classmethod
+    def parse_size_class_string(cls, size_class: str) -> Tuple[int, int]:
+        """size_class 문자열을 파싱하여 박스 크기 반환"""
+        try:
+            if "," in size_class:
+                width, length = map(float, size_class.split(","))
+                return (int(width * 100), int(length * 100))
+        except Exception:
+            pass
+        return cls.get_box_size_from_size_class(size_class)
+
+
+class ZoneInfoHelper:
+    """주차 구역 정보 관련 헬퍼 클래스"""
+    
+    @staticmethod
+    def find_zone_by_id(zones_norm: List[Dict[str, Any]], zone_id: str) -> Optional[Dict[str, Any]]:
+        """구역 ID로 구역 정보 찾기"""
+        for zone in zones_norm:
+            if zone["id"].upper() == zone_id.upper():
+                return zone
+        return None
+    
+    @staticmethod
+    def get_adjacent_zone_info(zone_info: Dict[str, Any], slot_map: Dict[str, str], 
+                              occupant_to_zone: Dict[int, str], last_angle_by_id: Dict[int, float],
+                              plate_mgr: PlateManager) -> Dict[str, Any]:
+        """인접 구역 정보 추출"""
+        result = {
+            "left_occupied": 0, "left_angle": 0.0, "left_offset": 0.0, "left_size": 0,
+            "left_width": 0, "left_length": 0, "left_has_pillar": 0,
+            "right_occupied": 0, "right_angle": 0.0, "right_offset": 0.0, "right_size": 0,
+            "right_width": 0, "right_length": 0, "right_has_pillar": 0
+        }
+        
+        # 좌측 구역 처리
+        left_zone_id = zone_info.get("left_zone", "")
+        if left_zone_id:
+            left_zone_upper = left_zone_id.upper()
+            result["left_occupied"] = 1 if slot_map.get(left_zone_upper) == "occupied" else 0
+            result["left_has_pillar"] = 1 if zone_info.get("left_pillar", False) else 0
+            
+            if result["left_occupied"]:
+                ZoneInfoHelper._fill_adjacent_vehicle_info(
+                    left_zone_upper, occupant_to_zone, last_angle_by_id, plate_mgr, result, "left"
+                )
+        
+        # 우측 구역 처리
+        right_zone_id = zone_info.get("right_zone", "")
+        if right_zone_id:
+            right_zone_upper = right_zone_id.upper()
+            result["right_occupied"] = 1 if slot_map.get(right_zone_upper) == "occupied" else 0
+            result["right_has_pillar"] = 1 if zone_info.get("right_pillar", False) else 0
+            
+            if result["right_occupied"]:
+                ZoneInfoHelper._fill_adjacent_vehicle_info(
+                    right_zone_upper, occupant_to_zone, last_angle_by_id, plate_mgr, result, "right"
+                )
+        
+        return result
+    
+    @staticmethod
+    def _fill_adjacent_vehicle_info(zone_upper: str, occupant_to_zone: Dict[int, str], 
+                                   last_angle_by_id: Dict[int, float], plate_mgr: PlateManager,
+                                   result: Dict[str, Any], side: str):
+        """인접 차량 정보 채우기"""
+        for tid, occupied_zone in occupant_to_zone.items():
+            if occupied_zone == zone_upper:
+                # 각도 정보
+                result[f"{side}_angle"] = last_angle_by_id.get(tid, 0.0)
+                
+                # 크기 정보
+                license_plate = plate_mgr.get(tid)
+                if license_plate:
+                    size_class = plate_mgr.get_size_class(license_plate)
+                    if size_class:
+                        specs = VehicleSpecsHelper.get_specs_from_size_class(size_class)
+                        result[f"{side}_width"] = specs.get("width", 2.5)
+                        result[f"{side}_length"] = specs.get("length", 5.0)
+                        result[f"{side}_size"] = specs.get("size_code", 2)
+                break
+    
+    @staticmethod
+    def calculate_goal_position(zone_rect: List[float]) -> Tuple[float, float]:
+        """구역 사각형에서 목표 위치 계산"""
+        cx = (zone_rect[0] + zone_rect[2]) / 2
+        cy = (zone_rect[1] + zone_rect[3]) / 2
+        return cx * 56, cy * 24
+
+
+class ExceptionHandler:
+    """예외 처리 헬퍼 클래스"""
+    
+    @staticmethod
+    def safe_execute(func: Callable, *args, default=None, **kwargs):
+        """안전한 함수 실행"""
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.debug(f"Safe execute failed for {func.__name__}: {e}")
+            return default
+    
+    @staticmethod
+    def safe_async_execute(func: Callable, *args, default=None, **kwargs):
+        """안전한 비동기 함수 실행"""
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.debug(f"Safe async execute failed for {func.__name__}: {e}")
+            return default
 
 
 # =============================
@@ -1025,11 +1247,7 @@ class TrackerApp:
                 return self._default_score(occupant_tid, zone_id_lower)
             
             # 주차 구역 정보 찾기
-            zone_info = None
-            for zone in PARKING_ZONES_NORM:
-                if zone["id"] == zone_id_lower:
-                    zone_info = zone
-                    break
+            zone_info = ZoneInfoHelper.find_zone_by_id(PARKING_ZONES_NORM, zone_id_lower)
             
             if zone_info is None:
                 return self._default_score(occupant_tid, zone_id_lower)
@@ -1045,12 +1263,12 @@ class TrackerApp:
             )
             
             # 차량 사양 정보 (선택사항)
-            vehicle_specs = None
-            license_plate = self.plate_mgr.get(occupant_tid)
-            if license_plate:
-                size_class = self.plate_mgr.get_size_class(license_plate)
-                if size_class:
-                    vehicle_specs = self._get_vehicle_specs_from_size_class(size_class)
+            vehicle_specs = ExceptionHandler.safe_execute(
+                lambda: VehicleSpecsHelper.get_specs_from_size_class(
+                    self.plate_mgr.get_size_class(self.plate_mgr.get(occupant_tid) or "")
+                ),
+                default=None
+            )
             
             # 템플릿 매칭 점수 계산
             score_result = self.template_scorer.calculate_template_matching_score(
@@ -1100,12 +1318,7 @@ class TrackerApp:
 
     def _get_vehicle_specs_from_size_class(self, size_class: str) -> Dict:
         """차량 크기 분류에 따른 사양 정보 반환"""
-        specs_map = {
-            "compact": {"width": 2.0, "length": 4.2},
-            "midsize": {"width": 2.5, "length": 5.0},
-            "suv": {"width": 2.8, "length": 5.2}
-        }
-        return specs_map.get(size_class.lower(), {"width": 2.5, "length": 5.0})
+        return VehicleSpecsHelper.get_specs_from_size_class(size_class)
 
     def set_score_strategy(self, fn: Callable[[int, str], float]) -> None:
         self._score_strategy = fn
@@ -1115,39 +1328,50 @@ class TrackerApp:
         return float(fn(occupant_tid, zone_id_lower))
 
     def _build_features_for_free_zones(self, size_class: Optional[str], free_zones: List[str]) -> List[Dict]:
-        # size_class 문자열을 (폭[m], 길이[m])로 파싱
-        # _get_vehicle_specs_from_size_class 메서드 활용
-        width_m, length_m = 2.0, 4.5
-        if size_class:
-            try:
-                specs = self._get_vehicle_specs_from_size_class(size_class)
-                width_m = specs.get("width", 2.0)
-                length_m = specs.get("length", 4.5)
-            except Exception:
-                pass
+        # 차량 사양 정보 가져오기
+        specs = VehicleSpecsHelper.get_specs_from_size_class(size_class)
+        width_m = specs.get("width", 2.0)
+        length_m = specs.get("length", 4.5)
+
+        # 현재 주차 상태 가져오기
+        slot_map = self._get_slot_map()
+        occupant_to_zone = self.parking.occupant_to_zone_upper()
 
         features: List[Dict] = []
         for zid_upper in free_zones:
+            # 구역 정보 찾기
+            zone_info = ZoneInfoHelper.find_zone_by_id(self.parking.zones_norm, zid_upper)
+            
+            if zone_info is None:
+                # 구역 정보가 없으면 기본값으로 설정
+                goal_x, goal_y = ZoneInfoHelper.calculate_goal_position([0, 0, 1, 1])  # 기본값
+                feature = {
+                    "left_occupied": 0, "left_angle": 0.0, "left_offset": 0.0, "left_size": 0,
+                    "left_width": 0, "left_length": 0, "left_has_pillar": 0,
+                    "right_occupied": 0, "right_angle": 0.0, "right_offset": 0.0, "right_size": 0,
+                    "right_width": 0, "right_length": 0, "right_has_pillar": 0,
+                    "controlled_width": width_m, "controlled_length": length_m,
+                    "goal_position_x": goal_x, "goal_position_y": goal_y,
+                    "zone_id": str(zid_upper),
+                }
+                features.append(feature)
+                continue
+
+            # 인접 구역 정보 추출
+            adjacent_info = ZoneInfoHelper.get_adjacent_zone_info(
+                zone_info, slot_map, occupant_to_zone, self._last_angle_by_id, self.plate_mgr
+            )
+            
+            # 목표 위치 계산
+            goal_x, goal_y = ZoneInfoHelper.calculate_goal_position(zone_info["rect"])
+
             feature = {
-                "left_occupied": 0,
-                "left_angle": 0.0,
-                "left_offset": 0.0,
-                "left_size": 2,
-                "left_width": 2.5,
-                "left_length": 5.0,
-                "left_has_pillar": 0,
-                "right_occupied": 0,
-                "right_angle": 0.0,
-                "right_offset": 0.0,
-                "right_size": 2,
-                "right_width": 2.5,
-                "right_length": 5.0,
-                "right_has_pillar": 0,
-                "controlled_x": 0.0,
-                "controlled_y": 0.0,
+                **adjacent_info,
                 "controlled_width": width_m,
                 "controlled_length": length_m,
                 "zone_id": str(zid_upper),
+                "goal_position_x": goal_x,
+                "goal_position_y": goal_y,
             }
             features.append(feature)
 
@@ -1155,33 +1379,16 @@ class TrackerApp:
 
     def get_box_size(self, size_class: Optional[str]) -> Tuple[int, int]:
         """size_class에 따라 박스 크기를 반환한다."""
-        if size_class:
-            try:
-                if "," in size_class:
-                    width, length = map(float, size_class.split(","))
-                    return (int(width * 100), int(length * 100))
-                elif size_class.lower() == "compact":
-                    return (200, 80)
-                elif size_class.lower() == "midsize":
-                    return (250, 100)
-                elif size_class.lower() == "suv":
-                    return (300, 120)
-            except Exception:
-                pass
-        return (250, 100)
+        return VehicleSpecsHelper.get_box_size_from_size_class(size_class)
 
     def extract_boxes_size(self, track_ids: List[int]) -> List[Tuple[int, int]]:
         """track ID 목록에 대해 각각의 박스 크기를 계산하여 반환한다."""
-        boxes_size = []
-        for track_id in track_ids:
-            license_plate = self.plate_mgr.get(track_id)
-            if license_plate:
-                size_class = self.plate_mgr.plate_to_size_class.get(license_plate)
-                box_size = self.get_box_size(size_class)
-            else:
-                box_size = self.get_box_size(None)
-            boxes_size.append(box_size)
-        return boxes_size
+        return [
+            VehicleSpecsHelper.get_box_size_from_size_class(
+                self.plate_mgr.plate_to_size_class.get(self.plate_mgr.get(track_id) or "")
+            )
+            for track_id in track_ids
+        ]
 
     async def _listen_assignment_request(self) -> None:
         while True:
@@ -1209,18 +1416,12 @@ class TrackerApp:
                     # free인 구역들만 추출
                     free_zones = [zid_upper for zid_upper, state in slot_map.items() if state == "free"]
                     
-                    suggested_zone = ""
-                    if self.recommender_model is not None and recommend_best_zone is not None:
-                        try:
-                            feats = self._build_features_for_free_zones(size_class, free_zones)
-                            logger.debug(f"[Recommender] features: {feats}")
-                            best = recommend_best_zone(self.recommender_model, feats)
-                            if best:
-                                top = best[0] if isinstance(best, list) else best
-                                suggested_zone = str(top.get("zone_id") or "").strip().upper()
-                                logger.info(f"[Recommender] 추천 구역: {suggested_zone}")
-                        except Exception as e:
-                            logger.exception(f"[Recommender] 예측 실패: {e}")
+                    suggested_zone = ExceptionHandler.safe_execute(
+                        lambda: self._get_suggested_zone_from_recommender(size_class, free_zones),
+                        default=""
+                    )
+                    if suggested_zone:
+                        logger.info(f"[Recommender] 추천 구역: {suggested_zone}")
 
                     # 추천 구역이 free이면 사용, 아니면 fallback
                     assigned_zone_upper = ""
@@ -1325,20 +1526,23 @@ class TrackerApp:
         
         # 추천 모델이 있으면 사용
         if self.recommender_model is not None and recommend_best_zone is not None:
-            try:
-                feats = self._build_features_for_free_zones(size_class or "", free_zones)
-                best = recommend_best_zone(self.recommender_model, feats)
-                if best:
-                    top = best[0] if isinstance(best, list) else best
-                    suggested_zone = str(top.get("zone_id") or "").strip().upper()
-                    if suggested_zone in free_zones:
-                        return suggested_zone
-            except Exception:
-                pass
+            suggested_zone = ExceptionHandler.safe_execute(
+                lambda: self._get_suggested_zone_from_recommender(size_class or "", free_zones),
+                default=""
+            )
+            if suggested_zone in free_zones:
+                return suggested_zone
         
         # fallback: 첫 번째 free 구역
-        if free_zones:
-            return free_zones[0]
+        return free_zones[0] if free_zones else ""
+    
+    def _get_suggested_zone_from_recommender(self, size_class: str, free_zones: List[str]) -> str:
+        """추천 모델에서 구역 제안 받기"""
+        feats = self._build_features_for_free_zones(size_class, free_zones)
+        best = recommend_best_zone(self.recommender_model, feats)
+        if best:
+            top = best[0] if isinstance(best, list) else best
+            return str(top.get("zone_id") or "").strip().upper()
         return ""
 
     async def _reserve_zone(self, license_plate: str, assigned_zone_upper: str, slot_map: Dict[str, str]) -> None:
