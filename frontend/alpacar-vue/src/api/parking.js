@@ -1,6 +1,7 @@
 // src/api/parking.js
 import axios from 'axios'
 import { BACKEND_BASE_URL } from '@/utils/api'
+import { SecureTokenManager } from '@/utils/security'
 
 // API 기본 URL 설정 - utils/api.ts의 설정 사용
 const API_BASE_URL = BACKEND_BASE_URL
@@ -15,14 +16,16 @@ const apiClient = axios.create({
   withCredentials: false // CORS 문제 방지
 })
 
-// 요청 인터셉터 - 토큰 자동 추가
+// 요청 인터셉터 - 토큰 자동 추가 (SecureTokenManager 사용)
 apiClient.interceptors.request.use(
   config => {
-    const token = localStorage.getItem('access_token')
+    const token = SecureTokenManager.getSecureToken('access_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+      console.log('API Request with token:', config.method.toUpperCase(), config.url, 'Token present:', !!token)
+    } else {
+      console.warn('API Request without token:', config.method.toUpperCase(), config.url)
     }
-    console.log('API Request:', config.method.toUpperCase(), config.url)
     return config
   },
   error => {
