@@ -67,8 +67,8 @@ def send_push_notification(user, title, message, data=None, notification_type='s
     payload = {
         'title': title,
         'body': message,
-        'icon': '/alpaca-192.png',  # PWA 아이콘
-        'badge': '/alpaca-192.png',
+        'icon': '/icons/favicon-32x32.png',  # PWA 아이콘
+        'badge': '/icons/favicon-16x16.png',
         'tag': 'notification',
         'requireInteraction': True,
         'type': notification_type,  # ← Service Worker에서 라우팅에 사용할 type 필드
