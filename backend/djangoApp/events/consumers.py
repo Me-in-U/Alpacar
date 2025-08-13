@@ -3,8 +3,6 @@ import json
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from .serializers import VehicleEventSerializer
-
 
 class ParkingLogConsumer(AsyncWebsocketConsumer):
     group_name = "parking_logs"

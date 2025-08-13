@@ -2,10 +2,11 @@
 from django.utils import timezone
 from django.db import transaction
 
+from jetson.feed import broadcast_active_vehicles
 from vehicles.models import Vehicle
 from events.models import VehicleEvent
 from .models import ParkingSpace, ParkingAssignment
-from events.broadcast import broadcast_active_vehicles, broadcast_parking_log_event
+from events.broadcast import broadcast_parking_log_event
 from parking.views import _broadcast_space  # 이미 있는 브로드캐스트 유틸 재사용
 
 
