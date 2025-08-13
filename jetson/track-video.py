@@ -232,7 +232,7 @@ class ZoneInfoHelper:
     @staticmethod
     def get_adjacent_zone_info(zone_info: Dict[str, Any], slot_map: Dict[str, str], 
                               occupant_to_zone: Dict[int, str], last_angle_by_id: Dict[int, float],
-                              plate_mgr: PlateManager) -> Dict[str, Any]:
+                              last_center_by_id: Dict[int, Tuple[float, float]], plate_mgr: PlateManager) -> Dict[str, Any]:
         """인접 구역 정보 추출"""
         result = {
             "left_occupied": 0, "left_angle": 0.0, "left_offset": 0.0, "left_size": 0,
@@ -245,37 +245,61 @@ class ZoneInfoHelper:
         left_zone_id = zone_info.get("left_zone", "")
         if left_zone_id:
             left_zone_upper = left_zone_id.upper()
-            result["left_occupied"] = 1 if slot_map.get(left_zone_upper) == "occupied" else 0
+            result["left_occupied"] = 1 if slot_map.get(left_zone_upper) != "free" else 0
             result["left_has_pillar"] = 1 if zone_info.get("left_pillar", False) else 0
             
             if result["left_occupied"]:
                 ZoneInfoHelper._fill_adjacent_vehicle_info(
-                    left_zone_upper, occupant_to_zone, last_angle_by_id, plate_mgr, result, "left"
+                    left_zone_upper, occupant_to_zone, last_angle_by_id, last_center_by_id, plate_mgr, result, "left"
                 )
         
         # 우측 구역 처리
         right_zone_id = zone_info.get("right_zone", "")
         if right_zone_id:
             right_zone_upper = right_zone_id.upper()
-            result["right_occupied"] = 1 if slot_map.get(right_zone_upper) == "occupied" else 0
+            result["right_occupied"] = 1 if slot_map.get(right_zone_upper) != "free" else 0
             result["right_has_pillar"] = 1 if zone_info.get("right_pillar", False) else 0
             
             if result["right_occupied"]:
                 ZoneInfoHelper._fill_adjacent_vehicle_info(
-                    right_zone_upper, occupant_to_zone, last_angle_by_id, plate_mgr, result, "right"
+                    right_zone_upper, occupant_to_zone, last_angle_by_id, last_center_by_id, plate_mgr, result, "right"
                 )
         
         return result
     
     @staticmethod
     def _fill_adjacent_vehicle_info(zone_upper: str, occupant_to_zone: Dict[int, str], 
-                                   last_angle_by_id: Dict[int, float], plate_mgr: PlateManager,
-                                   result: Dict[str, Any], side: str):
+                                   last_angle_by_id: Dict[int, float], last_center_by_id: Dict[int, Tuple[float, float]], 
+                                   plate_mgr: PlateManager, result: Dict[str, Any], side: str):
         """인접 차량 정보 채우기"""
+        found_vehicle = False
         for tid, occupied_zone in occupant_to_zone.items():
             if occupied_zone == zone_upper:
-                # 각도 정보
-                result[f"{side}_angle"] = last_angle_by_id.get(tid, 0.0)
+                found_vehicle = True
+                # 각도 정보 (라디안 단위)
+                angle_rad = last_angle_by_id.get(tid, 0.0)
+                result[f"{side}_angle"] = angle_rad
+                
+                # offset 계산 (주차 구역 중심과 차량 중심 간의 거리)
+                vehicle_center = last_center_by_id.get(tid)
+                if vehicle_center:
+                    # 주차 구역 정보 찾기
+                    zone_info = ZoneInfoHelper.find_zone_by_id(PARKING_ZONES_NORM, zone_upper.lower())
+                    if zone_info and "rect" in zone_info:
+                        zone_rect = zone_info["rect"]
+                        # 주차 구역 중심 계산 (정규화된 좌표)
+                        zone_cx = (zone_rect[0] + zone_rect[2]) / 2
+                        zone_cy = (zone_rect[1] + zone_rect[3]) / 2
+                        # 차량 중심 (정규화된 좌표)
+                        vehicle_cx, vehicle_cy = vehicle_center
+                        # 유클리드 거리 계산
+                        offset = math.sqrt((vehicle_cx - zone_cx)**2 + (vehicle_cy - zone_cy)**2)
+                        result[f"{side}_offset"] = offset
+                        logger.debug(f"[Feature] {side} offset calculated: {offset:.4f}")
+                    else:
+                        result[f"{side}_offset"] = 0.0
+                else:
+                    result[f"{side}_offset"] = 0.0
                 
                 # 크기 정보
                 license_plate = plate_mgr.get(tid)
@@ -287,6 +311,12 @@ class ZoneInfoHelper:
                         result[f"{side}_length"] = specs.get("length", 5.0)
                         result[f"{side}_size"] = specs.get("size_code", 2)
                 break
+        
+        # 디버깅: 인접 차량 정보가 제대로 설정되었는지 확인
+        if found_vehicle:
+            logger.debug(f"[Feature] {side} adjacent vehicle found: angle={result[f'{side}_angle']:.4f}rad, offset={result.get(f'{side}_offset', 0.0):.4f}")
+        else:
+            logger.debug(f"[Feature] {side} adjacent zone {zone_upper} has no vehicle")
     
     @staticmethod
     def calculate_goal_position(zone_rect: List[float]) -> Tuple[float, float]:
@@ -772,6 +802,30 @@ def get_detections_with_ids(result: Any) -> List[Dict[str, float]]:
     return detections
 
 
+def extract_centers_by_id(result: Any) -> Dict[int, Tuple[float, float]]:
+    """현재 프레임의 트랙 ID별 차량 중심점을 추출한다."""
+    id_to_center: Dict[int, Tuple[float, float]] = {}
+    try:
+        if not hasattr(result, "obb") or result.obb is None:
+            return id_to_center
+        ids_t = getattr(result.obb, "id", None)
+        xyxyxyxy = getattr(result.obb, "xyxyxyxy", None)
+        if ids_t is None or xyxyxyxy is None:
+            return id_to_center
+        ids = ids_t.cpu().numpy().tolist() if hasattr(ids_t, "cpu") else list(ids_t)
+        for i, tid in enumerate(ids):
+            try:
+                pts = xyxyxyxy[i].cpu().numpy().reshape(-1, 2)
+                cx = float(np.mean(pts[:, 0]))
+                cy = float(np.mean(pts[:, 1]))
+                id_to_center[int(tid)] = (cx, cy)
+            except Exception:
+                continue
+    except Exception:
+        return id_to_center
+    return id_to_center
+
+
 def extract_angles_by_id(result: Any) -> Dict[int, float]:
     """현재 프레임의 트랙 ID별 차량 각도(rad)를 추출한다."""
     id_to_angle: Dict[int, float] = {}
@@ -1177,6 +1231,7 @@ class TrackerApp:
         self._last_slot_map: Dict[str, str] = {}
         self._completed_zones: set[str] = set()
         self._last_angle_by_id: Dict[int, float] = {}
+        self._last_center_by_id: Dict[int, Tuple[float, float]] = {}
         self._last_zone_to_tid: Dict[str, int] = {}
         self._last_poly_by_id: Dict[int, np.ndarray] = {}
         self._last_frame_wh: Tuple[int, int] = (0, 0)
@@ -1346,6 +1401,10 @@ class TrackerApp:
         # 현재 주차 상태 가져오기
         slot_map = self._get_slot_map()
         occupant_to_zone = self.parking.occupant_to_zone_upper()
+        
+        # 디버깅: 현재 주차 상태 로깅
+        logger.debug(f"[Feature] Current occupant_to_zone: {occupant_to_zone}")
+        logger.debug(f"[Feature] Current last_angle_by_id keys: {list(self._last_angle_by_id.keys())}")
 
         features: List[Dict] = []
         for zid_upper in free_zones:
@@ -1365,11 +1424,12 @@ class TrackerApp:
                     "zone_id": str(zid_upper),
                 }
                 features.append(feature)
+                logger.debug(f"[Feature] Zone {zid_upper}: no zone info, using defaults")
                 continue
 
             # 인접 구역 정보 추출
             adjacent_info = ZoneInfoHelper.get_adjacent_zone_info(
-                zone_info, slot_map, occupant_to_zone, self._last_angle_by_id, self.plate_mgr
+                zone_info, slot_map, occupant_to_zone, self._last_angle_by_id, self._last_center_by_id, self.plate_mgr
             )
             
             # 목표 위치 계산
@@ -1383,6 +1443,14 @@ class TrackerApp:
                 "goal_position_x": goal_x,
                 "goal_position_y": goal_y,
             }
+            
+            # 각도 및 offset 정보 디버깅
+            left_angle = feature.get("left_angle", 0.0)
+            right_angle = feature.get("right_angle", 0.0)
+            left_offset = feature.get("left_offset", 0.0)
+            right_offset = feature.get("right_offset", 0.0)
+            logger.debug(f"[Feature] Zone {zid_upper}: left_angle={left_angle:.4f}rad, right_angle={right_angle:.4f}rad, left_offset={left_offset:.4f}, right_offset={right_offset:.4f}")
+            
             logger.info(f"feature: {feature}")
             features.append(feature)
 
@@ -1590,8 +1658,9 @@ class TrackerApp:
                     await self._emit({
                         "message_type": "score",
                         "license_plate": assigned_vehicle,
-                        "score": round(score, 4),
+                        "score": round(score, 2),
                         "zone_id": zid_upper,
+                        
                     })
                     self._reserved_upper.discard(zid_upper)
                     self._assigned_by_plate.pop(assigned_vehicle, None)
@@ -1733,6 +1802,7 @@ class TrackerApp:
                         self.vis.draw_status_panel(im0, (10, 10), self._reserved_upper)
                     try:
                         self._last_angle_by_id.update(extract_angles_by_id(r))
+                        self._last_center_by_id.update(extract_centers_by_id(r))
                     except Exception:
                         pass
 
