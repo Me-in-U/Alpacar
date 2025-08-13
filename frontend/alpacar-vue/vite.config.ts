@@ -16,10 +16,11 @@ export default defineConfig({
 		vueDevTools(),
 		VitePWA({
 			registerType: "prompt",
-			devOptions: {
-				enabled: true,
-				type: "module",
-			},
+			strategies: "injectManifest", // 내 SW 그대로 사용
+			srcDir: "public",
+			filename: "service-worker.js",
+			injectRegister: false, // registerSW.js 주입 금지
+			devOptions: { enabled: false }, // dev-dist 생성 안 함
 			includeAssets: ["favicon.ico", "alpaca-192.png", "alpaca-512.png", "service-worker.js"],
 			manifest: {
 				name: "Alpacar - 스마트 주차 서비스",
