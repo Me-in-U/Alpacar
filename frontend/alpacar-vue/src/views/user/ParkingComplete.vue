@@ -1,159 +1,270 @@
 <template>
-  <div class="main-page-container">
-    <Header />
+	<div class="main-page-container">
+		<Header />
 
-    <div class="main-content parking-complete">
-      <!-- 완료 메시지 -->
-      <h1 class="complete-title">주차가 완료되었습니다!</h1>
-      <!-- 완료 아이콘 -->
-      <div class="status-icon">
-        <img src="@/assets/check.png" alt="주차 완료 확인">
-      </div>
+		<div class="main-content">
+			<div class="center-content">
+				<img src="@/assets/alert_black.png" width="67" height="67" alt="경고" />
+				<h2 class="title">주차완료</h2>
+				<p class="body">주차완료</p>
+			</div>
+		</div>
 
-      <!-- 상세 정보 -->
-      <div class="detail-box">
-        <div class="info-item">
-          <span class="label">차량번호</span>
-          <span class="value">111가 1111</span>
-        </div>
-        <div class="info-item">
-          <span class="label">주차 위치</span>
-          <span class="value">A3</span>
-        </div>
-        <div class="info-item">
-          <span class="label">주차 시간</span>
-          <span class="value">2024.01.15 14:30</span>
-        </div>
-      </div>
-
-      <!-- 홈으로 돌아가기 버튼 -->
-      <button class="home-button" @click="goHome">홈으로 돌아가기</button>
-    </div>
-
-    <BottomNavigation />
-  </div>
+		<BottomNavigation />
+	</div>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import Header from '@/components/Header.vue'
-import BottomNavigation from '@/components/BottomNavigation.vue'
-
-const router = useRouter()
-function goHome() {
-  router.push('/main')
-}
+import Header from "@/components/Header.vue";
+import BottomNavigation from "@/components/BottomNavigation.vue";
 </script>
 
 <style scoped>
-/* MainPage.vue 공통 컨테이너 */
+/* 모바일 컨테이너 */
 .main-page-container {
-  width: 440px;
-  height: 956px;
-  position: relative;
-  background: #f3eeea;
-  overflow: hidden;
-  margin: 0 auto;
+	width: 100vw;
+	max-width: 440px;
+	min-height: 100vh;
+	background: #f3eeea;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
 }
-
-/* MainPage.vue 공통 콘텐츠 영역 */
 .main-content {
-  position: relative;
-  padding-top: 80px; /* Header 높이 감안 */
-  height: calc(100% - 160px); /* Header + BottomNavigation 높이 감안 */
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
+	flex: 1;
+	padding-top: 80px;
+	padding-bottom: 80px;
+	min-height: calc(100vh - 160px);
+	overflow-y: auto;
 }
 
-
-.parking-complete .complete-title {
-  font-family: 'Inter-Bold', Helvetica, sans-serif;
-  font-size: 28px;
-  color: #6BA368;
-  margin: 0;
-  padding-top: 60px;
+/* 상태 화면 */
+.unrecognized-container,
+.loading-container {
+	width: 100%;
+	min-height: calc(100vh - 160px);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	padding: 0 16px;
+}
+.center-content .title {
+	font-size: 20px;
+	font-weight: 600;
+	color: #464038;
+	margin: 16px 0 12px;
+}
+.center-content .body {
+	font-size: 16px;
+	color: #666;
+	line-height: 1.4;
+}
+.car-animation-wrapper {
+	position: relative;
+	width: 100%;
+	max-width: 400px;
+	height: 100px;
+	overflow: hidden;
+}
+.car-animation {
+	position: absolute;
+	bottom: 0;
+	left: -100px;
+	width: 100px;
+	height: auto;
+	animation: moveCar 4s linear infinite;
+}
+@keyframes moveCar {
+	0% {
+		transform: translateX(0);
+		opacity: 0;
+	}
+	10% {
+		opacity: 1;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		transform: translateX(600px);
+		opacity: 0;
+	}
+}
+.loading-text {
+	margin-top: 16px;
+	font-size: 16px;
+	color: #666;
 }
 
-/* 상세 정보 박스 */
-.detail-box {
-  width: 60%;
-  max-width: 320px;
-  background-color: #D6E3C8;
-  border-radius: 8px;
-  padding: 16px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  text-align: left;
-  margin-bottom: 32px;
+/* 추천 결과 */
+.recommend-header {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin-bottom: 24px;
+	text-align: center;
+}
+.title {
+	font-size: 28px;
+	font-weight: 700;
+	color: #333;
+	padding-top: 24px;
+}
+.info-box {
+	width: 60%;
+	background: #fff;
+	border-radius: 8px;
+	padding: 16px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	margin-bottom: 24px;
+}
+.info-title {
+	font-size: 18px;
+	font-weight: 700;
+	margin-bottom: 6px;
+}
+.info-detail {
+	font-size: 14px;
+	color: #666;
+	margin: 2px 0;
 }
 
-/* 각 항목 스타일 */
-.detail-box .info-item {
-  display: flex;
-  justify-content: space-between;
-  font-family: 'Inter', sans-serif;
+/* 지도 */
+.map-section {
+	text-align: center;
+}
+.map-wrapper {
+	--map-w: 400px;
+	--map-h: 354px;
+	--slot-w: 52px;
+	--slot-h: 98px;
+	--slot-gap: 6px;
+	position: relative;
+	width: 100%;
+	max-width: var(--map-w);
+	height: var(--map-h);
+	background: #444;
+	border-radius: 8px;
+	margin: 0 auto;
+}
+.overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+	z-index: 2;
+}
+.row {
+	display: flex;
+	justify-content: center;
+	gap: var(--slot-gap);
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+}
+.row-1 {
+	top: 10px;
+}
+.row-2 {
+	bottom: 10px;
+}
+.aisle {
+	width: 24px;
+}
+.divider {
+	position: absolute;
+	top: 50%;
+	width: 100%;
+	border-top: 3px dashed #fff;
+	transform: translateY(-50%);
 }
 
-/* 라벨은 항상 bold */
-.detail-box .info-item:nth-child(-n+2) .label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #000;
+.spot {
+	width: var(--slot-w);
+	height: var(--slot-h);
+	border: 2px solid #fff;
+	color: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+}
+.spot--placeholder {
+	visibility: hidden;
+	border: 0;
+	background: transparent;
+}
+.spot.empty {
+	background: #999;
+}
+.spot.occupied {
+	background: #fe5454;
+}
+.spot.reserved {
+	background: #f5dd29;
+	color: #333;
+	font-weight: 700;
+}
+.spot.recommended {
+	outline: 3px solid #8fcd2b;
+	box-shadow: inset 0 0 0 2px #fff;
 }
 
-.detail-box .info-item:nth-child(3) .label {
-  font-size: 16px;
-  font-weight: 400;
-  color: #666;
+.pin {
+	position: absolute;
+	width: 24px;
+	height: 24px;
+	z-index: 3;
+}
+.car {
+	position: absolute;
+	top: calc(50% + 16px);
+	left: 10px;
+	width: 56px;
+	height: 32px;
 }
 
-/* 첫 두 항목의 값은 bold, 마지막 값은 normal */
-.detail-box .info-item:nth-child(-n+2) .value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #000;
+.legend {
+	display: flex;
+	justify-content: center;
+	gap: 16px;
+	margin: 16px 0 32px;
 }
-.detail-box .info-item:nth-child(3) .value {
-  font-size: 16px;
-  font-weight: 400;
-  color: #666;
+.legend-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: #444;
+}
+.box {
+	width: 14px;
+	height: 14px;
+	border-radius: 4px;
+}
+.recommended.box {
+	background: #8fcd2b;
+}
+.occupied.box {
+	background: #fe5454;
+}
+.empty.box {
+	background: #999;
+}
+.reserved.box {
+	background: #f5dd29;
 }
 
-.parking-complete .home-button {
-  width: 80%;
-  background-color: #776b5d;
-  color: white;
-  border: none;
-  padding: 16px 32px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: 'Inter-SemiBold', Helvetica, sans-serif;
-}
-
-.parking-complete .home-button:hover {
-  background-color: #5f554b;
-}
-
-/* 반응형: MainPage.vue 기준 */
-@media (max-width: 440px) {
-  .main-page-container {
-    width: 100vw;
-    height: 100vh;
-  }
-  .main-content {
-    padding-top: 60px;
-  }
-}
+/* 데스크톱에서 440px 고정 */
 @media (min-width: 441px) {
-  .main-page-container {
-    width: 440px;
-    margin: 0 auto;
-  }
+	.main-page-container {
+		width: 440px;
+	}
+	.main-content {
+		min-height: calc(100vh - 160px);
+		padding-bottom: 20px;
+	}
 }
 </style>

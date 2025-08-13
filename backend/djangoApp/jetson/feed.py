@@ -2,20 +2,13 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db.models import Q
-
-from parking.models import ParkingSpace
 from events.models import VehicleEvent
+from parking.models import ParkingSpace
 
-PARKING_SPACE_GROUP = "parking_space"
-ACTIVE_VEHICLES_GROUP = "active_vehicles"
+PARKING_STATUS_GROUP = "parking-status"
 
 
 def _build_space_snapshot(labels: list[str] | None = None) -> dict:
-    """
-    SpacePayload 맵 생성:
-    { "A1": {status, size, vehicle_id, license_plate}, ... }
-    labels가 None이면 전체 슬롯, 리스트면 해당 슬롯만.
-    """
     qs = ParkingSpace.objects.all()
     if labels:
         q = Q()
@@ -27,7 +20,6 @@ def _build_space_snapshot(labels: list[str] | None = None) -> dict:
                 q |= Q(zone=zone, slot_number=int(num))
         if q:
             qs = qs.filter(q)
-
     rows = qs.values(
         "zone",
         "slot_number",
@@ -36,7 +28,6 @@ def _build_space_snapshot(labels: list[str] | None = None) -> dict:
         "current_vehicle_id",
         "current_vehicle__license_plate",
     )
-
     out = {}
     for r in rows:
         key = f"{r['zone']}{r['slot_number']}"
@@ -50,9 +41,6 @@ def _build_space_snapshot(labels: list[str] | None = None) -> dict:
 
 
 def _build_active_vehicles_snapshot() -> dict:
-    """
-    { "results": [ {id, vehicle_id, license_plate, entrance_time, status, assigned_space}, ... ] }
-    """
     qs = (
         VehicleEvent.objects.select_related("vehicle")
         .filter(exit_time__isnull=True)
@@ -86,14 +74,17 @@ def _build_active_vehicles_snapshot() -> dict:
 
 
 def broadcast_parking_space(labels: list[str] | None = None) -> None:
-    payload = _build_space_snapshot(labels)
+    payload = {"message_type": "parking_space", "spaces": _build_space_snapshot(labels)}
     async_to_sync(get_channel_layer().group_send)(
-        PARKING_SPACE_GROUP, {"type": "parking_space.update", "payload": payload}
+        PARKING_STATUS_GROUP, {"type": "broadcast", "payload": payload}
     )
 
 
 def broadcast_active_vehicles() -> None:
-    payload = _build_active_vehicles_snapshot()
+    payload = {
+        "message_type": "active_vehicles",
+        "results": _build_active_vehicles_snapshot().get("results", []),
+    }
     async_to_sync(get_channel_layer().group_send)(
-        ACTIVE_VEHICLES_GROUP, {"type": "active_vehicles.update", "payload": payload}
+        PARKING_STATUS_GROUP, {"type": "broadcast", "payload": payload}
     )

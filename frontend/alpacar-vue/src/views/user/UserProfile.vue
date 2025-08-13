@@ -34,6 +34,30 @@
 				<!-- ▼ 더보기 영역 -->
 				<transition name="fade">
 					<div v-if="isInfoExpanded">
+						<!-- 닉네임(별도 아이콘) -->
+						<div
+							class="user-info__item user-info__item--action"
+							@click="openNicknameModal"
+							role="button"
+							tabindex="0"
+							@keydown.enter.prevent="openNicknameModal"
+							@keydown.space.prevent="openNicknameModal"
+						>
+							<div class="user-info__icon-wrapper">
+								<div class="user-info__icon user-info__icon--nickname"></div>
+							</div>
+							<div class="user-info__content">
+								<div class="user-info__label">닉네임</div>
+								<div class="user-info__value">{{ userInfo?.nickname || "-" }}</div>
+							</div>
+							<span class="chevron" aria-hidden="true">
+								<svg viewBox="0 0 24 24">
+									<path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							</span>
+						</div>
+						<div class="user-info__divider"></div>
+
 						<!-- 이름 -->
 						<div class="user-info__item">
 							<div class="user-info__icon-wrapper">
@@ -55,19 +79,6 @@
 							<div class="user-info__content">
 								<div class="user-info__label">이메일</div>
 								<div class="user-info__value">{{ userInfo?.email || "-" }}</div>
-							</div>
-						</div>
-
-						<div class="user-info__divider"></div>
-
-						<!-- 닉네임(별도 아이콘) -->
-						<div class="user-info__item">
-							<div class="user-info__icon-wrapper">
-								<div class="user-info__icon user-info__icon--nickname"></div>
-							</div>
-							<div class="user-info__content">
-								<div class="user-info__label">닉네임</div>
-								<div class="user-info__value">{{ userInfo?.nickname || "-" }}</div>
 							</div>
 						</div>
 
@@ -123,6 +134,34 @@
 				</div>
 			</div>
 
+			<!-- 알림 설정 -->
+			<div class="section-title">알림 설정</div>
+			<div class="notification-settings">
+				<div class="notification-item">
+					<div class="notification-item__content">
+						<div class="notification-item__label">푸시 알림</div>
+						<div class="notification-item__desc">주차 입출차 및 중요 알림 수신</div>
+					</div>
+					<div class="notification-item__toggle">
+						<button class="toggle-button" :class="{ 'toggle-button--active': isNotificationEnabled }" @click="toggleNotifications">
+							{{ isNotificationEnabled ? '켜짐' : '꺼짐' }}
+						</button>
+					</div>
+				</div>
+
+				<div class="notification-item">
+					<div class="notification-item__content">
+						<div class="notification-item__label">앱 설치하기</div>
+						<div class="notification-item__desc">앱처럼 사용하기</div>
+					</div>
+					<div class="notification-item__toggle">
+						<button class="install-button" @click="installPWA" :disabled="!canInstallPWA">
+							{{ canInstallPWA ? '설치' : '설치됨' }}
+						</button>
+					</div>
+				</div>
+			</div>
+
 			<!-- 최하단 로그아웃 -->
 			<div class="logout-container" @click="handleLogout">로그아웃</div>
 		</div>
@@ -160,6 +199,53 @@
 			</div>
 		</div>
 
+		<!-- 닉네임 수정 모달 -->
+		<div
+			v-if="showNicknameModal"
+			class="modal-overlay"
+			@click="showNicknameModal = false"
+		>
+			<div
+				class="modal modal--nickname"
+				@click.stop
+			>
+				<h3 class="modal__title">
+					수정할 닉네임을 입력하세요
+				</h3>
+
+				<div class="modal__input-field">
+					<input
+						v-model="newNickname"
+						@input="handleNicknameInput"
+						@beforeinput="preventNicknameLengthExceed"
+						@compositionstart="onNicknameCompositionStart"
+						@compositionupdate="onNicknameCompositionUpdate"
+						@compositionend="onNicknameCompositionEnd"
+						@keypress="preventInvalidNicknameChars"
+						type="text"
+						placeholder="예: 주차하는알파카"
+						class="modal__input"
+						maxlength="18"
+					/>
+				</div>
+
+				<div
+					v-if="newNickname && !isNicknameValid"
+					class="error-message"
+				>
+					닉네임은 한글, 영문, 숫자만 사용 가능 (2-18자)
+				</div>
+
+				<button
+					class="modal__button"
+					@click="updateNickname"
+					:disabled="!isNicknameValid"
+				>
+					설정 완료
+				</button>
+			</div>
+		</div>
+
 		<!-- 설정 진입 전 비밀번호 인증 모달 -->
 		<div v-if="showSettingsAuthModal" class="modal-overlay" @click="closeSettingsAuthModal">
 			<div class="modal modal--password-auth" @click.stop>
@@ -193,6 +279,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { subscribeToPushNotifications, unsubscribeFromPushNotifications, getSubscriptionStatus, showLocalNotification } from "@/utils/pwa";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -203,14 +290,8 @@ const vehicles = computed(() => userStore.vehicles);
 
 // 소셜 로그인 유저 여부 확인
 const isSocialUser = computed(() => {
-	// 소셜 로그인 유저는 Google OAuth를 통해 가입한 경우
-	// 이메일이 Google 이메일이거나 별도 플래그가 있을 수 있음
-	const email = userInfo.value?.email;
-	if (!email) return false;
-	
-	// Google OAuth 사용자는 보통 소셜 로그인 정보를 별도로 저장
-	// 여기서는 간단히 구글 이메일로 판단
-	return email.includes('gmail.com');
+	// 백엔드에서 제공하는 is_social_user 필드 사용
+	return userInfo.value?.is_social_user || false;
 });
 
 const showAllVehicles = ref(false);
@@ -382,6 +463,90 @@ const handleLogout = () => {
 	router.push("/login");
 };
 
+
+/* ====== 닉네임 ====== */
+const showNicknameModal = ref(false);
+const newNickname = ref("");
+const isNicknameComposing = ref(false);
+const isNicknameValid = computed(() => {
+	const noSpecialChars = /^[a-zA-Z가-힣0-9]+$/.test(newNickname.value);
+	const lengthValid = newNickname.value.length >= 2 && newNickname.value.length <= 18;
+	return noSpecialChars && lengthValid;
+});
+
+const openNicknameModal = () => { 
+	newNickname.value = userInfo.value?.nickname || ""; 
+	showNicknameModal.value = true; 
+};
+
+const onNicknameCompositionStart = () => { isNicknameComposing.value = true; };
+const onNicknameCompositionUpdate = (e: CompositionEvent) => {
+	const input = e.target as HTMLInputElement;
+	if (input.value.length > 18) {
+		const truncated = input.value.slice(0, 18);
+		input.value = truncated;
+		newNickname.value = truncated;
+	}
+};
+const onNicknameCompositionEnd = (e: Event) => {
+	isNicknameComposing.value = false;
+	const input = e.target as HTMLInputElement;
+	const cleaned = input.value.replace(/[^a-zA-Z가-힣0-9]/g, "").slice(0, 18);
+	if (input.value !== cleaned) {
+		newNickname.value = cleaned;
+		setTimeout(() => { input.value = cleaned; }, 0);
+	}
+};
+const handleNicknameInput = (e: Event) => {
+	const input = e.target as HTMLInputElement;
+	if (input.value.length > 18) {
+		const truncated = input.value.slice(0, 18);
+		newNickname.value = truncated;
+		input.value = truncated;
+		return;
+	}
+	if (isNicknameComposing.value) return;
+	const cleaned = input.value.replace(/[^a-zA-Z가-힣0-9]/g, "").slice(0, 18);
+	if (input.value !== cleaned) {
+		newNickname.value = cleaned;
+		setTimeout(() => { if (input.value !== cleaned) input.value = cleaned; }, 0);
+	}
+};
+const preventNicknameLengthExceed = (e: Event) => {
+	const input = e.target as HTMLInputElement;
+	const ev = e as InputEvent;
+	const len = input.value.length;
+	if (ev.inputType && (ev.inputType.includes("insert") || ev.inputType.includes("replace") || ev.inputType === "insertText" || ev.inputType === "insertCompositionText")) {
+		if (len >= 18) { e.preventDefault(); return; }
+		const data = ev.data || "";
+		if (len + data.length > 18) { e.preventDefault(); return; }
+	}
+};
+const preventInvalidNicknameChars = (e: KeyboardEvent) => {
+	if (isNicknameComposing.value) return;
+	const char = e.key;
+	const input = e.target as HTMLInputElement;
+	if (["Backspace","Delete","ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Tab","Enter","Escape"].includes(char)) return;
+	if (e.isComposing || char === "Process") return;
+	if (input.value.length >= 18) { e.preventDefault(); return; }
+	if (!/[a-zA-Z가-힣0-9]/.test(char)) e.preventDefault();
+};
+
+const updateNickname = async () => {
+	const nick = newNickname.value.trim();
+	if (!nick) return alert("닉네임을 입력해주세요.");
+	try {
+		await userStore.updateProfile({ nickname: nick }); // 서버 의존(테스트 시 주석 가능)
+		alert("닉네임이 변경되었습니다.");
+		showNicknameModal.value = false;
+		newNickname.value = "";
+	} catch (err: any) {
+		console.error(err);
+		alert("변경 실패: " + err.message);
+	}
+};
+
+
 /* ===== 설정 진입 전 비밀번호 인증 (UserSetting의 currentPassword 컨셉 재사용) ===== */
 const showSettingsAuthModal = ref(false);
 const settingsPassword = ref("");
@@ -456,6 +621,91 @@ const verifySettingsPassword = async () => {
 		settingsAuthLoading.value = false;
 	}
 };
+
+
+/* ====== 알림(PWA) ====== */
+const isNotificationEnabled = ref(false);
+const canInstallPWA = ref(false);
+let deferredPrompt: any = null;
+
+const toggleNotifications = async () => {
+  try {
+    if (isNotificationEnabled.value) {
+      await unsubscribeFromPushNotifications();
+      isNotificationEnabled.value = false;
+      alert("푸시 알림이 해제되었습니다.");
+    } else {
+      if (!("Notification" in window)) { alert("이 브라우저는 알림을 지원하지 않습니다."); return; }
+      if (!("serviceWorker" in navigator)) { alert("이 브라우저는 푸시 알림을 지원하지 않습니다."); return; }
+      let permission = Notification.permission;
+      if (permission === "default") permission = await Notification.requestPermission();
+      if (permission !== "granted") { alert("알림 권한이 필요합니다. 브라우저 설정에서 알림을 허용해주세요."); return; }
+      const subscription = await subscribeToPushNotifications();
+      if (subscription) {
+        isNotificationEnabled.value = true;
+        alert("푸시 알림이 활성화되었습니다.");
+        setTimeout(() => {
+          showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
+        }, 1000);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    alert("알림 설정 변경 중 오류가 발생했습니다.");
+  }
+};
+
+const installPWA = async () => {
+  if (deferredPrompt) {
+    try {
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === "accepted") { canInstallPWA.value = false; }
+      deferredPrompt = null;
+    } catch (e) {
+      console.error(e);
+      alert("PWA 설치 중 오류가 발생했습니다.");
+    }
+  } else if (window.matchMedia("(display-mode: standalone)").matches) {
+    alert("이미 PWA로 설치되어 실행 중입니다.");
+  } else {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("android")) alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
+    else if (ua.includes("iphone") || ua.includes("ipad")) alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
+    else alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
+  }
+};
+
+const checkNotificationStatus = async () => {
+  try {
+    const hasPermission = Notification.permission === "granted";
+    const subscription = await getSubscriptionStatus();
+    isNotificationEnabled.value = hasPermission && !!subscription;
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const isInWebAppiOS = (window.navigator as any).standalone === true;
+    const isInstalled = isStandalone || isInWebAppiOS;
+    canInstallPWA.value = !isInstalled && (!!deferredPrompt || "serviceWorker" in navigator);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const setupPWAListeners = () => {
+  window.addEventListener("beforeinstallprompt", (e) => {
+    (e as Event).preventDefault?.();
+    deferredPrompt = e;
+    canInstallPWA.value = true;
+  });
+  window.addEventListener("appinstalled", () => {
+    canInstallPWA.value = false;
+    deferredPrompt = null;
+  });
+};
+
+onMounted(async () => {
+  setupPWAListeners();
+  await checkNotificationStatus();
+});
 </script>
 
 <style scoped>
@@ -946,5 +1196,94 @@ const verifySettingsPassword = async () => {
 		min-height: calc(100vh - 160px);
 		padding-bottom: 20px;
 	}
+}
+
+/* Chevron icon (for actionable rows) */
+.user-info__item--action { cursor: pointer; }
+.chevron {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  color: #8a837a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chevron svg { width: 20px; height: 20px; }
+
+/* 닉네임 모달 전용 보정 */
+.modal--nickname {
+  max-width: 360px;
+  border-radius: 10px;
+  padding: 27px 24px 32px;
+}
+
+/* ── 알림 카드 ── */
+.section-title + .notification-settings {
+  margin-top: 16px; /* 12~20px 선호 */
+}
+
+.notification-settings {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(119, 107, 93, 0.1);
+}
+
+.notification-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(119, 107, 93, 0.1);
+}
+.notification-item:last-child { border-bottom: none; }
+.notification-item__content { flex: 1; }
+.notification-item__label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 4px;
+}
+.notification-item__desc {
+  font-size: 14px;
+  color: #776b5d;
+}
+.notification-item__toggle { margin-left: 16px; }
+
+.toggle-button {
+  padding: 8px 16px;
+  border: 2px solid #776b5d;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #776b5d;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 60px;
+}
+.toggle-button:hover { background: rgba(119, 107, 93, 0.1); }
+.toggle-button--active { background: #776b5d; color: #ffffff; }
+
+.install-button {
+  padding: 8px 16px;
+  border: 2px solid #4caf50;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #4caf50;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 60px;
+}
+.install-button:hover:not(:disabled) { background: rgba(76, 175, 80, 0.1); }
+.install-button:disabled {
+  border-color: #cccccc;
+  color: #cccccc;
+  cursor: not-allowed;
 }
 </style>
