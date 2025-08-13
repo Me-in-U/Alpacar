@@ -130,19 +130,23 @@ const handleNotificationClick = async (notification: Notification) => {
 		showNotificationModal.value = false;
 		
 		// 알림 타입별 라우팅
-		if (notification.notification_type === 'parking' ||
+		if (notification.notification_type === 'parking_assigned' ||
 			notification.title?.includes('주차 배정') ||
 			notification.message?.includes('주차 배정')) {
 			// 주차 배정 알림인 경우 parking-recommend 페이지로 이동
 			router.push('/parking-recommend');
-		} else if (notification.notification_type === 'entry' ||
-				   notification.notification_type === 'parking_complete' ||
-				   notification.title?.includes('주차 완료') ||
-				   notification.title?.includes('입차 완료') ||
-				   notification.title?.includes('출차 완료')) {
-			// 주차 완료, 입차/출차 관련 알림인 경우 parking-history 페이지로 이동
+		} else if (
+			notification.notification_type === 'parking_complete' ||
+			notification.title?.includes('주차 완료')) {
+			// 주차 완료 알림인 경우 parking-history 페이지로 이동
+			router.push('/parking-history');
+		} else if (
+			notification.notification_type === 'exit' ||
+			notification.title?.includes('출차 완료')) {
+			// 출차 완료 알림인 경우 parking-history 페이지로 이동
 			router.push('/parking-history');
 		}
+
 	} catch (error) {
 		console.error("알림 처리 실패:", error);
 	}

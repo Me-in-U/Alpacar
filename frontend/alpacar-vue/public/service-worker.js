@@ -8,9 +8,10 @@ const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
 
 const NOTIFICATION_SETTINGS = {
-	parking: { title: "🚗 주차 알림", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-notification" },
-	entry: { title: "🅿️ 입차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "entry-notification" },
-	exit: { title: "🚪 출차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "exit-notification" },
+	parking_assigned: { title: "🚗 주차 배정", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-assigned-notification" },
+	parking_complete: { title: "🅿️ 주차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-complete-notification" },
+	entry: { title: "🚪 입차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "entry-notification" },
+	exit: { title: "🚗 출차 완료", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "exit-notification" },
 	warning: { title: "⚠️ 주차 경고", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "warning-notification" },
 };
 
@@ -146,9 +147,10 @@ self.addEventListener("notificationclick", (event) => {
 	const data = event.notification.data || {};
 	let urlToOpen = "/";
 	switch (data.type) {
-		case "parking":
+		case "parking_assigned":
 			urlToOpen = "/parking-recommend";
 			break;
+		case "parking_complete":
 		case "entry":
 		case "exit":
 			urlToOpen = "/parking-history";
