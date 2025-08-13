@@ -15,10 +15,6 @@ export default defineConfig({
 		vue(),
 		vueDevTools(),
 		VitePWA({
-			strategies: 'injectManifest',
-			srcDir: 'public',
-			filename: 'service-worker.js',
-			injectRegister: false,
 			registerType: "prompt",
 			devOptions: {
 				enabled: true,
