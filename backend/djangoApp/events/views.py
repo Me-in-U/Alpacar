@@ -138,9 +138,8 @@ def manual_parking_complete(request, vehicle_id):
 def manual_exit(request, vehicle_id):
     now = timezone.now()
     ev = (
-        VehicleEvent.objects.filter(
-            vehicle_id=vehicle_id, parking_time__isnull=False, exit_time__isnull=True
-        )
+        VehicleEvent.objects.select_for_update()
+        .filter(vehicle_id=vehicle_id, exit_time__isnull=True)
         .order_by("-id")
         .first()
     )
@@ -149,12 +148,13 @@ def manual_exit(request, vehicle_id):
 
     ev.exit_time = now
     ev.status = "Exit"
-    ev.save()
+    ev.save(update_fields=["exit_time", "status"])
 
     vehicle = ev.vehicle
     try:
         from parking.models import ParkingAssignment, ParkingSpace
 
+        # 진행 중 배정(ASSIGNED)이 있으면 종료 처리
         pa = ParkingAssignment.objects.select_related("space").get(
             entrance_event=ev, status="ASSIGNED"
         )
@@ -167,8 +167,11 @@ def manual_exit(request, vehicle_id):
             space.status = "free"
             space.current_vehicle = None
             space.save(update_fields=["status", "current_vehicle", "updated_at"])
+    except Exception:
+        space = None  # 배정 없거나 조회 실패 등은 무시
 
-        # 알림
+    # 알림 (parking_time 없을 수 있으니 이미 안전하게 분기됨)
+    try:
         parking_duration = None
         if ev.parking_time and ev.exit_time:
             duration = ev.exit_time - ev.parking_time
