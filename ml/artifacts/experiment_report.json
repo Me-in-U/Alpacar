@@ -1,0 +1,16 @@
+{
+  "timestamp_utc": "2025-08-11T13:23:10Z",
+  "rows": 10000,
+  "features": 24,
+  "target_column": "step",
+  "best_params": null,
+  "metrics": {
+    "train_mae": 0.018066706103430752,
+    "train_rmse": 0.053277439078096234,
+    "train_r2": 0.9997869511010313
+  },
+  "artifacts": {
+    "model_path": "C:\\Users\\SSAFY\\Desktop\\ssafy\\project\\S13P11E102\\ml\\artifacts\\best_step_model.joblib",
+    "train_predictions_sample": "C:\\Users\\SSAFY\\Desktop\\ssafy\\project\\S13P11E102\\ml\\artifacts\\train_predictions_sample.csv"
+  }
+}
