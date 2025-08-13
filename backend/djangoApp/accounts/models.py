@@ -119,7 +119,8 @@ class Notification(models.Model):
 
     NOTIFICATION_TYPES = [
         ("system", "시스템"),
-        ("parking", "주차 배정"),
+        ("parking_assigned", "주차 배정"),
+        ("parking_complete", "주차 완료"),
         ("entry", "입차 알림"),
         ("exit", "출차 완료"),
         ("warning", "경고"),
