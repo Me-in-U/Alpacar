@@ -1,4 +1,8 @@
 // public/service-worker.js - Alpacar PWA Service Worker (safe fetch)
+// ✅ Workbox 프리캐시 주입 지점 (injectManifest가 이 줄을 치환해서 정적파일 목록을 주입)
+import { precacheAndRoute } from "workbox-precaching";
+precacheAndRoute(self.__WB_MANIFEST || []);
+
 const SW_VERSION = "v3.4";
 const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
