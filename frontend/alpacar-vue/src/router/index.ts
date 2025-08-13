@@ -28,6 +28,7 @@ import MainWithHolo from "@/views/user/MainWithHolo.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 import UserSetting from "@/views/user/UserSetting.vue";
+import MainTest from "@/views/user/MainTest.vue";
 
 // 로그인 상태 확인 함수
 function isAuthenticated(): boolean {
@@ -182,6 +183,7 @@ const router = createRouter({
 			name: "user-setting", 
 			component: UserSetting
 		},
+		{path: "/main-test", name: "main-test", component: MainTest}
 	],
 });
 
