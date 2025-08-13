@@ -91,7 +91,19 @@
 							<div class="gate-box"></div>
 						</div>
 						<!-- 차량 오버레이 (내 차량 하이라이트) -->
+						<!-- 차량 오버레이 (내 차량 하이라이트) -->
 						<svg class="overlay" viewBox="0 0 900 550" preserveAspectRatio="none">
+							<!-- 🔻 화살표 머리 -->
+							<defs>
+								<marker id="arrowhead" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4dd2" />
+								</marker>
+							</defs>
+
+							<!-- 🔻 안내 라인 -->
+							<path v-if="arrowD" :d="arrowD" class="guide-path" marker-end="url(#arrowhead)" />
+
+							<!-- 기존 차량 폴리곤/라벨 -->
 							<g v-for="obj in filteredVehicles" :key="obj.track_id">
 								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" :stroke="myPlatesSet.has(obj.track_id) ? '#00e5ff' : '#ff0'" stroke-width="3" />
 								<template v-if="myPlatesSet.has(obj.track_id)">
@@ -356,6 +368,7 @@ function connectWS() {
 						}
 					}
 					updateMyStateFromVehicles();
+					nextTick(recomputeGuide);
 					break;
 				}
 				case "parking_space": {
@@ -438,9 +451,56 @@ function updatePin() {
 		const y = spotRect.top - wrapRect.top + spotRect.height / 2 - pinH / 2 - 35;
 		pinStyle.left = `${x}px`;
 		pinStyle.top = `${y}px`;
+		// 🔻 핀 위치 갱신 후 경로도 갱신
+		recomputeGuide();
 	});
 }
+// 🔻 안내 경로 SVG d 문자열
+const arrowD = ref("");
+
+// 슬롯 중심 좌표(px) → overlay viewBox 좌표(0..900, 0..550) 변환
+function getSlotCenterInViewBox(slotId: string) {
+	if (!mapWrapper.value) return null;
+	const wrap = mapWrapper.value;
+	const wrapRect = wrap.getBoundingClientRect();
+	const el = wrap.querySelector<HTMLElement>(`[data-spot-id="${slotId}"]`);
+	if (!el) return null;
+	const r = el.getBoundingClientRect();
+
+	const pxX = r.left - wrapRect.left + r.width / 2;
+	const pxY = r.top - wrapRect.top + r.height / 2;
+
+	const x = (pxX / wrapRect.width) * 900; // viewBox width
+	const y = (pxY / wrapRect.height) * 550; // viewBox height
+	return { x, y };
+}
+
+// 내 차 → 배정 슬롯까지 ‘중앙 차도’ 경유 L-라우팅
+function recomputeGuide() {
+	const mine = vehicles.value.find((v) => myPlatesSet.has(v.track_id));
+	if (!mine || !recommendedId.value) {
+		arrowD.value = "";
+		return;
+	}
+	const start = {
+		x: mine.center[0] + layout.carOffsetX,
+		y: mine.center[1] + layout.carOffsetY,
+	};
+	const target = getSlotCenterInViewBox(recommendedId.value);
+	if (!target) {
+		arrowD.value = "";
+		return;
+	}
+
+	const CY = 550 / 2; // 중앙 차도 y (viewBox 기준)
+
+	// 점선 L 경로: 시작 → (시작.x, 중앙) → (도착.x, 중앙) → 도착
+	const d =
+		`M ${start.x.toFixed(1)} ${start.y.toFixed(1)} ` + `L ${start.x.toFixed(1)} ${CY.toFixed(1)} ` + `L ${target.x.toFixed(1)} ${CY.toFixed(1)} ` + `L ${target.x.toFixed(1)} ${target.y.toFixed(1)}`;
+	arrowD.value = d;
+}
 watch(recommendedId, updatePin);
+watch(vehicles, () => nextTick(recomputeGuide), { deep: true });
 
 /* 슬롯 클래스 (상태 3종 + 추천) */
 function spotClasses(spot: string) {
@@ -487,11 +547,14 @@ function toPoints(c: number[] | number[][], offsetX = 0, offsetY = 0) {
 onMounted(async () => {
 	await ensureMyPlates(); // Pinia에서 내 차량 번호판 확보
 	connectWS(); // 실시간 연결
+	window.addEventListener("resize", recomputeGuide);
+	recomputeGuide();
 });
 onBeforeUnmount(() => {
 	ws?.close();
 	if (seenTimer) clearTimeout(seenTimer);
 	if (lostTimer) clearTimeout(lostTimer);
+	window.removeEventListener("resize", recomputeGuide);
 });
 </script>
 
@@ -881,7 +944,7 @@ onBeforeUnmount(() => {
 	--box-background: #ffe100;
 
 	position: absolute;
-	left: 100px; /* 지도 왼쪽에서의 위치(필요시 조정) */
+	left: var(--gate-left);
 	width: calc(var(--pole-w) + var(--gap-x) + var(--box));
 	height: var(--pole-h);
 	z-index: 2; /* 슬롯 위, SVG 오버레이 아래 */
@@ -923,5 +986,22 @@ onBeforeUnmount(() => {
 /* 아래 게이트: 살짝 아래로 */
 .gate--bottom .gate-box {
 	bottom: calc(-10px * var(--scale));
+}
+
+/* 🔻 내 차량 → 배정 슬롯 안내 라인 */
+.guide-path {
+	stroke: #ff4dd2; /* 눈에 잘 띄는 분홍 */
+	stroke-width: 4;
+	fill: none;
+	stroke-dasharray: 12 10;
+	stroke-linecap: round;
+	opacity: 0.95;
+	animation: guideDash 1.2s linear infinite;
+	filter: drop-shadow(0 0 2px rgba(255, 77, 210, 0.35));
+}
+@keyframes guideDash {
+	to {
+		stroke-dashoffset: -22;
+	}
 }
 </style>
