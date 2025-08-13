@@ -1,5 +1,5 @@
 // public/service-worker.js - Alpacar PWA Service Worker (safe fetch)
-const SW_VERSION = "v3.3";
+const SW_VERSION = "v3.4";
 const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
 
@@ -36,6 +36,15 @@ self.addEventListener("fetch", (event) => {
 		return; // 그냥 브라우저 기본 처리
 	}
 
+	// 1.5) OAuth 관련 경로/쿼리는 무조건 네트워크 통과 (캐시 금지)
+	const OAUTH_PATH = /\/(auth|oauth|login|signin|logout|callback|accounts)\b/i;
+	const OAUTH_QUERY_KEYS = ["state", "code", "g_state", "scope", "prompt", "authuser", "hd"];
+	const hasOAuthQuery = OAUTH_QUERY_KEYS.some((k) => url.searchParams.has(k));
+	if (OAUTH_PATH.test(url.pathname) || hasOAuthQuery) {
+		event.respondWith(fetch(req).catch(() => new Response("오프라인입니다.", { status: 503 })));
+		return;
+	}
+
 	// 2) API는 항상 네트워크로
 	if (url.pathname.startsWith("/api/")) {
 		event.respondWith(fetch(req).catch(() => new Response("오프라인입니다.", { status: 503 })));
@@ -48,45 +57,54 @@ self.addEventListener("fetch", (event) => {
 		return;
 	}
 
+	// 3.5) 문서 네비게이션은 네트워크 우선(오프라인 시 홈 fallback)
+	if (req.mode === "navigate" || req.destination === "document") {
+		event.respondWith(
+			(async () => {
+				try {
+					return await fetch(req); // 항상 최신 앱 상태
+				} catch {
+					const cachedHome = await caches.match("/");
+					return cachedHome || new Response("오프라인 상태입니다.", { status: 503 });
+				}
+			})()
+		);
+		return;
+	}
+
 	// 4) 다른 오리진은 네트워크 우선 (원하면 캐시 제외)
 	const sameOrigin = url.origin === self.location.origin;
 
 	event.respondWith(
 		(async () => {
 			try {
-				// 같은 오리진 정적 리소스: 캐시 우선 + 네트워크 갱신
+				// 같은 오리진 "정적 리소스"만 캐시 (그 외는 네트워크)
 				if (sameOrigin) {
-					const cached = await caches.match(req);
-					if (cached) {
-						// 백그라운드로 최신화 시도(실패해도 OK)
-						fetch(req)
-							.then(async (res) => {
-								if (res && res.status === 200 && res.type === "basic") {
-									try {
+					const isStatic = /\.(?:js|css|png|jpe?g|svg|webp|ico|woff2?|ttf|map)$/.test(url.pathname);
+
+					if (isStatic) {
+						const cached = await caches.match(req);
+						if (cached) {
+							// 백그라운드 최신화
+							fetch(req)
+								.then(async (res) => {
+									if (res && res.ok && res.type === "basic") {
 										const cache = await caches.open(CACHE_NAME);
 										await cache.put(req, res.clone());
-									} catch (e) {
-										// ignore cache put failure
 									}
-								}
-							})
-							.catch(() => {});
-						return cached;
-					}
-
-					const res = await fetch(req);
-					if (res && res.status === 200 && res.type === "basic") {
-						try {
+								})
+								.catch(() => {});
+							return cached;
+						}
+						const res = await fetch(req);
+						if (res && res.ok && res.type === "basic") {
 							const cache = await caches.open(CACHE_NAME);
 							await cache.put(req, res.clone());
-						} catch (e) {
-							// ignore
 						}
+						return res;
 					}
-					return res;
 				}
-
-				// 다른 오리진: 네트워크 우선 (캐시에는 넣지 않음)
+				// 정적이 아니거나 다른 오리진: 네트워크 우선(캐시 X)
 				return await fetch(req);
 			} catch (err) {
 				// 오프라인 fallback
