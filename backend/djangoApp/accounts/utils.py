@@ -35,7 +35,7 @@ def create_notification(user, title, message, notification_type='system', data=N
         
         # 푸시 알림 전송 (사용자가 푸시 알림을 허용한 경우에만)
         if hasattr(user, 'push_enabled') and user.push_enabled:
-            send_push_notification(user, title, message, data)
+            send_push_notification(user, title, message, data, notification_type)
         
         return notification
         
@@ -43,7 +43,7 @@ def create_notification(user, title, message, notification_type='system', data=N
         raise e
 
 
-def send_push_notification(user, title, message, data=None):
+def send_push_notification(user, title, message, data=None, notification_type='system'):
     """
     특정 사용자에게 푸시 알림 전송
     
@@ -52,6 +52,7 @@ def send_push_notification(user, title, message, data=None):
         title: 알림 제목
         message: 알림 내용
         data: 추가 데이터 (선택)
+        notification_type: 알림 타입 (Service Worker 라우팅용)
     """
     if data is None:
         data = {}
@@ -62,7 +63,7 @@ def send_push_notification(user, title, message, data=None):
     if not subscriptions.exists():
         return
     
-    # 푸시 알림 페이로드 구성
+    # 푸시 알림 페이로드 구성 (Service Worker 라우팅을 위한 type 필드 추가)
     payload = {
         'title': title,
         'body': message,
@@ -70,6 +71,7 @@ def send_push_notification(user, title, message, data=None):
         'badge': '/icons/favicon-16x16.png',
         'tag': 'notification',
         'requireInteraction': True,
+        'type': notification_type,  # ← Service Worker에서 라우팅에 사용할 type 필드
         'data': data
     }
     
@@ -151,11 +153,12 @@ def send_parking_complete_notification(user, parking_data):
     else:
         message = f"{plate_number} 차량이 {parking_space} 구역에 주차를 완료했습니다."
     
+    # 주차 완료 알림의 notification_type을 'entry'로 변경하여 parking-history 페이지로 라우팅
     create_notification(
         user=user,
         title=title,
         message=message,
-        notification_type='general',
+        notification_type='entry',  # parking-history로 라우팅하기 위해 entry 타입 사용
         data=parking_data
     )
 
