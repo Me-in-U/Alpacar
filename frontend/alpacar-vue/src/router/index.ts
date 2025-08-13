@@ -27,24 +27,40 @@ import GoogleCallback from "@/views/user/GoogleCallback.vue";
 import MainWithHolo from "@/views/user/MainWithHolo.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
+import { SecureTokenManager } from "@/utils/security";
 import UserSetting from "@/views/user/UserSetting.vue";
 import MainTest from "@/views/user/MainTest.vue";
 
-// 로그인 상태 확인 함수
-function isAuthenticated(): boolean {
-	const token = localStorage.getItem("access_token");
-	if (!token) {
+// 보안 강화된 로그인 상태 확인 함수
+async function isAuthenticated(): Promise<boolean> {
+	try {
+		// 보안 토큰 매니저에서 토큰 확인
+		const token = SecureTokenManager.getSecureToken("access_token");
+
+		if (!token) {
+			return false;
+		}
+
+		// 자동 로그인인 경우 만료 여부 확인
+		const expiryDate = localStorage.getItem("auto_login_expiry");
+		if (expiryDate) {
+			const userStore = useUserStore();
+			const isExpired = await userStore.checkAutoLoginExpiry();
+			if (isExpired) {
+				return false;
+			}
+		}
+
+		return true;
+	} catch (error) {
+		console.warn("Authentication check failed:", error);
 		return false;
 	}
-
-	// 토큰이 있으면 일단 인증된 것으로 간주
-	// 실제 API 호출 시 토큰 유효성은 각 컴포넌트에서 처리
-	return true;
 }
 
 // 차량 등록 여부 확인 함수
 async function hasVehicleRegistered(): Promise<boolean> {
-	const token = localStorage.getItem("access_token");
+	const token = SecureTokenManager.getSecureToken("access_token");
 	if (!token) {
 		return false;
 	}
@@ -183,40 +199,56 @@ const router = createRouter({
 
 // 네비게이션 가드 추가
 router.beforeEach(async (to, from, next) => {
-	const isLoggedIn = isAuthenticated();
+	const isLoggedIn = await isAuthenticated();
 
 	console.log(`[ROUTER GUARD] 페이지 접근: ${to.path}, 로그인 상태: ${isLoggedIn}`);
+
+	// 주차 히스토리 페이지 접근 디버그
+	if (to.path === "/parking-history") {
+		console.log(`[PARKING HISTORY DEBUG] 접근 시도:`, {
+			path: to.path,
+			isLoggedIn: isLoggedIn,
+			from: from.path,
+		});
+	}
 
 	// **최우선 순위: 로그인된 사용자가 관리자인 경우 접근 제어**
 	if (isLoggedIn) {
 		const userStore = useUserStore();
 		console.log(`[ROUTER GUARD] 사용자 스토어 상태:`, userStore.me);
 
-		// 사용자 정보가 없으면 localStorage에서 확인 시도
+		// 사용자 정보가 없으면 보안 저장소에서 복원 시도
 		if (!userStore.me) {
-			const storedUser = localStorage.getItem("user");
-			if (storedUser) {
-				try {
-					const userData = JSON.parse(storedUser);
-					console.log(`[ROUTER GUARD] localStorage에서 사용자 정보 복구:`, userData);
-					userStore.setUser(userData);
-				} catch (e) {
-					console.error(`[ROUTER GUARD] localStorage 사용자 정보 파싱 실패:`, e);
-				}
+			const userData = userStore.restoreUserFromStorage();
+			if (userData) {
+				console.log(`[ROUTER GUARD] 보안 저장소에서 사용자 정보 복구:`, userData);
 			}
 		}
 
 		const isAdmin = userStore.me?.is_staff ?? false;
-		console.log(`[ROUTER GUARD] 관리자 여부: ${isAdmin}`);
+		console.log(`[ROUTER GUARD] 관리자 여부: ${isAdmin}`, {
+			user: userStore.me,
+			is_staff: userStore.me?.is_staff,
+			is_staff_type: typeof userStore.me?.is_staff,
+		});
+
+		// 주차 히스토리 페이지에 대한 관리자 체크 디버그
+		if (to.path === "/parking-history") {
+			console.log(`[PARKING HISTORY DEBUG] 접근 시도:`, {
+				isAdmin: isAdmin,
+				user_is_staff: userStore.me?.is_staff,
+				will_be_blocked: isAdmin,
+			});
+		}
 
 		if (isAdmin) {
 			console.log(`[ROUTER GUARD] 관리자가 ${to.path} 접근 시도`);
 
 			// 관리자 허용 페이지 목록 (화이트리스트)
-			const adminAllowedPages = ["/admin-main", "/admin-parkinglogs", "/admin-parkingreassign", "/admin-plate-ocr", "/admin-login", "/modal-test", "/admin-error-test", "/holo"];
+			const adminAllowedPages = ["/admin-main", "/admin-parkinglogs", "/admin-plate-ocr", "/admin-login", "/modal-test", "/admin-error-test", "/holo"];
 
 			// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
-			const adminBlockedPages = ["/social-login-info", "/main", "/parking-history", "/user-profile", "/parking-recommend", "/parking-complete"];
+			const adminBlockedPages = ["/social-login-info", "/main", "/user-profile", "/parking-recommend", "/parking-complete"];
 
 			// 관리자가 접근하면 안 되는 페이지인지 먼저 확인
 			if (adminBlockedPages.includes(to.path)) {
@@ -298,6 +330,11 @@ router.beforeEach(async (to, from, next) => {
 			// 일반 사용자 로직 (관리자 체크는 이미 위에서 완료)
 			// 일반 사용자인 경우 차량 등록 여부 확인
 			console.log("일반 사용자입니다. 차량 등록 여부를 확인합니다.");
+
+			// 주차 히스토리 페이지 접근 시 추가 디버깅
+			if (to.path === "/parking-history") {
+				console.log(`[PARKING HISTORY DEBUG] 일반 사용자가 접근 중`);
+			}
 			const hasVehicle = await hasVehicleRegistered();
 			console.log(`[ROUTER DEBUG] 차량 등록 여부: ${hasVehicle}`);
 
@@ -338,10 +375,10 @@ router.beforeEach(async (to, from, next) => {
 					console.log(`[ADMIN ACCESS - 비인증페이지] 관리자가 ${to.path} 접근 시도`);
 
 					// 관리자 허용 페이지 목록 (화이트리스트)
-					const adminAllowedPages = ["/admin-main", "/admin-parkinglogs", "/admin-parkingreassign", "/admin-plate-ocr", "/modal-test", "/admin-error-test", "/holo"];
+					const adminAllowedPages = ["/admin-main", "/admin-parkinglogs", "/admin-plate-ocr", "/modal-test", "/admin-error-test", "/holo"];
 
 					// 관리자가 접근하면 안 되는 페이지 목록 (블랙리스트)
-					const adminBlockedPages = ["/social-login-info", "/main", "/parking-history", "/user-profile", "/parking-recommend", "/parking-complete"];
+					const adminBlockedPages = ["/social-login-info", "/main", "/user-profile", "/parking-recommend", "/parking-complete"];
 
 					// 관리자가 접근하면 안 되는 페이지인지 먼저 확인
 					if (adminBlockedPages.includes(to.path)) {

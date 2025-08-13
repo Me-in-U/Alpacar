@@ -73,6 +73,7 @@
 import { defineComponent, ref, onMounted, onBeforeUnmount } from "vue";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { SecureTokenManager } from "@/utils/security";
 
 export default defineComponent({
 	name: "AdminParkingLogs",
@@ -98,8 +99,8 @@ export default defineComponent({
 		};
 		const fetchPage = async (url = `${BACKEND_BASE_URL}/vehicle-events/?page=1`) => {
 			loading.value = true;
-			const token = localStorage.getItem("access_token");
-			const res = await fetch(normalizePageUrl(url) || url, {
+			const token = SecureTokenManager.getSecureToken("access_token");
+			const res = await fetch(url, {
 				method: "GET",
 				headers: {
 					Authorization: `Bearer ${token}`,
@@ -138,7 +139,7 @@ export default defineComponent({
 				alert("차량번호를 입력하세요");
 				return;
 			}
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			try {
 				const res = await fetch(`${BACKEND_BASE_URL}/vehicles/manual-entrance/`, {
 					method: "POST",
@@ -168,7 +169,7 @@ export default defineComponent({
 		};
 
 		const manualParking = async (vehicleId: number) => {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/${vehicleId}/manual-parking/`, {
 				method: "POST",
 				headers: {
@@ -189,7 +190,7 @@ export default defineComponent({
 		};
 
 		const manualExit = async (vehicleId: number) => {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/${vehicleId}/manual-exit/`, {
 				method: "POST",
 				headers: {
@@ -253,7 +254,7 @@ export default defineComponent({
 				alert("차량번호를 입력하세요");
 				return;
 			}
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/send-push/`, {
 				method: "POST",
 				headers: {
