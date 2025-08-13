@@ -191,11 +191,12 @@ class VehicleSpecsHelper:
     
     @classmethod
     def get_specs_from_size_class(cls, size_class: Optional[str]) -> Dict[str, Any]:
-        """size_class로부터 차량 사양 정보 반환 (미터 단위)"""
-        if not size_class:
-            return {"width": 2.5, "length": 5.0, "size_code": 2}
-        
-        return cls.SIZE_CLASS_SPECS.get(size_class.lower(), {"width": 2.5, "length": 5.0, "size_code": 2})
+        default_specs = {"width": 2.5, "length": 5.0, "size_code": 2}
+        if not size_class or not isinstance(size_class, str):
+            return default_specs
+
+        normalized_size_class = size_class.strip().lower()
+        return cls.SIZE_CLASS_SPECS.get(normalized_size_class, default_specs)
     
     @classmethod
     def get_box_size_from_size_class(cls, size_class: Optional[str]) -> Tuple[int, int]:
