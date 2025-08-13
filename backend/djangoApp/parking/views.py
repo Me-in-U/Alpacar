@@ -190,13 +190,14 @@ def assign_space(request):
         new_space.status = "reserved"
         new_space.current_vehicle = vehicle
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
-        # 푸시
+        # 푸시 알림 전송
         try:
+            print(f"[ADMIN] 주차 배정 알림 전송 시도: {vehicle.license_plate} → {zone}{slot_number}")
             create_notification(
                 user=vehicle.user,
                 title="🅿️ 주차 구역 배정",
                 message=f"{vehicle.license_plate} 차량에 {zone}{slot_number} 구역이 배정되었습니다. 안내에 따라 주차해 주세요.",
-                notification_type="parking",
+                notification_type="parking_assigned",
                 data={
                     "plate_number": vehicle.license_plate,
                     "assigned_space": f"{zone}{slot_number}",
@@ -206,8 +207,9 @@ def assign_space(request):
                     "action_type": "navigate",
                 },
             )
-        except Exception:
-            pass
+            print(f"[ADMIN] 주차 배정 알림 전송 완료: {vehicle.license_plate}")
+        except Exception as e:
+            print(f"[ADMIN ERROR] 주차 배정 알림 전송 실패: {vehicle.license_plate} - {str(e)}")
     else:
         if pa.space_id == new_space.id:
             return Response(ParkingAssignmentSerializer(pa).data, status=200)
@@ -221,13 +223,15 @@ def assign_space(request):
         new_space.status = "reserved"
         new_space.current_vehicle = vehicle
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
-        # 푸시
+        # 푸시 알림 전송 (재배정)
         try:
+            old_space_name = f"{old_space.zone}{old_space.slot_number}" if old_space else "없음"
+            print(f"[ADMIN] 주차 재배정 알림 전송 시도: {vehicle.license_plate} {old_space_name} → {zone}{slot_number}")
             create_notification(
                 user=vehicle.user,
                 title="🔄 주차 구역 재배정",
                 message=f"{vehicle.license_plate} 차량의 주차 구역이 {zone}{slot_number}로 변경되었습니다.",
-                notification_type="parking",
+                notification_type="parking_assigned",
                 data={
                     "plate_number": vehicle.license_plate,
                     "old_space": (
@@ -242,8 +246,9 @@ def assign_space(request):
                     "action_type": "navigate",
                 },
             )
-        except Exception:
-            pass
+            print(f"[ADMIN] 주차 재배정 알림 전송 완료: {vehicle.license_plate}")
+        except Exception as e:
+            print(f"[ADMIN ERROR] 주차 재배정 알림 전송 실패: {vehicle.license_plate} - {str(e)}")
 
     # 실시간 방송은 signals가 처리
     return Response(
