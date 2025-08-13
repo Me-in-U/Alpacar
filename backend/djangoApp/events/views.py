@@ -60,30 +60,8 @@ def manual_entrance(request):
             status="Entrance",
         )
         
-        # 푸시 알림 전송 - 입차 알림 (DB 조회로 user_id 확인)
-        try:
-            # vehicle 테이블에서 user_id 조회
-            vehicle_with_user = Vehicle.objects.select_related('user').get(
-                license_plate=vehicle.license_plate
-            )
-            target_user = vehicle_with_user.user
-            
-            print(f"[DB QUERY] vehicle 테이블 조회: license_plate={vehicle.license_plate} -> user_id={target_user.id}")
-            
-            entry_data = {
-                'plate_number': vehicle.license_plate,
-                'parking_lot': 'SSAFY 주차장',
-                'entry_time': timezone.now().isoformat(),
-                'admin_action': True,
-                'action_url': '/parking-recommend',  # 알림 터치 시 이동할 페이지
-                'action_type': 'navigate'
-            }
-            send_vehicle_entry_notification(target_user, entry_data)
-            print(f"[ADMIN] 입차 알림 전송됨: {vehicle.license_plate} -> {target_user.email} (user_id: {target_user.id})")
-        except Vehicle.DoesNotExist:
-            print(f"[ADMIN ERROR] vehicle 테이블에서 차량 정보를 찾을 수 없음: {vehicle.license_plate}")
-        except Exception as e:
-            print(f"[ADMIN ERROR] 입차 알림 전송 실패: {str(e)}")
+        # 수동 입차 시 push 알림 제거 (차량 배정 시에만 알림 발송)
+        print(f"[ADMIN] 수동 입차 기록됨: {vehicle.license_plate} (push 알림 없음)")
         
         # 입차 목록 갱신 트리거
         broadcast_active_vehicles()

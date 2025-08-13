@@ -147,6 +147,8 @@ self.addEventListener("notificationclick", (event) => {
 	let urlToOpen = "/";
 	switch (data.type) {
 		case "parking":
+			urlToOpen = "/parking-recommend";
+			break;
 		case "entry":
 		case "exit":
 			urlToOpen = "/parking-history";
