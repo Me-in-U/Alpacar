@@ -26,8 +26,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Python 의존성 파일 복사 및 설치
 COPY requirements.txt .
-RUN python -m pip install --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --upgrade pip
+#  && pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # 프로젝트 파일 복사
 COPY . .
