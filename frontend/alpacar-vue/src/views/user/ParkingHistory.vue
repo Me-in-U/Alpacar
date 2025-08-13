@@ -73,6 +73,7 @@ import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
 import ParkingScoreChart from "@/components/ParkingScoreChart.vue";
 import parkingAPI from "@/api/parking";
+import { SecureTokenManager } from "@/utils/security";
 
 const router = useRouter();
 
@@ -98,10 +99,10 @@ const loadParkingData = async () => {
 		isLoading.value = true;
 		error.value = null;
 
-		// 토큰 확인
-		const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+		// 토큰 확인 (SecureTokenManager 사용)
+		const token = SecureTokenManager.getSecureToken("access_token");
 		if (!token) {
-			console.error("No access token found");
+			console.error("No access token found - redirecting to login");
 			router.push("/login");
 			return;
 		}
@@ -150,8 +151,8 @@ const loadParkingData = async () => {
 
 		// 401 에러인 경우 로그인 페이지로 이동
 		if (err.response?.status === 401) {
-			localStorage.removeItem("access_token");
-			sessionStorage.removeItem("access_token");
+			console.log("401 Unauthorized - clearing tokens and redirecting to login");
+			SecureTokenManager.clearAllSecureTokens();
 			router.push("/login");
 		}
 	} finally {

@@ -39,6 +39,7 @@
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
+import { SecureTokenManager } from "@/utils/security";
 
 const router = useRouter();
 const route = useRoute();
@@ -50,12 +51,7 @@ const isLoggedIn = ref(false);
 const emit = defineEmits<{ (e: "logout"): void }>();
 
 function readAuth(): boolean {
-  const token =
-    localStorage.getItem("access_token") ||  // ← 스샷 기준 키
-    localStorage.getItem("access") ||
-    localStorage.getItem("accessToken") ||
-    localStorage.getItem("adminAccess") ||
-    localStorage.getItem("token");
+  const token = SecureTokenManager.getSecureToken("access_token");
   if (!token) return false;
 
   const raw = localStorage.getItem("user");
@@ -103,13 +99,11 @@ const handleMenuClick = (path: string) => {
 };
 
 const handleLogout = () => {
-  // 실제 저장된 키 반영 (스크린샷 기준)
-  [
-    "access_token", "refresh_token",
-    "access", "refresh", "accessToken", "refreshToken",
-    "adminAccess", "adminRefresh", "token",
-    "is_staff", "user",
-  ].forEach((k) => localStorage.removeItem(k));
+  // SecureTokenManager를 사용하여 보안 토큰들 삭제
+  SecureTokenManager.clearAllSecureTokens();
+  
+  // 기타 사용자 정보도 삭제
+  localStorage.removeItem("user");
 
   refreshAuth(); // 즉시 갱신
   emit("logout");

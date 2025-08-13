@@ -14,6 +14,18 @@
 					<input type="password" placeholder="비밀번호 입력" v-model="adminPassword" @keyup.enter="handleLogin" />
 				</div>
 
+				<!-- Auto Login Checkbox -->
+				<div class="auto-login-container">
+					<label class="auto-login-label">
+						<input 
+							type="checkbox" 
+							v-model="autoLogin" 
+							class="auto-login-checkbox"
+						/>
+						<span class="auto-login-text">자동 로그인</span>
+					</label>
+				</div>
+
 				<button class="login-button" @click="handleLogin" :disabled="isLoading">
 					<span v-if="!isLoading">로그인</span>
 					<span v-else class="loading">로그인 중...</span>
@@ -38,6 +50,7 @@ export default defineComponent({
 
 		const adminId = ref("");
 		const adminPassword = ref("");
+		const autoLogin = ref(false);
 		const isLoading = ref(false);
 
 		const handleLogin = async () => {
@@ -48,9 +61,9 @@ export default defineComponent({
 			
 			isLoading.value = true;
 			try {
-				// 관리자 로그인 시도
+				// 관리자 로그인 시도 (자동 로그인 옵션 포함)
 				console.log("[ADMIN LOGIN] 로그인 시도 중...");
-				await userStore.adminLogin(adminId.value, adminPassword.value);
+				await userStore.adminLogin(adminId.value, adminPassword.value, autoLogin.value);
 				
 				// 로그인 성공 후 사용자 정보 확인
 				console.log("[ADMIN LOGIN] 로그인 성공. 사용자 정보:", userStore.me);
@@ -70,6 +83,7 @@ export default defineComponent({
 		return {
 			adminId,
 			adminPassword,
+			autoLogin,
 			isLoading,
 			handleLogin,
 		};
@@ -132,6 +146,56 @@ export default defineComponent({
 	border-radius: 4px;
 	background-color: #ffffff;
 	box-sizing: border-box;
+}
+
+/* Auto Login Checkbox */
+.auto-login-container {
+	width: 100%;
+	margin-bottom: 10px;
+}
+
+.auto-login-label {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	font-size: 14px;
+	color: #666666;
+	gap: 8px;
+}
+
+.auto-login-checkbox {
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	border: 2px solid #cccccc;
+	border-radius: 4px;
+	background-color: #ffffff;
+	cursor: pointer;
+	position: relative;
+	transition: all 0.3s ease;
+}
+
+.auto-login-checkbox:checked {
+	background-color: #776b5d;
+	border-color: #776b5d;
+}
+
+.auto-login-checkbox:checked::after {
+	content: "✓";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: white;
+	font-size: 12px;
+	font-weight: bold;
+}
+
+.auto-login-text {
+	font-family: "Inter", sans-serif;
+	font-weight: 400;
+	line-height: 1.2;
+	user-select: none;
 }
 
 .login-button {

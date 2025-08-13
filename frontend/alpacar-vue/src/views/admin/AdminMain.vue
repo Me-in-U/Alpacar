@@ -164,6 +164,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, defineComponent } 
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { SecureTokenManager } from "@/utils/security";
 
 /* 
   백엔드 엔드포인트
@@ -213,7 +214,7 @@ export default defineComponent({
 		const activeVehicles = ref<Array<ActiveVehicleItem>>([]);
 
 		async function fetchActiveVehicles() {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicle-events/active/`, {
 				headers: { Authorization: `Bearer ${token}` },
 			});
@@ -258,7 +259,7 @@ export default defineComponent({
 				alert("실시간 수신 중에는 수동 배정이 비활성화됩니다.");
 				return;
 			}
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const plate = selectedVehicle.value!.license_plate;
 			const { zone, slot_number } = parseSpot(selectedSpot.value!);
 			const slotLabel = selectedSpot.value!;
@@ -454,7 +455,7 @@ export default defineComponent({
 
 		async function fetchUsageToday() {
 			try {
-				const token = localStorage.getItem("access_token");
+				const token = SecureTokenManager.getSecureToken("access_token");
 				const res = await fetch(`${BACKEND_BASE_URL}/parking/stats/today/`, {
 					headers: { Authorization: `Bearer ${token}` },
 				});
@@ -492,7 +493,7 @@ export default defineComponent({
 			return { zone: spot[0], slot_number: Number(spot.slice(1)) };
 		}
 		async function setSlot(spot: string, status: "free" | "occupied" | "reserved") {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const { zone, slot_number } = parseSpot(spot);
 			const prev = statusMap[spot];
 			statusMap[spot] = status;

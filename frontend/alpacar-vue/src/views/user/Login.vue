@@ -31,6 +31,18 @@
 					/>
 				</div>
 
+				<!-- Auto Login Checkbox -->
+				<div class="auto-login-container">
+					<label class="auto-login-label">
+						<input 
+							type="checkbox" 
+							v-model="autoLogin" 
+							class="auto-login-checkbox"
+						/>
+						<span class="auto-login-text">자동 로그인</span>
+					</label>
+				</div>
+
 				<!-- Login Button -->
 				<button class="login-button" @click="handleLogin" :disabled="isLoading">
 					<span class="button-text" v-if="!isLoading">로그인</span>
@@ -74,6 +86,7 @@ export default defineComponent({
 		const router = useRouter();
 		const email = ref("");
 		const password = ref("");
+		const autoLogin = ref(false);
 		const isLoading = ref(false);
 
 		const handleLogin = async () => {
@@ -85,8 +98,8 @@ export default defineComponent({
 			isLoading.value = true;
 			try {
 				const userStore = useUserStore();
-				// 기본 login 함수 사용 (api.ts에서 fallback URL 처리)
-				await userStore.login(email.value, password.value);
+				// 자동 로그인 옵션과 함께 로그인
+				await userStore.login(email.value, password.value, autoLogin.value);
 				router.push("/main");
 			} catch (err: any) {
 				console.error("로그인 실패:", err);
@@ -120,6 +133,7 @@ export default defineComponent({
 		return {
 			email,
 			password,
+			autoLogin,
 			isLoading,
 			handleLogin,
 			handleGoogleLogin,
@@ -208,6 +222,56 @@ export default defineComponent({
 
 .input:focus {
 	border-color: #776b5d;
+}
+
+/* Auto Login Checkbox */
+.auto-login-container {
+	width: 100%;
+	margin-bottom: 10px;
+}
+
+.auto-login-label {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	font-size: 14px;
+	color: #666666;
+	gap: 8px;
+}
+
+.auto-login-checkbox {
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	border: 2px solid #cccccc;
+	border-radius: 4px;
+	background-color: #ffffff;
+	cursor: pointer;
+	position: relative;
+	transition: all 0.3s ease;
+}
+
+.auto-login-checkbox:checked {
+	background-color: #776b5d;
+	border-color: #776b5d;
+}
+
+.auto-login-checkbox:checked::after {
+	content: "✓";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: white;
+	font-size: 12px;
+	font-weight: bold;
+}
+
+.auto-login-text {
+	font-family: "Inter", sans-serif;
+	font-weight: 400;
+	line-height: 1.2;
+	user-select: none;
 }
 
 /* Login Button */
