@@ -11,7 +11,6 @@
 				<div class="menu-item" @click="handleMenuClick('/admin-main')">실시간 주차 현황</div>
 				<div class="menu-item" @click="handleMenuClick('/admin-plate-ocr')">실시간 번호판 인식</div>
 				<div class="menu-item" @click="handleMenuClick('/admin-parkinglogs')">로그 및 기록</div>
-				<div class="menu-item" @click="handleMenuClick('/admin-parkingreassign')">주차 배정 정보 변경</div>
 				<img v-if="isLoggedIn" class="signout" src="@/assets/signout.png" alt="로그아웃" title="로그아웃" @click="handleLogout" />
 			</div>
 
@@ -26,7 +25,6 @@
 			<div class="menu-item" @click="handleMenuClick('/admin-main')">실시간 주차 현황</div>
 			<div class="menu-item" @click="handleMenuClick('/admin-plate-ocr')">실시간 번호판 인식</div>
 			<div class="menu-item" @click="handleMenuClick('/admin-parkinglogs')">로그 및 기록</div>
-			<div class="menu-item" @click="handleMenuClick('/admin-parkingreassign')">주차 배정 정보 변경</div>
 			<img v-if="isLoggedIn" class="signout" src="@/assets/signout.png" alt="로그아웃" title="로그아웃" @click="handleLogout" />
 		</div>
 
@@ -51,38 +49,42 @@ const isLoggedIn = ref(false);
 const emit = defineEmits<{ (e: "logout"): void }>();
 
 function readAuth(): boolean {
-  const token = SecureTokenManager.getSecureToken("access_token");
-  if (!token) return false;
+	const token = SecureTokenManager.getSecureToken("access_token");
+	if (!token) return false;
 
-  const raw = localStorage.getItem("user");
-  if (!raw) return false;
+	const raw = localStorage.getItem("user");
+	if (!raw) return false;
 
-  try {
-    const user = JSON.parse(raw);
-    return user?.is_staff === true; // ← 여기서 관리자 여부 체크
-  } catch {
-    return false;
-  }
+	try {
+		const user = JSON.parse(raw);
+		return user?.is_staff === true;
+	} catch {
+		return false;
+	}
 }
 
 function refreshAuth() {
-  isLoggedIn.value = readAuth();
+	isLoggedIn.value = readAuth();
 }
 
 onMounted(() => {
-  refreshAuth();
-  // 동일 탭에서는 storage 이벤트가 안 떠서, 다른 신호에도 갱신
-  window.addEventListener("focus", refreshAuth);        // 탭 포커스 복귀
-  window.addEventListener("visibilitychange", () => {   // 화면 전환
-    if (!document.hidden) refreshAuth();
-  });
+	refreshAuth();
+	// 동일 탭에서는 storage 이벤트가 안 떠서, 다른 신호에도 갱신
+	window.addEventListener("focus", refreshAuth); // 탭 포커스 복귀
+	window.addEventListener("visibilitychange", () => {
+		// 화면 전환
+		if (!document.hidden) refreshAuth();
+	});
 });
 
 // 라우트가 바뀔 때마다 재평가 (로그인 후 리다이렉트 시)
-watch(() => route.fullPath, () => refreshAuth());
+watch(
+	() => route.fullPath,
+	() => refreshAuth()
+);
 
 onUnmounted(() => {
-  window.removeEventListener("focus", refreshAuth);
+	window.removeEventListener("focus", refreshAuth);
 });
 
 const goTo = (path: string) => {
@@ -99,15 +101,15 @@ const handleMenuClick = (path: string) => {
 };
 
 const handleLogout = () => {
-  // SecureTokenManager를 사용하여 보안 토큰들 삭제
-  SecureTokenManager.clearAllSecureTokens();
-  
-  // 기타 사용자 정보도 삭제
-  localStorage.removeItem("user");
+	// SecureTokenManager를 사용하여 보안 토큰들 삭제
+	SecureTokenManager.clearAllSecureTokens();
 
-  refreshAuth(); // 즉시 갱신
-  emit("logout");
-  router.replace("/admin-login");
+	// 기타 사용자 정보도 삭제
+	localStorage.removeItem("user");
+
+	refreshAuth(); // 즉시 갱신
+	emit("logout");
+	router.replace("/admin-login");
 };
 </script>
 
@@ -162,9 +164,10 @@ const handleLogout = () => {
 }
 
 .signout {
-  height: 22px;
-  width: 16px;
-  cursor: pointer;
+	height: 22px;
+	width: 20px;
+	cursor: pointer;
+	margin-right: 15px;
 }
 
 /* 모바일 전용 햄버거 */

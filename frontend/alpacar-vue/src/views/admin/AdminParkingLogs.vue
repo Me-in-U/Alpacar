@@ -53,8 +53,8 @@
 									</span>
 								</td>
 								<td class="actions">
-									<button class="btn btn--ghost" @click="manualParking(evt.vehicle_id)">주차완료</button>
-									<button class="btn btn--danger" @click="manualExit(evt.vehicle_id)">출차</button>
+									<button class="btn btn--ghost" @click="manualParking(evt.vehicle_id)" :disabled="!canManualParking(evt)" title="이미 주차완료된 이벤트는 비활성화">주차완료</button>
+									<button class="btn btn--danger" @click="manualExit(evt.vehicle_id)" :disabled="!canManualExit(evt)" title="이미 출차된 이벤트는 비활성화">출차</button>
 								</td>
 							</tr>
 						</tbody>
@@ -86,6 +86,17 @@ export default defineComponent({
 		let ws: WebSocket;
 
 		// 페이지 불러오기
+		const normalizePageUrl = (url: string | null) => {
+			if (!url) return null;
+			try {
+				const u = new URL(url, window.location.origin);
+				const page = u.searchParams.get("page") || "1";
+				return `${BACKEND_BASE_URL}/vehicle-events/?page=${page}`;
+			} catch {
+				// 이미 상대경로거나 query만 온 케이스
+				return url;
+			}
+		};
 		const fetchPage = async (url = `${BACKEND_BASE_URL}/vehicle-events/?page=1`) => {
 			loading.value = true;
 			const token = SecureTokenManager.getSecureToken("access_token");
@@ -97,7 +108,9 @@ export default defineComponent({
 				},
 			});
 			if (!res.ok) {
+				loading.value = false; // ✅ 실패 시에도 로딩 해제
 				console.log("이벤트 불러오기 실패", res.status, res.statusText);
+				alert("페이지 로딩 실패");
 				throw new Error("이벤트 불러오기 실패");
 			}
 			console.log("이벤트 불러오기 성공", res.status, res.statusText);
@@ -195,6 +208,20 @@ export default defineComponent({
 				logs.value.unshift(data);
 			}
 		};
+		const canManualParking = (evt: any) => {
+			// 이미 주차완료거나 출차되었으면 불가
+			if (evt.exit_time) return false;
+			if (evt.parking_time) return false;
+			if (evt.status === "Parking" || evt.status === "Exit") return false;
+			return true;
+		};
+
+		const canManualExit = (evt: any) => {
+			// 출차만 막음 (주차완료 유무와 무관)
+			if (evt.exit_time) return false;
+			if (evt.status === "Exit") return false;
+			return true;
+		};
 
 		onMounted(async () => {
 			await fetchPage();
@@ -257,6 +284,8 @@ export default defineComponent({
 			pushPlate,
 			sendPush,
 			manualEntrance,
+			canManualParking,
+			canManualExit,
 		};
 	},
 });
@@ -502,5 +531,28 @@ td.actions {
 	margin-left: 4px;
 	font-size: 12px;
 	color: #6b7280; /* slate-500 느낌 */
+}
+/* ───────── Disabled 버튼 스타일 ───────── */
+.btn:disabled {
+	background-color: #e5e0db !important; /* 연한 배경 */
+	color: #a7a29e !important; /* 흐린 글자색 */
+	border-color: #d1ccc7 !important; /* 흐린 테두리 */
+	cursor: not-allowed !important;
+	opacity: 0.6;
+	transform: none !important;
+}
+
+/* Danger 버튼 비활성화 시 */
+.btn--danger:disabled {
+	background-color: #e9cfcf !important;
+	color: #b98d8d !important;
+	border-color: #e9cfcf !important;
+}
+
+/* Ghost 버튼 비활성화 시 */
+.btn--ghost:disabled {
+	background-color: #f5f3f0 !important;
+	color: #b0a89f !important;
+	border-color: #e0d9d0 !important;
 }
 </style>
