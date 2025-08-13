@@ -148,7 +148,8 @@ import { BACKEND_BASE_URL } from "@/utils/api";
   - WS: 배포 환경에 맞춰 wss:// 로 교체
 */
 
-const WSS_JETSON_URL = `wss://i13e102.p.ssafy.io/ws/jetson/`;
+const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
+// const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
 
 export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },
@@ -314,89 +315,34 @@ export default defineComponent({
 		let usageTimer: ReturnType<typeof setInterval>;
 
 		function connectWS() {
-			ws = new WebSocket(WSS_JETSON_URL);
-			ws.onopen = () => console.log("[Jetson WS] ✅ Connected");
-			ws.onerror = (e) => console.error("[Jetson WS] ❌ Error:", e);
-			ws.onclose = () => console.warn("[Jetson WS] 🔒 Closed");
+			ws = new WebSocket(WSS_PARKING_STATUS_URL);
+			ws.onopen = () => console.log("[ParkingStatus WS] ✅ Connected");
+			ws.onerror = (e) => console.error("[ParkingStatus WS] ❌ Error:", e);
+			ws.onclose = () => console.warn("[ParkingStatus WS] 🔒 Closed");
 
 			ws.onmessage = (e) => {
 				try {
 					const data = JSON.parse(e.data);
 
-					// A) car_position.update → 배열 그대로
-					if (Array.isArray(data)) {
-						vehicles.splice(0, vehicles.length, ...data);
-						return;
-					}
-
-					// B) active_vehicles.update → {results:[...]}
-					if (data && data.results && Array.isArray(data.results)) {
-						const rows: any[] = data.results;
-						activeVehicles.value = rows.map((ev: any) => {
-							const assigned = ev.assigned_space
-								? {
-										id: 0,
-										zone: String(ev.assigned_space.zone),
-										slot_number: Number(ev.assigned_space.slot_number),
-										label: ev.assigned_space.label,
-										status: ev.assigned_space.status,
-								  }
-								: null;
-							return {
-								id: ev.id,
-								vehicle_id: ev.vehicle_id,
-								license_plate: ev.license_plate,
-								entrance_time: ev.entrance_time,
-								status: ev.status,
-								assigned_space: assigned,
-							};
-						});
-						// 슬롯 위 번호판 동기화(옵션)
-						const bySlot: Record<string, { vehicle_id: number | null; plate: string | null }> = {};
-						for (const v of activeVehicles.value) {
-							if (v.assigned_space?.label) {
-								bySlot[v.assigned_space.label] = { vehicle_id: v.vehicle_id, plate: v.license_plate };
-							}
-						}
-						Object.keys(spaceVehicleMap).forEach((k) => delete spaceVehicleMap[k]);
-						Object.assign(spaceVehicleMap, bySlot);
-						return;
-					}
-
-					// C) 젯슨 원본 텔레메트리 {slot:{...}, vehicles:[...]}
-					if (data && (data.slot || data.vehicles)) {
-						// 슬롯 반영
-						if (data.slot) {
-							Object.entries(data.slot as Record<string, "free" | "occupied" | "reserved">).forEach(([label, status]) => {
-								if (label in statusMap) statusMap[label] = status;
-							});
-						}
-						// 차량 변환 후 반영
-						if (Array.isArray(data.vehicles)) {
-							const converted = data.vehicles.map((v: any) => {
-								const cx = Number(v?.center?.x ?? 0);
-								const cy = Number(v?.center?.y ?? 0);
-								const corners1d = (v?.corners ?? []).flat().map(Number);
-								return {
-									track_id: String(v?.plate ?? ""),
-									center: [cx, cy] as [number, number],
-									corners: corners1d,
+					switch (data?.message_type) {
+						case "car_position": {
+							const arr = Array.isArray(data.vehicles) ? data.vehicles : [];
+							vehicles.splice(
+								0,
+								vehicles.length,
+								...arr.map((v: any) => ({
+									track_id: String(v?.track_id ?? v?.plate ?? ""),
+									center: [Number(v?.center?.[0] ?? v?.center?.x ?? 0), Number(v?.center?.[1] ?? v?.center?.y ?? 0)] as [number, number],
+									corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
 									state: v?.state,
 									suggested: v?.suggested ?? "",
-								};
-							});
-							vehicles.splice(0, vehicles.length, ...converted);
+								}))
+							);
+							break;
 						}
-						return;
-					}
-
-					// D) parking_space.update → SpacePayload 맵
-					if (data && typeof data === "object") {
-						const payload = data as SpacePayload;
-						const first = payload && payload[Object.keys(payload)[0] as any];
-						const looksLikeSpaceMap = first && typeof first === "object" && "status" in first;
-						if (looksLikeSpaceMap) {
-							Object.entries(payload).forEach(([slot, info]) => {
+						case "parking_space": {
+							const payload = data.spaces || {};
+							Object.entries(payload).forEach(([slot, info]: any) => {
 								if (!(slot in statusMap)) return;
 								statusMap[slot] = info.status;
 								spaceVehicleMap[slot] = { vehicle_id: info.vehicle_id ?? null, plate: info.license_plate ?? null };
@@ -416,11 +362,46 @@ export default defineComponent({
 									if (target) target.assigned_space = null;
 								}
 							});
-							return;
+							break;
 						}
+						case "active_vehicles": {
+							const rows: any[] = Array.isArray(data.results) ? data.results : [];
+							activeVehicles.value = rows.map((ev: any) => {
+								const assigned = ev.assigned_space
+									? {
+											id: 0,
+											zone: String(ev.assigned_space.zone),
+											slot_number: Number(ev.assigned_space.slot_number),
+											label: ev.assigned_space.label,
+											status: ev.assigned_space.status,
+									  }
+									: null;
+								return {
+									id: ev.id,
+									vehicle_id: ev.vehicle_id,
+									license_plate: ev.license_plate,
+									entrance_time: ev.entrance_time,
+									status: ev.status ?? "Entrance",
+									assigned_space: assigned,
+								};
+							});
+
+							// 슬롯-번호판 동기화(옵션)
+							const bySlot: Record<string, { vehicle_id: number | null; plate: string | null }> = {};
+							for (const v of activeVehicles.value) {
+								if (v.assigned_space?.label) {
+									bySlot[v.assigned_space.label] = { vehicle_id: v.vehicle_id, plate: v.license_plate };
+								}
+							}
+							Object.keys(spaceVehicleMap).forEach((k) => delete spaceVehicleMap[k]);
+							Object.assign(spaceVehicleMap, bySlot);
+							break;
+						}
+						default:
+							break;
 					}
 				} catch (err) {
-					console.error("[Jetson WS] parse error:", err, e.data);
+					console.error("[ParkingStatus WS] parse error:", err, e.data);
 				}
 			};
 		}
