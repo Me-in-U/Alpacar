@@ -14,8 +14,9 @@
 					<input type="password" placeholder="비밀번호 입력" v-model="adminPassword" @keyup.enter="handleLogin" />
 				</div>
 
-				<button class="login-button" @click="handleLogin">
-					<span>로그인</span>
+				<button class="login-button" @click="handleLogin" :disabled="isLoading">
+					<span v-if="!isLoading">로그인</span>
+					<span v-else class="loading">로그인 중...</span>
 				</button>
 			</div>
 		</div>
@@ -37,11 +38,15 @@ export default defineComponent({
 
 		const adminId = ref("");
 		const adminPassword = ref("");
+		const isLoading = ref(false);
 
 		const handleLogin = async () => {
+			if (isLoading.value) return;
 			if (!adminId.value || !adminPassword.value) {
 				return alert("이메일과 비밀번호를 모두 입력해주세요.");
 			}
+			
+			isLoading.value = true;
 			try {
 				// 관리자 로그인 시도
 				console.log("[ADMIN LOGIN] 로그인 시도 중...");
@@ -51,21 +56,21 @@ export default defineComponent({
 				console.log("[ADMIN LOGIN] 로그인 성공. 사용자 정보:", userStore.me);
 				console.log("[ADMIN LOGIN] 관리자 여부:", userStore.me?.is_staff);
 
-				// 약간의 딜레이를 주어 스토어 업데이트 보장
-				await new Promise(resolve => setTimeout(resolve, 100));
-
 				// 로그인 후 관리자 메인 페이지로 이동
 				console.log("[ADMIN LOGIN] 관리자 메인 페이지로 이동");
 				router.push("/admin-main");
 			} catch (err: any) {
 				console.error("관리자 로그인 실패:", err);
 				alert("관리자 로그인 실패: " + (err.message || "알 수 없는 오류"));
+			} finally {
+				isLoading.value = false;
 			}
 		};
 
 		return {
 			adminId,
 			adminPassword,
+			isLoading,
 			handleLogin,
 		};
 	},
@@ -138,9 +143,38 @@ export default defineComponent({
 	font-weight: 600;
 	cursor: pointer;
 	transition: background-color 0.2s;
+	border: none;
 }
 
-.login-button:hover {
+.login-button:disabled {
+	background-color: #999999;
+	cursor: not-allowed;
+}
+
+.login-button:hover:not(:disabled) {
 	background-color: #5f554a;
+}
+
+.loading {
+	position: relative;
+}
+
+.loading::after {
+	content: "";
+	position: absolute;
+	right: -25px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	border: 2px solid transparent;
+	border-top: 2px solid #ffffff;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from { transform: translateY(-50%) rotate(0deg); }
+	to { transform: translateY(-50%) rotate(360deg); }
 }
 </style>

@@ -55,6 +55,9 @@ export const useUserStore = defineStore("user", {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${accessToken}`,
 				},
+				// 성능 최적화 옵션
+				cache: "no-cache",
+				keepalive: true,
 			});
 
 			if (!res.ok) {
@@ -137,6 +140,9 @@ export const useUserStore = defineStore("user", {
 					Accept: "application/json",
 				},
 				body: JSON.stringify({ email, password }),
+				// 성능 최적화 옵션
+				cache: "no-cache",
+				keepalive: true,
 			});
 
 			if (!res.ok) {
