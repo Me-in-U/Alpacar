@@ -21,7 +21,7 @@ from django.shortcuts import redirect
 BASE_URL = config("BACKEND_BASE_URL")
 CALLBACK_PATH = "/auth/social/google/callback/"  # 구글 콜백 엔드포인트
 REDIRECT_URL = f"{BASE_URL}{CALLBACK_PATH}"  # 전체 콜백 URI
-GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"  # 구글 인증 URL
+GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/auth"  # 구글 인증 URL
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"  # 토큰 발급 URL
 GOOGLE_USERINFO_URI = (
     "https://www.googleapis.com/oauth2/v1/userinfo"  # 사용자 정보 조회 URL

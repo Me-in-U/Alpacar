@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from "vue-router";
 declare module "vue-router" {
 	interface RouteMeta {
 		requiresAuth?: boolean;
+		requiresPasswordAuth?: boolean;
 	}
 }
 import EntryPage from "@/views/user/EntryPage.vue";
@@ -181,7 +182,8 @@ const router = createRouter({
 		{ 
 			path: "/user-setting", 
 			name: "user-setting", 
-			component: UserSetting
+			component: UserSetting,
+			meta: { requiresAuth: true, requiresPasswordAuth: true }
 		},
 		{path: "/main-test", name: "main-test", component: MainTest}
 	],
@@ -262,6 +264,52 @@ router.beforeEach(async (to, from, next) => {
 			console.log("로그인이 필요한 페이지입니다. 로그인 페이지로 이동합니다.");
 			next("/login");
 		} else {
+			// 비밀번호 인증이 필요한 페이지 체크 (user-setting)
+			if (to.meta.requiresPasswordAuth) {
+				console.log(`[ROUTER GUARD] 비밀번호 인증이 필요한 페이지 접근: ${to.path}`);
+				
+				const userStore = useUserStore();
+				const userEmail = userStore.me?.email;
+				
+				// 소셜 로그인 유저 체크 (Gmail 계정으로 간주)
+				const isSocialUser = userEmail && userEmail.includes('gmail.com');
+				if (isSocialUser) {
+					console.log("[ROUTER GUARD] 소셜 로그인 유저는 user-setting 접근 불가");
+					alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
+					return next("/user-profile");
+				}
+				
+				// 일회용 인증 토큰 확인
+				const oneTimeAuth = sessionStorage.getItem('user-setting-one-time-auth');
+				if (!oneTimeAuth) {
+					console.log("[ROUTER GUARD] 일회용 인증 토큰 없음");
+					alert('비밀번호 인증이 필요합니다. 프로필 페이지의 설정 아이콘을 눌러주세요.');
+					return next("/user-profile");
+				}
+				
+				try {
+					const authData = JSON.parse(oneTimeAuth);
+					const currentTime = Date.now();
+					
+					// 일회용 토큰 유효시간: 5초 (5,000ms)
+					if (currentTime - authData.timestamp > 5000) {
+						console.log("[ROUTER GUARD] 일회용 인증 토큰 만료");
+						sessionStorage.removeItem('user-setting-one-time-auth');
+						alert('인증 시간이 만료되었습니다. 다시 인증해주세요.');
+						return next("/user-profile");
+					}
+					
+					// 인증 토큰 확인 후 즉시 삭제 (일회용)
+					sessionStorage.removeItem('user-setting-one-time-auth');
+					console.log("[ROUTER GUARD] 일회용 인증 토큰 검증 완료 및 삭제");
+				} catch (error) {
+					console.log("[ROUTER GUARD] 일회용 인증 토큰 손상");
+					sessionStorage.removeItem('user-setting-one-time-auth');
+					alert('인증 정보가 올바르지 않습니다.');
+					return next("/user-profile");
+				}
+			}
+			
 			// 일반 사용자 로직 (관리자 체크는 이미 위에서 완료)
 			// 일반 사용자인 경우 차량 등록 여부 확인
 			console.log("일반 사용자입니다. 차량 등록 여부를 확인합니다.");
