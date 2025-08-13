@@ -408,9 +408,8 @@ const userInfo = computed(() => userStore.me);
 
 // 소셜 로그인 유저 여부 확인
 const isSocialUser = computed(() => {
-	const email = userInfo.value?.email;
-	if (!email) return false;
-	return email.includes('gmail.com');
+	// 백엔드에서 제공하는 is_social_user 필드 사용
+	return userInfo.value?.is_social_user || false;
 });
 
 /* ====== 행(꺾쇠) 클릭 핸들러 ====== */
