@@ -157,7 +157,7 @@ def send_parking_complete_notification(user, parking_data):
         user=user,
         title=title,
         message=message,
-        notification_type='parking',  # parking 타입으로 변경하여 Service Worker에서 올바른 라우팅
+        notification_type='parking_complete',  # parking_complete 타입으로 변경하여 Service Worker에서 올바른 라우팅
         data=parking_data
     )
 
