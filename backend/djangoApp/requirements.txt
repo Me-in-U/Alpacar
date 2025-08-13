@@ -49,8 +49,6 @@ tifffile
 tqdm==4.67.1
 typing_extensions==4.14.1
 tzdata==2025.2
-ultralytics==8.3.169
-ultralytics-thop==2.0.14
 urllib3==2.5.0
 uvicorn==0.35.0
 waitress==3.0.2
