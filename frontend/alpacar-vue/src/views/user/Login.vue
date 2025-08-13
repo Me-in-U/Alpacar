@@ -32,8 +32,9 @@
 				</div>
 
 				<!-- Login Button -->
-				<button class="login-button" @click="handleLogin">
-					<span class="button-text">로그인</span>
+				<button class="login-button" @click="handleLogin" :disabled="isLoading">
+					<span class="button-text" v-if="!isLoading">로그인</span>
+					<span class="button-text loading" v-else>로그인 중...</span>
 				</button>
 
 				<!-- Social Login Buttons -->
@@ -73,12 +74,15 @@ export default defineComponent({
 		const router = useRouter();
 		const email = ref("");
 		const password = ref("");
+		const isLoading = ref(false);
 
 		const handleLogin = async () => {
+			if (isLoading.value) return;
 			if (!email.value || !password.value) {
 				return alert("이메일과 비밀번호를 모두 입력해주세요.");
 			}
 
+			isLoading.value = true;
 			try {
 				const userStore = useUserStore();
 				// 기본 login 함수 사용 (api.ts에서 fallback URL 처리)
@@ -87,6 +91,8 @@ export default defineComponent({
 			} catch (err: any) {
 				console.error("로그인 실패:", err);
 				alert("로그인 실패: " + err.message);
+			} finally {
+				isLoading.value = false;
 			}
 		};
 
@@ -114,6 +120,7 @@ export default defineComponent({
 		return {
 			email,
 			password,
+			isLoading,
 			handleLogin,
 			handleGoogleLogin,
 			handleKakaoLogin,
@@ -218,10 +225,39 @@ export default defineComponent({
 	margin-bottom: 20px;
 }
 
-.login-button:hover {
+.login-button:disabled {
+	background-color: #999999;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.login-button:hover:not(:disabled) {
 	background-color: #665a4d;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+}
+
+.loading {
+	position: relative;
+}
+
+.loading::after {
+	content: "";
+	position: absolute;
+	right: -25px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	border: 2px solid transparent;
+	border-top: 2px solid #ffffff;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from { transform: translateY(-50%) rotate(0deg); }
+	to { transform: translateY(-50%) rotate(360deg); }
 }
 
 /* Social Login */
