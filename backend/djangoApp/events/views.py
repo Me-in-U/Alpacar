@@ -38,12 +38,15 @@ def manual_entrance(request):
     plate = (request.data.get("license_plate") or "").strip()
     if not plate:
         return Response({"detail": "license_plate가 필요합니다."}, status=400)
+
     try:
         vehicle = Vehicle.objects.get(license_plate=plate)
     except Vehicle.DoesNotExist:
         return Response({"detail": "해당 차량을 찾을 수 없습니다."}, status=404)
 
     last_event = VehicleEvent.objects.filter(vehicle=vehicle).order_by("-id").first()
+
+    # 최근 이벤트가 없거나 출차였다면 새 입차 생성
     if last_event is None or last_event.status == "Exit":
         ev = VehicleEvent.objects.create(
             vehicle=vehicle,
@@ -52,22 +55,25 @@ def manual_entrance(request):
             exit_time=None,
             status="Entrance",
         )
-        # 입차 푸시(운영 로직 유지)
+
+        # 입차 푸시(운영 로직 유지) — 실패는 무시
         try:
             entry_data = {
                 "plate_number": vehicle.license_plate,
                 "parking_lot": "SSAFY 주차장",
                 "entry_time": timezone.now().isoformat(),
                 "admin_action": True,
-                "action_url": "/parking-recommend",
+                "action_url": "/parking-recommend",  # 알림 클릭 시 이동
                 "action_type": "navigate",
             }
             send_vehicle_entry_notification(vehicle.user, entry_data)
         except Exception:
             pass
+
+        # VehicleEvent 저장으로 signals가 실시간 갱신 방송 처리
         return Response(VehicleEventSerializer(ev).data, status=201)
 
-    # 진행중 이벤트가 있으면 그대로 반환
+    # 진행 중 이벤트가 있으면 그대로 반환
     return Response(VehicleEventSerializer(last_event).data, status=200)
 
 
