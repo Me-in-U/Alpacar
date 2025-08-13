@@ -73,6 +73,11 @@
 							'--car-offset-y': layout.carOffsetY + 'px',
 							'--edge-pad': 18 * SCALE + 'px',
 							'--scale': SCALE,
+
+							// 🔻 필요 시 게이트 위치를 JS에서 바로 조정 가능
+							'--gate-left': 215 * SCALE + 'px',
+							'--gate-top': 170 * SCALE + 'px',
+							'--gate-bottom': 170 * SCALE + 'px',
 						}"
 						ref="mapWrapper"
 					>
@@ -863,30 +868,35 @@ onBeforeUnmount(() => {
 /* ===== 차단바(Gate) - 사진 스타일 ===== */
 .gate {
 	/* 크기/색 변수 */
-	--pole-w: 10px; /* 기둥 너비 */
-	--pole-h: 80px; /* 기둥 높이 */
-	--box: 30px; /* 작은 네모 한 변 */
-	--gap-x: 0px; /* 기둥과 상자 사이 간격 */
-	--pole-background: #ff2d2d; /* 기둥 테두리(밝은 빨강) */
-	--box-background: #ffe100; /* 상자 테두리(짙은 자주/빨강) */
+	--gate-left: calc(215px * var(--scale));
+	--gate-top: calc(160px * var(--scale));
+	--gate-bottom: calc(180px * var(--scale));
+
+	--pole-w: calc(10px * var(--scale)); /* 기둥 너비 */
+	--pole-h: calc(80px * var(--scale)); /* 기둥 높이 */
+	--box: calc(30px * var(--scale)); /* 작은 네모 한 변 */
+	--gap-x: 0px; /* 기둥과 네모 간격(필요시 scale 곱해도 됨) */
+
+	--pole-background: #ff2d2d;
+	--box-background: #ffe100;
 
 	position: absolute;
-	left: 215px; /* 지도 왼쪽에서의 위치(필요시 조정) */
+	left: 100px; /* 지도 왼쪽에서의 위치(필요시 조정) */
 	width: calc(var(--pole-w) + var(--gap-x) + var(--box));
 	height: var(--pole-h);
 	z-index: 2; /* 슬롯 위, SVG 오버레이 아래 */
 	pointer-events: none;
 }
 
-/* 위/아래 게이트의 수직 위치만 다름 */
+/* 상단/하단 위치는 변수로 제어 */
 .gate--top {
-	top: 170px;
-} /* 필요시 숫자만 조정 */
+	top: var(--gate-top);
+}
 .gate--bottom {
-	bottom: 170px;
+	bottom: var(--gate-bottom);
 }
 
-/* 기둥: 속 빈 사각형 */
+/* 기둥 */
 .gate-pole {
 	position: absolute;
 	top: 0;
@@ -897,7 +907,7 @@ onBeforeUnmount(() => {
 	box-sizing: border-box;
 }
 
-/* 작은 네모: 오른쪽으로 떨어져서 위치 */
+/* 네모 박스 */
 .gate-box {
 	position: absolute;
 	left: calc(var(--pole-w) + var(--gap-x));
@@ -906,14 +916,12 @@ onBeforeUnmount(() => {
 	background: var(--box-background);
 	box-sizing: border-box;
 }
-
-/* ⬆️ 위 게이트: 상단에 붙여 배치 */
+/* 위 게이트: 살짝 위로 */
 .gate--top .gate-box {
-	top: -10px; /* 살짝 위로(음수면 테두리 맞춤) */
+	top: calc(-10px * var(--scale));
 }
-
-/* ⬇️ 아래 게이트: 하단에 붙여 배치 */
+/* 아래 게이트: 살짝 아래로 */
 .gate--bottom .gate-box {
-	bottom: -10px;
+	bottom: calc(-10px * var(--scale));
 }
 </style>
