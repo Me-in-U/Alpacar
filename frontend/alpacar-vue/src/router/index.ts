@@ -269,8 +269,8 @@ router.beforeEach(async (to, from, next) => {
 				const userStore = useUserStore();
 				const userEmail = userStore.me?.email;
 				
-				// 소셜 로그인 유저 체크 (Gmail 계정으로 간주)
-				const isSocialUser = userEmail && userEmail.includes('gmail.com');
+				// 소셜 로그인 유저 여부 확인
+				const isSocialUser = userStore.me?.is_social_user || false;
 				if (isSocialUser) {
 					console.log("[ROUTER GUARD] 소셜 로그인 유저는 user-setting 접근 불가");
 					alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
