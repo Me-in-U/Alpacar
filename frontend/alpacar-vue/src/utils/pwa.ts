@@ -22,8 +22,8 @@ export interface PushNotificationData {
 // VAPID 공개 키 - 서버에서 동적으로 가져오거나 환경 변수 사용
 let VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
-// 개발 모드 확인
-const isDevelopment = import.meta.env.DEV || import.meta.env.NODE_ENV === 'development';
+// 개발 모드 확인 (배포 환경에서도 개발 모드 강제 활성화)
+const isDevelopment = import.meta.env.DEV || import.meta.env.NODE_ENV === 'development' || import.meta.env.VITE_FORCE_DEV_MODE === 'true';
 const isProduction = import.meta.env.PROD || import.meta.env.NODE_ENV === 'production';
 
 console.log('PWA 환경 정보:', {

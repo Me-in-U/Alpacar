@@ -57,9 +57,11 @@ window.addEventListener("load", async () => {
 		if (registration) {
 			console.log("Alpacar PWA Service Worker 등록 성공");
 			
-			// 로그인된 사용자의 경우 푸시 알림 구독 시도
+			// 로그인된 사용자의 경우에만 푸시 알림 구독 시도 (로그인 페이지 제외)
+			const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
 			const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
-			if (token) {
+			
+			if (token && !isLoginPage) {
 				// 페이지 로드 후 3초 뒤에 알림 권한 요청 (사용자 경험 개선)
 				setTimeout(async () => {
 					try {
@@ -69,6 +71,8 @@ window.addEventListener("load", async () => {
 						console.log("푸시 알림 구독 선택사항이므로 건너뛰기:", error);
 					}
 				}, 3000);
+			} else if (isLoginPage) {
+				console.log("로그인 페이지에서는 푸시 알림 초기화 건너뛰기");
 			}
 		}
 	} catch (error) {
