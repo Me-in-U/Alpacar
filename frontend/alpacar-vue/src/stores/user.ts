@@ -40,6 +40,9 @@ export const useUserStore = defineStore("user", {
 		vehicles: [] as Vehicle[],
 		vehicleModels: [] as VehicleModel[],
 		isToggling: false,
+		// API 호출 중복 방지
+		isLoading: false,
+		lastFetchTime: 0,
 	}),
 	actions: {
 		setUser(user: User) {
@@ -63,6 +66,11 @@ export const useUserStore = defineStore("user", {
 			this.vehicles = [];
 			// 보안 강화: 모든 보안 토큰과 데이터 정리
 			SecureTokenManager.clearAllSecureTokens();
+			// 기존 평문 토큰도 제거
+			localStorage.removeItem("access_token");
+			localStorage.removeItem("refresh_token");
+			sessionStorage.removeItem("access_token");
+			sessionStorage.removeItem("refresh_token");
 		},
 
 		// 보안 사용자 정보 복원 함수
@@ -110,21 +118,32 @@ export const useUserStore = defineStore("user", {
 			}
 		},
 		async fetchMe(accessToken: string, baseUrl?: string) {
-			const apiUrl = baseUrl || BACKEND_BASE_URL;
-
-			const res = await fetch(`${apiUrl}/users/me/`, {
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${accessToken}`,
-				},
-				// 성능 최적화 옵션
-				cache: "no-cache",
-				keepalive: true,
-			});
-
-			if (!res.ok) {
-				throw new Error(`프로필 조회 실패 (${res.status})`);
+			// 중복 호출 방지 - 최근 3초 이내에 호출했으면 스킵
+			const now = Date.now();
+			if (this.isLoading || (this.me && now - this.lastFetchTime < 3000)) {
+				console.log("fetchMe 중복 호출 방지 - 기존 정보 사용");
+				return this.me;
 			}
+
+			this.isLoading = true;
+			this.lastFetchTime = now;
+
+			try {
+				const apiUrl = baseUrl || BACKEND_BASE_URL;
+
+				const res = await fetch(`${apiUrl}/users/me/`, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${accessToken}`,
+					},
+					// 성능 최적화 옵션
+					cache: "no-cache",
+					keepalive: true,
+				});
+
+				if (!res.ok) {
+					throw new Error(`프로필 조회 실패 (${res.status})`);
+				}
 
 			// 응답이 JSON인지 확인
 			const contentType = res.headers.get("content-type");
@@ -148,6 +167,12 @@ export const useUserStore = defineStore("user", {
 
 			this.setUser(profile);
 			return profile;
+			} catch (error) {
+				console.error("fetchMe 오류:", error);
+				throw error;
+			} finally {
+				this.isLoading = false;
+			}
 		},
 		async updateProfile(data: Partial<Pick<User, "nickname">>) {
 			const token = SecureTokenManager.getSecureToken("access_token");
