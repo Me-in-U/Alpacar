@@ -3,6 +3,7 @@ import asyncio
 import json
 import re
 import sys
+from datetime import datetime
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -12,7 +13,6 @@ from pywebpush import WebPushException, webpush
 
 from events.models import VehicleEvent
 from vehicles.models import Vehicle
-from datetime import datetime
 
 # ─── 전역 상태 ───────────────────────────────────────────────────────────
 LATEST_TEXT = "번호판 인식 대기중"
@@ -241,3 +241,28 @@ class OCRTextConsumer(AsyncWebsocketConsumer):
                 {"text": returned_text}, ensure_ascii=False
             )  # JSON 페이로드 생성
             await self.send(text_data=payload)  # 클라이언트 전송
+
+
+PLATE_DISPLAY_GROUP = "plate-display"
+
+
+class PlateDisplayConsumer(AsyncWebsocketConsumer):
+    """
+    슬롯별 표시기(ESP8266)가 구독하는 Consumer
+    경로: /ws/platedisplay/
+    서버 → 클라이언트 단방향 방송만 수행
+    """
+
+    async def connect(self):
+        await self.accept()
+        await self.channel_layer.group_add(PLATE_DISPLAY_GROUP, self.channel_name)
+
+        # (선택) 최초엔 각 기기들이 자기 슬롯만 표시하므로 글로벌 스냅샷 불필요
+        # 필요 시, 특정 슬롯 쿼리를 받아 개별 그룹으로도 운영 가능(?slot=A1)
+
+    async def disconnect(self, code):
+        await self.channel_layer.group_discard(PLATE_DISPLAY_GROUP, self.channel_name)
+
+    async def broadcast(self, event):
+        # event["payload"]를 그대로 전송
+        await self.send(text_data=json.dumps(event["payload"], ensure_ascii=False))
