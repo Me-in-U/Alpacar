@@ -631,34 +631,37 @@ const verifySettingsPassword = async () => {
 
 
 /* ====== 알림(PWA) ====== */
-const isNotificationEnabled = ref(false);
+// 헤더와 동기화를 위해 userStore의 push_on 상태를 사용
+const isNotificationEnabled = computed<boolean>({
+  get: () => userStore.me?.push_on ?? false,
+  set: (value: boolean) => {
+    // userStore의 togglePush 메서드를 사용하여 상태 변경
+    userStore.togglePush(value);
+  }
+});
+
 const canInstallPWA = ref(false);
 let deferredPrompt: any = null;
 
 const toggleNotifications = async () => {
   try {
+    console.log("[UserProfile] 푸시 알림 토글 시작:", !isNotificationEnabled.value);
+    
+    // userStore의 togglePush 메서드를 사용하여 헤더와 동기화
+    await userStore.togglePush(!isNotificationEnabled.value);
+    
+    // 성공 메시지 표시
     if (isNotificationEnabled.value) {
-      await unsubscribeFromPushNotifications();
-      isNotificationEnabled.value = false;
-      alert("푸시 알림이 해제되었습니다.");
+      alert("푸시 알림이 활성화되었습니다.");
+      setTimeout(() => {
+        showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
+      }, 1000);
     } else {
-      if (!("Notification" in window)) { alert("이 브라우저는 알림을 지원하지 않습니다."); return; }
-      if (!("serviceWorker" in navigator)) { alert("이 브라우저는 푸시 알림을 지원하지 않습니다."); return; }
-      let permission = Notification.permission;
-      if (permission === "default") permission = await Notification.requestPermission();
-      if (permission !== "granted") { alert("알림 권한이 필요합니다. 브라우저 설정에서 알림을 허용해주세요."); return; }
-      const subscription = await subscribeToPushNotifications();
-      if (subscription) {
-        isNotificationEnabled.value = true;
-        alert("푸시 알림이 활성화되었습니다.");
-        setTimeout(() => {
-          showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
-        }, 1000);
-      }
+      alert("푸시 알림이 해제되었습니다.");
     }
   } catch (e) {
-    console.error(e);
-    alert("알림 설정 변경 중 오류가 발생했습니다.");
+    console.error("[UserProfile] 알림 설정 변경 중 오류:", e);
+    alert(`알림 설정 변경 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
   }
 };
 
@@ -685,15 +688,19 @@ const installPWA = async () => {
 
 const checkNotificationStatus = async () => {
   try {
-    const hasPermission = Notification.permission === "granted";
-    const subscription = await getSubscriptionStatus();
-    isNotificationEnabled.value = hasPermission && !!subscription;
+    // PWA 설치 상태만 확인 (알림 상태는 userStore에서 관리)
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
     const isInWebAppiOS = (window.navigator as any).standalone === true;
     const isInstalled = isStandalone || isInWebAppiOS;
     canInstallPWA.value = !isInstalled && (!!deferredPrompt || "serviceWorker" in navigator);
+    
+    console.log("[UserProfile] 알림 상태 확인:", {
+      userStorePushOn: userStore.me?.push_on,
+      computedIsEnabled: isNotificationEnabled.value,
+      canInstallPWA: canInstallPWA.value
+    });
   } catch (e) {
-    console.error(e);
+    console.error("[UserProfile] 알림 상태 확인 중 오류:", e);
   }
 };
 
