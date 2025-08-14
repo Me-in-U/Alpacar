@@ -1616,7 +1616,7 @@ class TrackerApp:
                         assigned_zone = suggested_zone
                         logger.info(f"[Assignment] 추천 구역 사용: {assigned_zone}")
                     elif free_zones:
-                        assigned_zone = "A4" #free_zones[0]
+                        assigned_zone = "A3" #free_zones[0]
                         logger.info(f"[Assignment] fallback 구역 사용: {assigned_zone}")
 
                     await self._reserve_zone(license_plate, assigned_zone, slot_map)
@@ -1853,7 +1853,7 @@ class TrackerApp:
                 assigned_plate = zone_to_assigned_plate.get(zid)
                 occupant_tid = int(st.occupant_id)
                 occupant_plate = self.plate_mgr.get(occupant_tid)
-                if assigned_plate is None or occupant_plate != assigned_plate:
+                if assigned_plate is not None and occupant_plate != assigned_plate:
                     size_class = self.resv.get_size_class(assigned_plate or "") if assigned_plate else ""
 
                     removed_plate = self.resv.preempt_zone(zid)
@@ -1861,6 +1861,15 @@ class TrackerApp:
                         f"[Preempted] zone={zid} by={occupant_plate or occupant_tid} (assigned={removed_plate or ''})"
                     )
                     if assigned_plate:
+                        score = self._calculate_parking_score(occupant_tid, zid)
+                        await self._emit({
+                            "message_type": "score",
+                            "license_plate": occupant_plate,
+                            "score": round(score, 2),
+                            "zone_id": zid,
+                        })
+                        logger.info(f"[선점] zone={zid}가 {occupant_plate or occupant_tid}에 의해 선점됨 (기존 배정={removed_plate or ''})")
+                        
                         slot_map_now = self._get_slot_map()
                         new_zone = self._choose_zone_for_assignment(slot_map_now, size_class)
                         if new_zone and slot_map_now.get(new_zone) == "free":
