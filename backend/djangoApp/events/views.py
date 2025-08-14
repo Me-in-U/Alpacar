@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
-
+from django.db import transaction
 from vehicles.models import Vehicle
 from accounts.utils import (
     send_vehicle_entry_notification,
@@ -137,38 +137,52 @@ def manual_parking_complete(request, vehicle_id):
 @permission_classes([IsAdminUser])
 def manual_exit(request, vehicle_id):
     now = timezone.now()
-    ev = (
-        VehicleEvent.objects.select_for_update()
-        .filter(vehicle_id=vehicle_id, exit_time__isnull=True)
-        .order_by("-id")
-        .first()
-    )
-    if ev is None:
-        return Response({"detail": "출차할 주차 기록이 없습니다."}, status=400)
-
-    ev.exit_time = now
-    ev.status = "Exit"
-    ev.save(update_fields=["exit_time", "status"])
-
-    vehicle = ev.vehicle
-    try:
-        from parking.models import ParkingAssignment, ParkingSpace
-
-        # 진행 중 배정(ASSIGNED)이 있으면 종료 처리
-        pa = ParkingAssignment.objects.select_related("space").get(
-            entrance_event=ev, status="ASSIGNED"
+    with transaction.atomic():  # ← 트랜잭션 시작
+        ev = (
+            VehicleEvent.objects.select_for_update()  # ← 이벤트 행잠금
+            .filter(vehicle_id=vehicle_id, exit_time__isnull=True)
+            .order_by("-id")
+            .first()
         )
-        pa.status = "COMPLETED"
-        pa.end_time = now
-        pa.save(update_fields=["status", "end_time", "updated_at"])
+        if ev is None:
+            return Response({"detail": "출차할 주차 기록이 없습니다."}, status=400)
 
-        space = pa.space
-        if space:
-            space.status = "free"
-            space.current_vehicle = None
-            space.save(update_fields=["status", "current_vehicle", "updated_at"])
-    except Exception:
-        space = None  # 배정 없거나 조회 실패 등은 무시
+        ev.exit_time = now
+        ev.status = "Exit"
+        ev.save(update_fields=["exit_time", "status"])
+
+        vehicle = ev.vehicle
+        space = None
+        try:
+            from parking.models import ParkingAssignment, ParkingSpace
+
+            # 진행 중 배정(ASSIGNED)이 있으면 종료 처리
+            pa = (
+                ParkingAssignment.objects.select_for_update()  # ← 배정행 잠금
+                .select_related("space")
+                .get(entrance_event=ev, status="ASSIGNED")
+            )
+            pa.status = "COMPLETED"
+            pa.end_time = now
+            pa.save(update_fields=["status", "end_time", "updated_at"])
+
+            space = pa.space
+            if space:
+                # 공간도 잠그고 상태 갱신
+                # 주의: 일부 DB 백엔드에서 related select_for_update 미지원 → 개별 재조회 권장
+                space = (
+                    ParkingSpace.objects.select_for_update().get(pk=space.pk)
+                    if space.pk
+                    else None
+                )
+                if space:
+                    space.status = "free"
+                    space.current_vehicle = None
+                    space.save(
+                        update_fields=["status", "current_vehicle", "updated_at"]
+                    )
+        except Exception:
+            space = None  # 배정 없거나 조회 실패 등은 무시
 
     # 알림 (parking_time 없을 수 있으니 이미 안전하게 분기됨)
     try:
