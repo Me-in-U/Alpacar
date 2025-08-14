@@ -102,11 +102,13 @@
 import { defineComponent, reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { useUserStore } from "@/stores/user";
 
 export default defineComponent({
 	name: "Signup",
 	setup() {
 		const router = useRouter();
+		const userStore = useUserStore();
 		const formData = reactive({
 			full_name: "",
 			email: "",

@@ -31,7 +31,7 @@
               전화번호
             </div>
             <div class="setting-row__value">
-              {{ formatPhoneNumber(userInfo?.phone) || '-' }}
+              {{ isLoadingUserInfo ? '로딩 중...' : (formatPhoneNumber(userInfo?.phone) || '-') }}
             </div>
           </div>
           <span class="chevron" aria-hidden="true">
@@ -229,7 +229,7 @@
         </h3>
 
         <div class="email-info">
-          <span>{{ userInfo?.email }}로 인증번호를 발송합니다.</span>
+          <span>{{ isLoadingUserInfo ? '로딩 중...' : userInfo?.email }}로 인증번호를 발송합니다.</span>
         </div>
 
         <div class="verification-step">
@@ -293,7 +293,30 @@ import { BACKEND_BASE_URL } from "@/utils/api";
 /* ====== 스토어 ====== */
 const router = useRouter();
 const userStore = useUserStore();
-const userInfo = computed(() => userStore.me);
+
+// 동적으로 로딩되는 사용자 상세 정보 (민감정보 포함)
+const detailedUserInfo = ref<any>(null);
+const isLoadingUserInfo = ref(false);
+
+// 로컬 스토리지의 기본 사용자 정보 (민감정보 제외)
+const userInfo = computed(() => detailedUserInfo.value || userStore.me);
+
+// 민감한 사용자 정보 동적 로딩
+const loadDetailedUserInfo = async () => {
+  if (isLoadingUserInfo.value) return;
+  
+  try {
+    isLoadingUserInfo.value = true;
+    const userData = await userStore.fetchDetailedUserInfo();
+    detailedUserInfo.value = userData;
+    console.log('[UserSetting] 사용자 상세 정보 로딩 완료');
+  } catch (error) {
+    console.error('[UserSetting] 사용자 정보 로딩 실패:', error);
+    alert('사용자 정보를 불러오는데 실패했습니다.');
+  } finally {
+    isLoadingUserInfo.value = false;
+  }
+};
 
 const goToUserProfile = () => {
   router.push('/user-profile'); // 또는 router.back();
@@ -361,11 +384,22 @@ const emailVerified = ref(false);
 const verificationCode = ref("");
 const verificationTarget = ref<'phone' | 'password'>('phone');
 
-const requestPhoneChange = () => {
+const requestPhoneChange = async () => {
   if (!newPhoneNumber.value.trim()) {
     alert("새 전화번호를 입력해주세요.");
     return;
   }
+  
+  // 사용자 정보가 로딩되지 않았으면 로딩
+  if (!detailedUserInfo.value) {
+    await loadDetailedUserInfo();
+  }
+  
+  if (!userInfo.value?.email) {
+    alert("이메일 정보를 불러오는데 실패했습니다.");
+    return;
+  }
+  
   verificationTarget.value = "phone";
   emailSent.value = false;
   emailVerified.value = false;
@@ -459,7 +493,17 @@ const isPasswordValid = computed(() =>
 );
 const isPasswordConfirmValid = computed(() => confirmPassword.value === newPassword.value && confirmPassword.value.length > 0);
 
-const requestPasswordChange = () => {
+const requestPasswordChange = async () => {
+  // 사용자 정보가 로딩되지 않았으면 로딩
+  if (!detailedUserInfo.value) {
+    await loadDetailedUserInfo();
+  }
+  
+  if (!userInfo.value?.email) {
+    alert("이메일 정보를 불러오는데 실패했습니다.");
+    return;
+  }
+  
   verificationTarget.value = "password";
   emailSent.value = false;
   emailVerified.value = false;
@@ -554,6 +598,9 @@ const checkAuthenticationStatus = () => {
 /* ====== 마운트(테스트용) ====== */
 onMounted(async () => {
   if (!checkAuthenticationStatus()) return;
+
+  // 사용자 상세 정보 로딩
+  await loadDetailedUserInfo();
 
   const cleanupTokens = () => {
     sessionStorage.removeItem('user-setting-one-time-auth');

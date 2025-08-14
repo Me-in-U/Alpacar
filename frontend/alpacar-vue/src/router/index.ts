@@ -391,7 +391,7 @@ router.beforeEach(async (to, from, next) => {
 				console.log(`[ROUTER GUARD] 비밀번호 인증이 필요한 페이지 접근: ${to.path}`);
 
 				const userStore = useUserStore();
-				const userEmail = userStore.me?.email;
+				// 이메일 정보는 비밀번호 인증에서 동적으로 로딩됨
 
 				// 소셜 로그인 유저 여부 확인
 				const isSocialUser = userStore.me?.is_social_user || false;

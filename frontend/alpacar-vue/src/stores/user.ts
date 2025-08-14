@@ -5,7 +5,6 @@ import {
   SecureTokenManager, 
   encryptUserData, 
   decryptUserData, 
-  sanitizeUserData,
   validateAutoLoginExpiry 
 } from "@/utils/security";
 
@@ -44,19 +43,29 @@ export const useUserStore = defineStore("user", {
 	actions: {
 		setUser(user: User) {
 			this.me = user;
-			// 보안 강화: 민감한 정보는 암호화하여 저장, 마스킹된 정보는 평문 저장
+			// 🔒 보안 강화: 최소 데이터만 localStorage 저장
+			this.saveMinimalUserData(user);
+		},
+		// 최소 데이터만 추출 (민감정보 완전 차단)
+		saveMinimalUserData(user: any) {
 			try {
-				const encryptedUserData = encryptUserData(user);
-				localStorage.setItem("secure_user_data", encryptedUserData);
-				
-				// 디스플레이용 마스킹된 정보만 평문 저장
-				const sanitizedUser = sanitizeUserData(user);
-				localStorage.setItem("user", JSON.stringify(sanitizedUser));
+				const minimalData = this.extractMinimalData(user);
+				localStorage.setItem("user", JSON.stringify(minimalData));
+				console.log("🔒 [SECURITY] 최소 사용자 데이터 저장:", Object.keys(minimalData));
 			} catch (error) {
-				console.error("사용자 정보 저장 실패:", error);
-				// 암호화 실패 시 기본 저장 방식 사용 (하위 호환성)
-				localStorage.setItem("user", JSON.stringify(sanitizeUserData(user)));
+				console.error("최소 사용자 데이터 저장 실패:", error);
 			}
+		},
+		// 허용된 키만 추출하는 화이트리스트 방식
+		extractMinimalData(userData: any): any {
+			const allowedKeys = ['nickname', 'is_staff', 'push_on', 'score', 'is_social_user'];
+			const minimalData: any = {};
+			allowedKeys.forEach(key => {
+				if (userData && userData.hasOwnProperty(key)) {
+					minimalData[key] = userData[key];
+				}
+			});
+			return minimalData;
 		},
 		clearUser() {
 			this.me = null;
@@ -169,6 +178,33 @@ export const useUserStore = defineStore("user", {
 				throw error;
 			} finally {
 				this.isLoading = false;
+			}
+		},
+		// 🔒 민감한 사용자 정보 동적 로딩 (UserProfile, UserSetting 전용)
+		async fetchDetailedUserInfo() {
+			const token = SecureTokenManager.getSecureToken("access_token");
+			if (!token) {
+				throw new Error("로그인이 필요합니다.");
+			}
+
+			try {
+				const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${token}`,
+					},
+				});
+
+				if (!res.ok) {
+					throw new Error(`사용자 정보 조회 실패 (${res.status})`);
+				}
+
+				const userData = await res.json();
+				console.log("🔒 [SECURITY] 민감한 사용자 정보 동적 로딩 완료");
+				return userData;
+			} catch (error) {
+				console.error("fetchDetailedUserInfo 오류:", error);
+				throw error;
 			}
 		},
 		async updateProfile(data: Partial<Pick<User, "nickname">>) {
