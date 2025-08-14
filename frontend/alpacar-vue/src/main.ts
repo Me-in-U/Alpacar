@@ -13,15 +13,18 @@ const pinia = createPinia();
 app.use(pinia);
 app.use(router);
 
-// 앱 시작 시 한 번만 실행
+// 앱 시작 시 한 번만 실행 (로그인 페이지가 아닐 때만)
 const userStore = useUserStore();
-const token = localStorage.getItem("access_token");
-if (token) {
-	userStore.fetchMe(token).catch(() => {
-		// 토큰이 만료됐거나 오류가 나면 로그인 페이지로
-		userStore.clearUser();
-		router.push("/login");
-	});
+const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
+if (!isLoginPage) {
+	const token = localStorage.getItem("access_token");
+	if (token) {
+		userStore.fetchMe(token).catch(() => {
+			// 토큰이 만료됐거나 오류가 나면 로그인 페이지로
+			userStore.clearUser();
+			router.push("/login");
+		});
+	}
 }
 
 app.mount("#app");

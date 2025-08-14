@@ -23,7 +23,22 @@ const NOTIFICATION_SETTINGS = {
 self.addEventListener("install", (event) => {
 	console.log(`Alpacar SW install ${SW_VERSION}`);
 	console.log(`Precaching ${allPrecacheResources.length} resources`);
-	event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(allPrecacheResources)));
+	event.waitUntil(
+		caches.open(CACHE_NAME).then(async (cache) => {
+			// 중복 제거: Set을 사용하여 중복 URL 제거
+			const uniqueResources = [...new Set(allPrecacheResources)];
+			console.log(`Unique resources: ${uniqueResources.length}`);
+			
+			// 하나씩 추가하여 중복 에러 방지
+			for (const resource of uniqueResources) {
+				try {
+					await cache.add(resource);
+				} catch (error) {
+					console.warn(`Failed to cache ${resource}:`, error);
+				}
+			}
+		})
+	);
 	self.skipWaiting();
 });
 
