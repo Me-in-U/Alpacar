@@ -1,9 +1,10 @@
 from django.urls import path
+
 from .views import (
     list_vehicle_events,
     manual_entrance,
-    manual_parking_complete,
     manual_exit,
+    manual_parking_complete,
 )
 
 urlpatterns = [
