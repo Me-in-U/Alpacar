@@ -47,8 +47,15 @@ async function isAuthenticated(): Promise<boolean> {
 		// 보안 토큰 매니저에서 토큰 확인
 		const token = SecureTokenManager.getSecureToken("access_token");
 
-		// 토큰이 있거나 복원된 사용자 정보가 있으면 인증된 것으로 간주
-		if (!token && !userStore.me) {
+		// 모바일 환경 호환성: 토큰이 없으면 즉시 false 반환
+		if (!token) {
+			console.log("[AUTH CHECK] 토큰 없음 - 인증 실패");
+			return false;
+		}
+
+		// 복원된 사용자 정보도 있어야 완전한 인증으로 간주
+		if (!userStore.me) {
+			console.log("[AUTH CHECK] 사용자 정보 없음 - 인증 불완전");
 			return false;
 		}
 
@@ -72,31 +79,108 @@ async function isAuthenticated(): Promise<boolean> {
 	}
 }
 
-// 차량 등록 여부 확인 함수
+// 차량 등록 여부 확인 함수 (모바일 환경 개선)
 async function hasVehicleRegistered(): Promise<boolean> {
 	const token = SecureTokenManager.getSecureToken("access_token");
 	if (!token) {
+		console.log("[VEHICLE CHECK] 토큰 없음");
 		return false;
 	}
 
-	try {
-		const response = await fetch(`${BACKEND_BASE_URL}/vehicles/check/`, {
-			method: "GET",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				"Content-Type": "application/json",
-			},
-		});
-
-		if (response.ok) {
-			const data = await response.json();
-			return data.has_vehicle ?? false;
+	// 캐시된 결과 확인 (5분간 유효)
+	const cached = sessionStorage.getItem("vehicle_check_cache");
+	if (cached) {
+		try {
+			const { result, timestamp } = JSON.parse(cached);
+			const now = Date.now();
+			if (now - timestamp < 5 * 60 * 1000) { // 5분
+				console.log("[VEHICLE CHECK] 캐시된 결과 사용:", result);
+				return result;
+			}
+		} catch (e) {
+			sessionStorage.removeItem("vehicle_check_cache");
 		}
-		return false;
-	} catch (error) {
-		console.error("차량 등록 여부 확인 중 오류:", error);
-		return false;
 	}
+
+	// 재시도 로직으로 API 호출
+	let lastError: any = null;
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		try {
+			console.log(`[VEHICLE CHECK] API 호출 시도 ${attempt}/3`);
+			
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
+			
+			const response = await fetch(`${BACKEND_BASE_URL}/vehicles/check/`, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+				signal: controller.signal,
+				cache: "no-cache",
+			});
+
+			clearTimeout(timeoutId);
+
+			if (response.ok) {
+				const data = await response.json();
+				const result = data.has_vehicle ?? false;
+				
+				// 성공 시 결과 캐시
+				sessionStorage.setItem("vehicle_check_cache", JSON.stringify({
+					result,
+					timestamp: Date.now()
+				}));
+				
+				console.log(`[VEHICLE CHECK] API 성공 (시도 ${attempt}):`, result);
+				return result;
+			} else if (response.status === 401 || response.status === 403) {
+				// 인증 오류는 재시도하지 않음
+				console.log("[VEHICLE CHECK] 인증 오류, 로그인 필요");
+				return false;
+			} else {
+				lastError = new Error(`HTTP ${response.status}`);
+				console.warn(`[VEHICLE CHECK] HTTP 오류 ${response.status} (시도 ${attempt})`);
+			}
+		} catch (error: any) {
+			lastError = error;
+			if (error.name === 'AbortError') {
+				console.warn(`[VEHICLE CHECK] 타임아웃 (시도 ${attempt})`);
+			} else {
+				console.warn(`[VEHICLE CHECK] 네트워크 오류 (시도 ${attempt}):`, error.message);
+			}
+		}
+
+		// 마지막 시도가 아니면 대기 후 재시도
+		if (attempt < 3) {
+			await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1초, 2초 대기
+		}
+	}
+
+	// 모든 시도 실패 시 안전한 기본값 반환
+	console.error("[VEHICLE CHECK] 모든 시도 실패:", lastError?.message);
+	
+	// 사용자 스토어에서 기존 차량 정보 확인
+	const userStore = useUserStore();
+	if (userStore.vehicles && userStore.vehicles.length > 0) {
+		console.log("[VEHICLE CHECK] 스토어에서 차량 정보 발견, true 반환");
+		return true;
+	}
+	
+	// 최후의 수단: 이전 성공 캐시가 있다면 사용 (만료되어도)
+	if (cached) {
+		try {
+			const { result } = JSON.parse(cached);
+			console.log("[VEHICLE CHECK] 만료된 캐시 사용:", result);
+			return result;
+		} catch (e) {
+			// 무시
+		}
+	}
+	
+	console.warn("[VEHICLE CHECK] 기본값 false 반환 - 네트워크 문제로 추정");
+	return false;
 }
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
@@ -295,6 +379,13 @@ router.beforeEach(async (to, from, next) => {
 			console.log("로그인이 필요한 페이지입니다. 로그인 페이지로 이동합니다.");
 			next("/login");
 		} else {
+			// 추가 토큰 검증 (모바일 환경 안정성 개선)
+			const token = SecureTokenManager.getSecureToken("access_token");
+			if (!token) {
+				console.warn("[ROUTER GUARD] 인증된 것으로 간주되었지만 토큰이 없음 - 로그인 페이지로 리다이렉트");
+				next("/login");
+				return;
+			}
 			// 비밀번호 인증이 필요한 페이지 체크 (user-setting)
 			if (to.meta.requiresPasswordAuth) {
 				console.log(`[ROUTER GUARD] 비밀번호 인증이 필요한 페이지 접근: ${to.path}`);
@@ -349,6 +440,15 @@ router.beforeEach(async (to, from, next) => {
 			if (to.path === "/parking-history") {
 				console.log(`[PARKING HISTORY DEBUG] 일반 사용자가 접근 중`);
 			}
+			
+			// 차량 등록 확인 전 토큰 재검증 (모바일 환경 안정성)
+			const vehicleCheckToken = SecureTokenManager.getSecureToken("access_token");
+			if (!vehicleCheckToken) {
+				console.warn("[ROUTER GUARD] 차량 등록 확인 중 토큰 소실 감지 - 로그인 페이지로 리다이렉트");
+				next("/login");
+				return;
+			}
+			
 			const hasVehicle = await hasVehicleRegistered();
 			console.log(`[ROUTER DEBUG] 차량 등록 여부: ${hasVehicle}`);
 
@@ -376,12 +476,28 @@ router.beforeEach(async (to, from, next) => {
 				console.log("이미 로그인된 관리자입니다. 관리자 메인 페이지로 이동합니다.");
 				next("/admin-main");
 			} else {
-				console.log("이미 로그인된 사용자입니다. 메인 페이지로 이동합니다.");
-				next("/main");
+				console.log("이미 로그인된 일반 사용자입니다. 차량 등록 여부를 확인합니다.");
+				
+				// 일반 사용자의 경우 차량 등록 여부에 따라 리다이렉트
+				const hasVehicle = await hasVehicleRegistered();
+				console.log(`[LOGIN REDIRECT] 차량 등록 여부: ${hasVehicle}`);
+				
+				if (hasVehicle) {
+					console.log("차량 등록 완료. 메인 페이지로 이동합니다.");
+					next("/main");
+				} else {
+					console.log("차량 등록 필요. 차량 등록 페이지로 이동합니다.");
+					next("/social-login-info");
+				}
 			}
 		} else {
+			// 로그인되지 않은 사용자가 로그인 관련 페이지에 접근하는 경우 - 정상 허용
+			if (!isLoggedIn && (to.name === "login" || to.name === "signup" || to.name === "entry-page")) {
+				console.log(`[ROUTER GUARD] 비로그인 사용자의 ${to.path} 정상 접근`);
+				next();
+			}
 			// 인증이 필요하지 않은 페이지도 관리자 접근 제어 적용
-			if (isLoggedIn) {
+			else if (isLoggedIn) {
 				const userStore = useUserStore();
 				const isAdmin = userStore.me?.is_staff ?? false;
 
@@ -415,6 +531,7 @@ router.beforeEach(async (to, from, next) => {
 				}
 			} else {
 				// 로그인하지 않은 사용자는 그대로 진행
+				console.log(`[ROUTER GUARD] 비로그인 사용자의 ${to.path} 접근 허용`);
 				next();
 			}
 		}

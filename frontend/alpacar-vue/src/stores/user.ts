@@ -274,6 +274,15 @@ export const useUserStore = defineStore("user", {
 			}
 
 			await this.fetchMe(data.access);
+			
+			// 로그인 성공 시 차량 정보도 미리 로드 (라우터 가드 성능 개선)
+			try {
+				await this.fetchMyVehicles();
+				console.log("로그인 시 차량 정보 미리 로드 완료");
+			} catch (vehicleError) {
+				console.warn("차량 정보 로드 실패 (무시):", vehicleError);
+			}
+			
 			return this.me;
 		},
 
@@ -328,6 +337,15 @@ export const useUserStore = defineStore("user", {
 				localStorage.setItem("refresh_token", data.refresh);
 
 				await this.fetchMe(data.access, backendUrl);
+				
+				// 로그인 성공 시 차량 정보도 미리 로드 (라우터 가드 성능 개선)
+				try {
+					await this.fetchMyVehicles();
+					console.log("동적 URL 로그인 시 차량 정보 미리 로드 완료");
+				} catch (vehicleError) {
+					console.warn("차량 정보 로드 실패 (무시):", vehicleError);
+				}
+				
 				return this.me;
 			} catch (error: any) {
 				// Mixed Content나 네트워크 오류에 대한 사용자 친화적 메시지
