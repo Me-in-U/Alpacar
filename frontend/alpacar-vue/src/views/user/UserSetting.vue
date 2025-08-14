@@ -289,6 +289,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { apiClient } from "@/api/parking";
 
 /* ====== 스토어 ====== */
 const router = useRouter();
@@ -327,11 +328,11 @@ const isSocialUser = computed(() => {
   return userInfo.value?.is_social_user || false;
 });
 
-const getAccessToken = () =>
-  localStorage.getItem("access_token") ||
-  sessionStorage.getItem("access_token") ||
-  localStorage.getItem("access") ||
-  sessionStorage.getItem("access");
+// const getAccessToken = () =>
+//   localStorage.getItem("access_token") ||
+//   sessionStorage.getItem("access_token") ||
+//   localStorage.getItem("access") ||
+//   sessionStorage.getItem("access");
 
 /* ====== 행(꺾쇠) 클릭 핸들러 ====== */
 const openPhoneModal = () => {
@@ -411,45 +412,14 @@ const executePhoneChange = async () => {
   if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
   if (!newPhoneNumber.value || !isPhoneValid.value) { alert("올바른 전화번호를 입력해주세요."); return; }
 
-  const token = getAccessToken();
-  if (!token) {
-    alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
-    router.push("/login");
-    return;
-  }
-
-  // PUT을 요구하는 백엔드 대비: 필요한 필드는 모두 채워서 보냄
   const payload = {
     phone: newPhoneNumber.value,
     nickname: userInfo.value?.nickname ?? "",
-    name: userInfo.value?.name ?? ""
-    // email은 보통 서버에서 읽기전용이므로 보내지 않음
+    name: userInfo.value?.name ?? "",
   };
 
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
-      method: "PUT",                        // ★ PATCH 대신 PUT
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": `Bearer ${token}` // ★ 인증 헤더 추가
-      },
-      body: JSON.stringify(payload)
-      // (만약 쿠키 세션 기반이라면) credentials: "include" 도 추가
-    });
-
-    if (res.status === 401) {
-      alert("인증이 만료되었습니다. 다시 로그인해주세요.");
-      router.push("/login");
-      return;
-    }
-    if (!res.ok) {
-      let msg = "서버 오류";
-      try { const e = await res.json(); msg = e.detail || e.message || msg; } catch {}
-      alert("전화번호 변경 실패: " + msg);
-      return;
-    }
-
+    await apiClient.put("/users/me/", payload);   // ← fetch 대신 apiClient 사용
     alert("전화번호가 성공적으로 변경되었습니다.");
     showEmailVerificationModal.value = false;
     showPhoneModal.value = false;
@@ -458,11 +428,15 @@ const executePhoneChange = async () => {
     emailSent.value = false;
     emailVerified.value = false;
     verificationCode.value = "";
-    // 최신 정보 반영
-    // await userStore.fetchMe(token);
-  } catch (e) {
-    console.error(e);
-    alert("전화번호 변경 중 오류가 발생했습니다.");
+    await userStore.fetchMe();                    // UI 최신화
+  } catch (e: any) {
+    if (e?.code === "SESSION_EXPIRED") {
+      userStore.clearUser();
+      router.push("/login");
+      return;
+    }
+    const msg = e?.response?.data?.detail || e?.response?.data?.message || e?.message || "서버 오류";
+    alert("전화번호 변경 실패: " + msg);
   }
 };
 

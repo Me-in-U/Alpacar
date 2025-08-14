@@ -7,6 +7,8 @@ import {
   decryptUserData, 
   validateAutoLoginExpiry 
 } from "@/utils/security";
+import { apiClient } from "@/api/parking";
+
 
 export interface VehicleModel {
 	id: number;
@@ -123,7 +125,7 @@ export const useUserStore = defineStore("user", {
 				return true;
 			}
 		},
-		async fetchMe(accessToken: string, baseUrl?: string) {
+		async fetchMe(accessToken?: string, baseUrl?: string) {
 			// 중복 호출 방지 - 최근 3초 이내에 호출했으면 스킵
 			const now = Date.now();
 			if (this.isLoading || (this.me && now - this.lastFetchTime < 3000)) {
@@ -135,44 +137,19 @@ export const useUserStore = defineStore("user", {
 			this.lastFetchTime = now;
 
 			try {
-				const apiUrl = baseUrl || BACKEND_BASE_URL;
+				// 인자 없으면 보안 토큰 관리자에서 가져옴
+				const token = accessToken || SecureTokenManager.getSecureToken("access_token");
+				if (!token) throw new Error("No token found");
 
-				const res = await fetch(`${apiUrl}/users/me/`, {
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${accessToken}`,
-					},
-					// 성능 최적화 옵션
-					cache: "no-cache",
-					keepalive: true,
+				// baseUrl이 있으면 절대경로, 없으면 apiClient의 baseURL 기준 상대경로
+				const url = baseUrl ? `${baseUrl}/users/me/` : "/users/me/";
+
+				const { data } = await apiClient.get<User>(url, {
+
 				});
 
-				if (!res.ok) {
-					throw new Error(`프로필 조회 실패 (${res.status})`);
-				}
-
-			// 응답이 JSON인지 확인
-			const contentType = res.headers.get("content-type");
-			let profile: User;
-
-			try {
-				if (contentType && contentType.includes("application/json")) {
-					const responseText = await res.text();
-					if (responseText.trim()) {
-						profile = JSON.parse(responseText);
-					} else {
-						throw new Error("서버에서 빈 응답을 반환했습니다.");
-					}
-				} else {
-					throw new Error("서버에서 JSON이 아닌 응답을 반환했습니다.");
-				}
-			} catch (parseError) {
-				console.error("프로필 JSON 파싱 오류:", parseError);
-				throw new Error("프로필 정보를 처리할 수 없습니다.");
-			}
-
-			this.setUser(profile);
-			return profile;
+				this.setUser(data);
+				return data;
 			} catch (error) {
 				console.error("fetchMe 오류:", error);
 				throw error;
