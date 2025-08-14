@@ -1,19 +1,39 @@
 # parking/services.py
-from django.utils import timezone
+from typing import Optional
+
 from django.db import transaction
-from vehicles.models import Vehicle
+from django.utils import timezone
+
 from events.models import VehicleEvent
-from .models import ParkingSpace, ParkingAssignment, ParkingAssignmentHistory
+from vehicles.models import Vehicle
+
+from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
+
+# ── 상태 상수 (프로젝트의 정의와 일치시킬 것) ──
+ASSIGN_STATUS_ASSIGNED = "ASSIGNED"
+EVENT_STATUS_PARKING = "Parking"
 
 
-def _parse_slot_label(label: str):
+def _parse_slot_label(label: str) -> tuple[str, int]:
+    """
+    'B3' -> ('B', 3)
+    """
     if not label or len(label) < 2:
         raise ValueError("invalid slot label")
     return label[0], int(label[1:])
 
 
 @transaction.atomic
-def handle_assignment_from_jetson(license_plate: str, slot_label: str):
+def handle_assignment_from_jetson(
+    license_plate: str, slot_label: str
+) -> tuple[bool, str]:
+    """
+    Jetson이 제안/지시한 배정을 반영한다.
+    - 활성 VehicleEvent가 없으면 실패
+    - 기존 배정이 있으면 슬롯만 교체, 이전 슬롯은 free 처리
+    - 새 슬롯은 reserved + current_vehicle 지정
+    """
+
     try:
         vehicle = Vehicle.objects.select_related("user").get(
             license_plate=license_plate
@@ -46,26 +66,30 @@ def handle_assignment_from_jetson(license_plate: str, slot_label: str):
             "vehicle": vehicle,
             "space": new_space,
             "start_time": timezone.now(),
-            "status": "ASSIGNED",
+            "status": ASSIGN_STATUS_ASSIGNED,
         },
     )
 
     if created:
+        # 최초 배정: 새 공간 예약 및 차량 지정
         new_space.status = "reserved"
         new_space.current_vehicle = vehicle
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
     else:
+        # 기존 배정이 있고, 슬롯이 바뀌는 경우
         if pa.space_id != new_space.id:
             old_space = pa.space
             pa.space = new_space
             pa.save(update_fields=["space", "updated_at"])
+
             if old_space and old_space.status != "free":
                 old_space.status = "free"
                 old_space.current_vehicle = None
                 old_space.save(
                     update_fields=["status", "current_vehicle", "updated_at"]
                 )
-        # 새 공간 보정
+
+        # 새 공간 보정(예약 + 차량 지정 일관성)
         if new_space.status != "reserved" or new_space.current_vehicle_id != vehicle.id:
             new_space.status = "reserved"
             new_space.current_vehicle = vehicle
@@ -75,7 +99,10 @@ def handle_assignment_from_jetson(license_plate: str, slot_label: str):
     return True, "ok"
 
 
-def add_score_from_jetson(license_plate: str, score: int):
+def add_score_from_jetson(license_plate: str, score: int) -> tuple[bool, str]:
+    """
+    Jetson이 보낸 점수를 저장한다. (최근/진행중 배정과 연결되면 assignment 참조 저장)
+    """
     try:
         vehicle = Vehicle.objects.select_related("user").get(
             license_plate=license_plate
@@ -135,9 +162,11 @@ def mark_parking_complete_from_ai(license_plate: str, zone_label: str | None = N
         return True, "already parked", label
 
     # 배정 슬롯
-    space = None
-    if getattr(ev, "assignment", None) and ev.assignment.space:
-        space = ev.assignment.space
+    space: Optional[ParkingSpace] = (
+        ev.assignment.space
+        if getattr(ev, "assignment", None) and ev.assignment.space
+        else None
+    )
 
     # 선택적으로 zone_label과 일치 여부 체크
     if zone_label and space:
@@ -147,15 +176,22 @@ def mark_parking_complete_from_ai(license_plate: str, zone_label: str | None = N
 
     # VehicleEvent → Parking 전환
     ev.parking_time = now
-    ev.status = "Parking"
-    ev.save(update_fields=["parking_time", "status"])
+    if hasattr(ev, "status"):
+        ev.status = EVENT_STATUS_PARKING
+        ev.save(update_fields=["parking_time", "status", "updated_at"])
+    else:
+        ev.save(update_fields=["parking_time", "updated_at"])
 
-    occupied_label = None
+    occupied_label: Optional[str] = None
+
     # 슬롯을 occupied 로 전환
     if space:
         if space.status != "occupied":
             space.status = "occupied"
-            space.save(update_fields=["status", "updated_at"])
+        # 현재 차량 지정(일관성 보정)
+        if space.current_vehicle_id != ev.vehicle_id:
+            space.current_vehicle = ev.vehicle
+        space.save(update_fields=["status", "current_vehicle", "updated_at"])
         occupied_label = f"{space.zone}{space.slot_number}"
 
     return True, "ok", occupied_label

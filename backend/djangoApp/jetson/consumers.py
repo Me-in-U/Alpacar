@@ -1,10 +1,14 @@
 # jetson/consumers.py
-import json
-from typing import Any, Dict, List, Tuple
+from __future__ import annotations
+
+import logging
+from typing import Any, Dict, List, Optional, Tuple
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncWebsocketConsumer
-from django.db.models import Q
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from django.db import transaction
+from django.utils import timezone
+
 from events.models import VehicleEvent
 from parking.models import ParkingSpace
 from parking.services import (
@@ -12,315 +16,290 @@ from parking.services import (
     handle_assignment_from_jetson,
     mark_parking_complete_from_ai,
 )
-from django.utils import timezone
-from django.db import transaction
-from channels.generic.websocket import AsyncWebsocketConsumer
-import json
 
+logger = logging.getLogger(__name__)
+
+# 그룹 상수
 JETSON_CONTROL_GROUP = "jetson-control"
 PARKING_STATUS_GROUP = "parking-status"
 
+# 상태 상수
+STATUS_EXIT = "Exit"
 
-class JetsonIngestConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
+
+# =========================
+# /ws/jetson_ingest
+# =========================
+class JetsonIngestConsumer(AsyncJsonWebsocketConsumer):
+    """
+    젯슨 디바이스로부터 제어/상태/점수/배정 변경/출차 이벤트를 수신하고,
+    뷰어 그룹(PARKING_STATUS_GROUP)으로 방송한다.
+    (공간/이벤트 저장 시의 실시간 방송은 signals 쪽에서도 이뤄진다)
+    """
+
+    async def connect(self) -> None:
         await self.accept()
         await self.channel_layer.group_add(JETSON_CONTROL_GROUP, self.channel_name)
+        logger.debug("JetsonIngestConsumer connected: %s", self.channel_name)
 
-    async def disconnect(self, code):
+    async def disconnect(self, code: int) -> None:
         await self.channel_layer.group_discard(JETSON_CONTROL_GROUP, self.channel_name)
+        logger.debug(
+            "JetsonIngestConsumer disconnected: %s (code=%s)", self.channel_name, code
+        )
 
-    async def jetson_control(self, event):
-        await self.send(text_data=json.dumps(event["payload"], ensure_ascii=False))
+    # 그룹 제어 메시지 핸들러
+    async def jetson_control(self, event: Dict[str, Any]) -> None:
+        await self.send_json(event.get("payload", {}))
 
-    async def receive(self, text_data=None, bytes_data=None):
-        try:
-            data = json.loads(text_data or "{}")
-        except Exception:
+    async def receive_json(self, data: Dict[str, Any], **kwargs: Any) -> None:
+        msg_type = data.get("message_type")
+        if not msg_type:
             return
 
-        msg_type = data.get("message_type")
-
         if msg_type == "car_position":
-            slot_map: Dict[str, str] = data.get("slot") or {}
-            vehicles_in: List[Dict[str, Any]] = data.get("vehicles") or []
+            await self._handle_car_position(data)
+            return
 
-            if slot_map:
-                await self._apply_slot_status(slot_map)  # 저장만(방송은 signals)
+        if msg_type == "assignment":
+            await self._handle_assignment(data, ack_type="assignment_ack")
+            return
 
-            def _flatten_corners(corners):
-                out = []
-                for pt in corners or []:
-                    out.extend(pt)
-                return out
+        if msg_type == "score":
+            await self._handle_score(data)
+            return
 
-            vehicles_out = []
-            for v in vehicles_in:
-                center = v.get("center") or {}
-                vehicles_out.append(
-                    {
-                        "track_id": str(v.get("plate") or ""),
-                        "center": [center.get("x", 0), center.get("y", 0)],
-                        "corners": _flatten_corners(v.get("corners") or []),
-                        "state": v.get("state"),
-                        "suggested": v.get("suggested") or "",
-                    }
-                )
+        if msg_type == "re-assignment":
+            await self._handle_assignment(
+                data, ack_type="re_assignment_ack", broadcast_on_success=True
+            )
+            return
 
-            await self._broadcast_to_viewers(
+        if msg_type == "exit":
+            await self._handle_exit_msg(data)
+            return
+
+    # ---------- 핸들러 ----------
+
+    async def _handle_car_position(self, data: Dict[str, Any]) -> None:
+        slot_map: Dict[str, str] = data.get("slot") or {}
+        vehicles_in: List[Dict[str, Any]] = data.get("vehicles") or []
+
+        if slot_map:
+            await self._apply_slot_status(slot_map)  # 저장만(방송은 signals)
+
+        def _flatten_corners(corners: Optional[List[List[int]]]) -> List[int]:
+            out: List[int] = []
+            for pt in corners or []:
+                out.extend(pt)
+            return out
+
+        vehicles_out: List[Dict[str, Any]] = []
+        for v in vehicles_in:
+            center = v.get("center") or {}
+            vehicles_out.append(
                 {
-                    "message_type": "car_position",
-                    "vehicles": vehicles_out,
-                    "origin": "ai",
+                    "track_id": str(v.get("plate") or ""),
+                    "center": [center.get("x", 0), center.get("y", 0)],
+                    "corners": _flatten_corners(v.get("corners")),
+                    "state": v.get("state"),
+                    "suggested": v.get("suggested") or "",
+                }
+            )
+
+        await self._broadcast_to_viewers(
+            {
+                "message_type": "car_position",
+                "vehicles": vehicles_out,
+                "origin": "ai",
+            }
+        )
+
+    async def _handle_assignment(
+        self,
+        data: Dict[str, Any],
+        *,
+        ack_type: str,
+        broadcast_on_success: bool = False,
+    ) -> None:
+        plate = (data.get("license_plate") or "").strip()
+        slot_label = (data.get("assignment") or "").strip()
+
+        if not plate or not slot_label:
+            await self.send_json(
+                {
+                    "message_type": ack_type,
+                    "status": "error",
+                    "detail": "license_plate and assignment required",
                 }
             )
             return
 
-        if msg_type == "assignment":
-            plate = data.get("license_plate")
-            slot_label = data.get("assignment")
-            if not (plate and slot_label):
-                await self.send(
-                    text_data=json.dumps(
-                        {
-                            "message_type": "assignment_ack",
-                            "status": "error",
-                            "detail": "license_plate and assignment required",
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                return
+        ok, msg = await database_sync_to_async(handle_assignment_from_jetson)(
+            plate, slot_label
+        )
 
-            ok, msg = await database_sync_to_async(handle_assignment_from_jetson)(
-                plate, slot_label
-            )
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "message_type": "assignment_ack",
-                        "license_plate": plate,
-                        "assignment": slot_label,
-                        "status": "success" if ok else "error",
-                        "detail": msg,
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            # 방송은 signals가 처리
-            return
+        await self.send_json(
+            {
+                "message_type": ack_type,
+                "license_plate": plate,
+                "assignment": slot_label,
+                "status": "success" if ok else "error",
+                "detail": msg,
+            }
+        )
 
-        if msg_type == "score":
-            plate = (data.get("license_plate") or "").strip()
-            score = data.get("score")
-            slot_label = (
-                data.get("zone_id") or ""
-            ).strip()  # Jetson이 보낸 “해당 구역/슬롯”
-
-            if not plate or score is None:
-                await self.send(
-                    text_data=json.dumps(
-                        {
-                            "message_type": "score_ack",
-                            "status": "error",
-                            "detail": "license_plate and score required",
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                return
-
-            try:
-                score = int(score)
-            except Exception:
-                await self.send(
-                    text_data=json.dumps(
-                        {
-                            "message_type": "score_ack",
-                            "status": "error",
-                            "detail": "score must be integer",
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                return
-
-            # ✅ “내 차만” 반영: 현재 plate의 배정 슬롯과 Jetson이 보고한 slot_label이 일치할 때만 수락
-            assigned_label = await self._get_assigned_label_for_plate(
-                plate
-            )  # e.g., "B3"
-            if (
-                slot_label
-                and assigned_label
-                and slot_label.upper() != assigned_label.upper()
-            ):
-                # 내 차가 아닌 주차 완료 이벤트 → 무시(ignored)로 응답
-                await self.send(
-                    text_data=json.dumps(
-                        {
-                            "message_type": "score_ack",
-                            "license_plate": plate,
-                            "score": score,
-                            "zone_id": slot_label,
-                            "status": "ignored",
-                            "detail": "slot mismatch (not this vehicle's assigned space)",
-                            "expected": assigned_label,
-                            "received": slot_label,
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                return
-
-            # 1) 점수 저장
-            ok_score, msg_score = await database_sync_to_async(add_score_from_jetson)(
-                plate, score
-            )
-
-            # 2) ✅ 점수 수신을 '주차 완료'로 간주하여 상태 전환 (VehicleEvent→Parking, ParkingSpace→occupied)
-            ok_park, msg_park, occupied_label = await database_sync_to_async(
-                mark_parking_complete_from_ai
-            )(plate, slot_label or None)
-
-            # 3) ACK 응답 (둘 다 성공해야 success)
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "message_type": "score_ack",
-                        "license_plate": plate,
-                        "score": score,
-                        "zone_id": slot_label or assigned_label or occupied_label,
-                        "status": "success" if (ok_score and ok_park) else "error",
-                        "detail": f"{msg_score}; {msg_park}",
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            # 방송은 signals가 처리 (VehicleEvent/Space 저장 시 자동 브로드캐스트)
-            return
-
-        if msg_type == "re-assignment":
-            plate = (data.get("license_plate") or "").strip()
-            new_label = (data.get("assignment") or "").strip()
-
-            if not plate or not new_label:
-                await self.send(
-                    text_data=json.dumps(
-                        {
-                            "message_type": "re_assignment_ack",
-                            "status": "error",
-                            "detail": "license_plate and assignment required",
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                return
-
-            ok, msg = await database_sync_to_async(handle_assignment_from_jetson)(
-                plate, new_label
-            )
-
-            # 개별 소켓 ACK
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "message_type": "re_assignment_ack",
-                        "license_plate": plate,
-                        "assignment": new_label,
-                        "status": "success" if ok else "error",
-                        "detail": msg,
-                    },
-                    ensure_ascii=False,
-                )
-            )
-
-            # ✅ 모든 뷰어에 방송: 프론트가 추천/표시를 즉시 갱신할 수 있게 함
+        if broadcast_on_success:
             await self._broadcast_to_viewers(
                 {
                     "message_type": "re-assignment",
                     "license_plate": plate,
-                    "assignment": new_label,
+                    "assignment": slot_label,
                     "status": "success" if ok else "error",
                     "detail": msg,
                     "origin": "ai",
                 }
             )
+
+    async def _handle_score(self, data: Dict[str, Any]) -> None:
+        plate = (data.get("license_plate") or "").strip()
+        score = data.get("score")
+        slot_label = (
+            data.get("zone_id") or ""
+        ).strip()  # Jetson이 보낸 "해당 구역/슬롯"
+
+        if not plate or score is None:
+            await self.send_json(
+                {
+                    "message_type": "score_ack",
+                    "status": "error",
+                    "detail": "license_plate and score required",
+                }
+            )
             return
-        if msg_type == "exit":
-            plate = (data.get("license_plate") or "").strip()
-            zone_label = (data.get("zone") or "").strip()  # ex) "B3" 예상
 
-            if not plate:
-                await self.send(
-                    text_data=json.dumps(
-                        {
-                            "message_type": "exit_ack",
-                            "status": "error",
-                            "detail": "license_plate required",
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                return
+        try:
+            score = int(score)
+        except Exception:
+            await self.send_json(
+                {
+                    "message_type": "score_ack",
+                    "status": "error",
+                    "detail": "score must be integer",
+                }
+            )
+            return
 
-            ok, msg, freed_label = await self._handle_exit_tx(plate, zone_label)
+        # "내 차만" 반영: 현재 plate의 배정 슬롯과 Jetson 보고 슬롯이 일치할 때만 수락
+        assigned_label = await self._get_assigned_label_for_plate(plate)  # e.g., "B3"
+        if (
+            slot_label
+            and assigned_label
+            and slot_label.upper() != assigned_label.upper()
+        ):
+            await self.send_json(
+                {
+                    "message_type": "score_ack",
+                    "license_plate": plate,
+                    "score": score,
+                    "zone_id": slot_label,
+                    "status": "ignored",
+                    "detail": "slot mismatch (not this vehicle's assigned space)",
+                    "expected": assigned_label,
+                    "received": slot_label,
+                }
+            )
+            return
 
-            # 개별 ACK
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "message_type": "exit_ack",
-                        "license_plate": plate,
-                        "zone": zone_label or None,
-                        "freed": freed_label,
-                        "status": "success" if ok else "error",
-                        "detail": msg,
+        # 1) 점수 저장
+        ok_score, msg_score = await database_sync_to_async(add_score_from_jetson)(
+            plate, score
+        )
+
+        # 2) 점수 수신을 '주차 완료'로 간주하여 상태 전환
+        ok_park, msg_park, occupied_label = await database_sync_to_async(
+            mark_parking_complete_from_ai
+        )(plate, slot_label or None)
+
+        # 3) ACK 응답 (둘 다 성공해야 success)
+        await self.send_json(
+            {
+                "message_type": "score_ack",
+                "license_plate": plate,
+                "score": score,
+                "zone_id": slot_label or assigned_label or occupied_label,
+                "status": "success" if (ok_score and ok_park) else "error",
+                "detail": f"{msg_score}; {msg_park}",
+            }
+        )
+
+    async def _handle_exit_msg(self, data: Dict[str, Any]) -> None:
+        plate = (data.get("license_plate") or "").strip()
+        zone_label = (data.get("zone") or "").strip()  # ex) "B3" 예상
+
+        if not plate:
+            await self.send_json(
+                {
+                    "message_type": "exit_ack",
+                    "status": "error",
+                    "detail": "license_plate required",
+                }
+            )
+            return
+
+        ok, msg, freed_label = await self._handle_exit_tx(plate, zone_label or None)
+
+        await self.send_json(
+            {
+                "message_type": "exit_ack",
+                "license_plate": plate,
+                "zone": zone_label or None,
+                "freed": freed_label,
+                "status": "success" if ok else "error",
+                "detail": msg,
+            }
+        )
+
+        # 즉시 뷰어에게 반영(신호/시그널이 이미 방송한다면 생략 가능)
+        if ok and freed_label:
+            await self._broadcast_to_viewers(
+                {
+                    "message_type": "parking_space",
+                    "spaces": {
+                        freed_label: {
+                            "status": "free",
+                            "size": None,
+                            "vehicle_id": None,
+                            "license_plate": None,
+                        }
                     },
-                    ensure_ascii=False,
-                )
+                    "origin": "ai",
+                }
             )
 
-            # 즉시 뷰어에게 반영(신호/시그널이 이미 방송한다면 생략 가능)
-            if ok and freed_label:
-                await self._broadcast_to_viewers(
-                    {
-                        "message_type": "parking_space",
-                        "spaces": {
-                            freed_label: {
-                                "status": "free",
-                                "size": None,
-                                "vehicle_id": None,
-                                "license_plate": None,
-                            }
-                        },
-                        "origin": "ai",
-                    }
-                )
-            return
-
     # ---------- 내부 유틸/DB ----------
+
     @database_sync_to_async
     def _apply_slot_status(self, slot_map: Dict[str, str]) -> None:
         to_update: List[Tuple[str, int, str]] = []
         for label, status in slot_map.items():
-            if not label or len(label) < 2:
+            parsed = self._parse_slot_label(label)
+            if not parsed:
                 continue
-            zone = label[0]
-            try:
-                num = int(label[1:])
-            except ValueError:
-                continue
+            zone, num = parsed
             to_update.append((zone, num, status))
+
         for zone, num, status in to_update:
             try:
                 ps = ParkingSpace.objects.get(zone=zone, slot_number=num)
                 if ps.status != status:
                     ps.status = status
-                    ps.save(update_fields=["status"])
+                    ps.save(update_fields=["status", "updated_at"])
             except ParkingSpace.DoesNotExist:
                 continue
 
     @database_sync_to_async
-    def _get_assigned_label_for_plate(self, plate: str) -> str | None:
+    def _get_assigned_label_for_plate(self, plate: str) -> Optional[str]:
         """
         현재 출차 전(ev.exit_time is null)인 차량 중 번호판이 plate인 이벤트의
         배정 슬롯 레이블(예: 'B3')을 반환. 없으면 None.
@@ -340,7 +319,6 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
         return f"{s.zone}{s.slot_number}"
 
     async def _broadcast_to_viewers(self, payload: Dict[str, Any]) -> None:
-        # ✅ origin 기본값 보정
         if "origin" not in payload:
             payload["origin"] = "ai"
         await self.channel_layer.group_send(
@@ -348,7 +326,7 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def _handle_exit_tx(self, plate: str, zone_label: str | None):
+    def _handle_exit_tx(self, plate: str, zone_label: Optional[str]):
         """
         젯슨이 보낸 exit를 기준으로 '내 차만' 안전하게 자동 출차 처리.
         - 현재 진행중인 VehicleEvent(plate, exit_time is null)를 찾고
@@ -360,10 +338,7 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
         with transaction.atomic():
             return self._handle_exit(plate, zone_label)
 
-    def _handle_exit(self, plate: str, zone_label: str | None):
-        from events.models import VehicleEvent
-        from parking.models import ParkingSpace
-
+    def _handle_exit(self, plate: str, zone_label: Optional[str]):
         # 1) 활성 이벤트 조회
         ev = (
             VehicleEvent.objects.select_related("vehicle", "assignment__space")
@@ -374,11 +349,8 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
         if not ev:
             return False, "active vehicle_event not found", None
 
-        # 2) 대상 슬롯 탐색 우선순위:
-        #   (a) 젯슨이 보낸 zone_label(예: 'B3') → 존재/일치하면 사용
-        #   (b) 이벤트의 assignment.space
-        #   (c) 현재 점유 중인 슬롯(current_vehicle__license_plate=plate)
-        space = None
+        # 2) 대상 슬롯 탐색 우선순위: 젯슨 → assignment.space → current_vehicle 소유 슬롯
+        space: Optional[ParkingSpace] = None
         parsed = self._parse_slot_label(zone_label) if zone_label else None
         if parsed:
             z, n = parsed
@@ -400,10 +372,9 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
             except ParkingSpace.DoesNotExist:
                 space = None
 
-        # 3) 슬롯/점유 검증 및 정리
+        # 3) 슬롯/점유 정리
         freed_label = None
         if space:
-            # 내 차가 점유 중인 슬롯이면 점유 해제
             if (
                 getattr(space, "current_vehicle", None)
                 and space.current_vehicle
@@ -411,45 +382,36 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
             ):
                 space.current_vehicle = None
 
-            # 상태를 free로
             if space.status != "free":
                 space.status = "free"
 
-            space.save(update_fields=["status", "current_vehicle"])
+            space.save(update_fields=["status", "current_vehicle", "updated_at"])
             freed_label = f"{space.zone}{space.slot_number}"
 
         # 4) 배정 종료
         if getattr(ev, "assignment", None):
             assign = ev.assignment
-            # end_time/status 필드명이 다르면 프로젝트 스키마에 맞춰 조정
-            if not assign.end_time:
+            if not getattr(assign, "end_time", None):
                 assign.end_time = timezone.now()
-            # 상태값 명세에 맞게(예: 'completed'/'ended')
             if hasattr(assign, "status"):
                 assign.status = "completed"
-            assign.save(
-                update_fields=(
-                    ["end_time", "status"]
-                    if hasattr(assign, "status")
-                    else ["end_time"]
-                )
-            )
+                assign.save(update_fields=["end_time", "status", "updated_at"])
+            else:
+                assign.save(update_fields=["end_time", "updated_at"])
 
         # 5) 이벤트 종료
         now = timezone.now()
         ev.exit_time = now
         if hasattr(ev, "status"):
-            ev.status = "Exit"  # 프로젝트의 상태 문자열 관례에 맞게
-        ev.save(
-            update_fields=(
-                ["exit_time", "status"] if hasattr(ev, "status") else ["exit_time"]
-            )
-        )
+            ev.status = STATUS_EXIT
+            ev.save(update_fields=["exit_time", "status", "updated_at"])
+        else:
+            ev.save(update_fields=["exit_time", "updated_at"])
 
         return True, "exit processed", freed_label
 
     # 슬롯 레이블 파서: "B3" -> ("B", 3)
-    def _parse_slot_label(self, label: str | None):
+    def _parse_slot_label(self, label: Optional[str]) -> Optional[Tuple[str, int]]:
         if not label:
             return None
         s = label.strip().upper()
@@ -465,39 +427,35 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
 # =========================
 # /ws/parking_status
 # =========================
-class ParkingStatusConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
+class ParkingStatusConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self) -> None:
         await self.accept()
-        await self.channel_layer.group_add("parking-status", self.channel_name)
+        await self.channel_layer.group_add(PARKING_STATUS_GROUP, self.channel_name)
+
         # 최초 스냅샷
         space_payload = await self._snapshot_space_all()
-        await self.send(
-            text_data=json.dumps(
-                {
-                    "message_type": "parking_space",
-                    "spaces": space_payload,
-                    "origin": "system",
-                },
-                ensure_ascii=False,
-            )
+        await self.send_json(
+            {
+                "message_type": "parking_space",
+                "spaces": space_payload,
+                "origin": "system",
+            }
         )
+
         active_payload = await self._snapshot_active_vehicles()
-        await self.send(
-            text_data=json.dumps(
-                {
-                    "message_type": "active_vehicles",
-                    "results": active_payload.get("results", []),
-                    "origin": "system",
-                },
-                ensure_ascii=False,
-            )
+        await self.send_json(
+            {
+                "message_type": "active_vehicles",
+                "results": active_payload.get("results", []),
+                "origin": "system",
+            }
         )
 
-    async def disconnect(self, code):
-        await self.channel_layer.group_discard("parking-status", self.channel_name)
+    async def disconnect(self, code: int) -> None:
+        await self.channel_layer.group_discard(PARKING_STATUS_GROUP, self.channel_name)
 
-    async def broadcast(self, event):
-        await self.send(text_data=json.dumps(event["payload"], ensure_ascii=False))
+    async def broadcast(self, event: Dict[str, Any]) -> None:
+        await self.send_json(event.get("payload", {}))
 
     # ---- 스냅샷 헬퍼 ----
     @database_sync_to_async
@@ -524,11 +482,11 @@ class ParkingStatusConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def _snapshot_active_vehicles(self) -> Dict[str, Any]:
         qs = (
-            VehicleEvent.objects.select_related("vehicle")
+            VehicleEvent.objects.select_related("vehicle", "assignment__space")
             .filter(exit_time__isnull=True)
             .order_by("-id")
         )
-        results = []
+        results: List[Dict[str, Any]] = []
         for ev in qs:
             assigned = None
             assignment = getattr(ev, "assignment", None)

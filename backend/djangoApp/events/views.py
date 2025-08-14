@@ -8,7 +8,6 @@ from rest_framework.response import Response
 from django.db import transaction
 from vehicles.models import Vehicle
 from accounts.utils import (
-    send_vehicle_entry_notification,
     send_parking_complete_notification,
     create_notification,
 )
@@ -109,7 +108,7 @@ def manual_parking_complete(request, vehicle_id):
                 {
                     "plate_number": vehicle.license_plate,
                     "parking_space": f"{space.zone}{space.slot_number}",
-                    "parking_time": now.isoformat(),
+                    "parking_time": timezone.localtime(now).isoformat(),
                     "score": 0,
                     "admin_action": True,
                 },
@@ -122,7 +121,7 @@ def manual_parking_complete(request, vehicle_id):
                 {
                     "plate_number": vehicle.license_plate,
                     "parking_space": "배정된 구역",
-                    "parking_time": now.isoformat(),
+                    "parking_time": timezone.localtime(now).isoformat(),
                     "score": None,
                     "admin_action": True,
                 },
@@ -203,7 +202,7 @@ def manual_exit(request, vehicle_id):
                 data={
                     "plate_number": vehicle.license_plate,
                     "parking_space": f"{space.zone}{space.slot_number}",
-                    "exit_time": now.isoformat(),
+                    "exit_time": timezone.localtime(now).isoformat(),
                     "parking_duration": parking_duration,
                     "admin_action": True,
                     "action_url": "/parking-recommend",
@@ -219,7 +218,7 @@ def manual_exit(request, vehicle_id):
                 data={
                     "plate_number": vehicle.license_plate,
                     "parking_space": "주차장",
-                    "exit_time": now.isoformat(),
+                    "exit_time": timezone.localtime(now).isoformat(),
                     "admin_action": True,
                     "action_url": "/parking-recommend",
                     "action_type": "navigate",
