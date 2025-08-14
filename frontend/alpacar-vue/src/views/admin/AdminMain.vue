@@ -178,7 +178,7 @@ export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },
 	setup() {
 		const authHeaders = () => ({
-			Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+			Authorization: `Bearer ${SecureTokenManager.getSecureToken("access_token")}`,
 			"Content-Type": "application/json",
 		});
 
@@ -209,7 +209,6 @@ export default defineComponent({
 		const activeVehicles = ref<Array<ActiveVehicleItem>>([]);
 
 		async function fetchActiveVehicles() {
-			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicle-events/active/`, {
 				headers: authHeaders(),
 			});
