@@ -12,10 +12,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
-from accounts.utils import (
-    create_notification,
-    send_parking_complete_notification,
-)
+from accounts.utils import create_notification, send_parking_complete_notification
 from parking.models import ParkingAssignment, ParkingSpace
 from vehicles.models import Vehicle
 
@@ -133,7 +130,7 @@ def manual_parking_complete(request, vehicle_id: int):
                 {
                     "plate_number": vehicle.license_plate,
                     "parking_space": f"{space.zone}{space.slot_number}",
-                    "parking_time": now.isoformat(),
+                    "parking_time": timezone.localtime(now).isoformat(),
                     "score": 0,
                     "admin_action": True,
                 },
@@ -146,7 +143,7 @@ def manual_parking_complete(request, vehicle_id: int):
                 {
                     "plate_number": vehicle.license_plate,
                     "parking_space": "배정된 구역",
-                    "parking_time": now.isoformat(),
+                    "parking_time": timezone.localtime(now).isoformat(),
                     "score": None,
                     "admin_action": True,
                 },
@@ -231,7 +228,7 @@ def manual_exit(request, vehicle_id: int):
                 data={
                     "plate_number": vehicle.license_plate,
                     "parking_space": f"{space.zone}{space.slot_number}",
-                    "exit_time": now.isoformat(),
+                    "exit_time": timezone.localtime(now).isoformat(),
                     "parking_duration": parking_duration,
                     "admin_action": True,
                     "action_url": "/parking-recommend",
@@ -247,7 +244,7 @@ def manual_exit(request, vehicle_id: int):
                 data={
                     "plate_number": vehicle.license_plate,
                     "parking_space": "주차장",
-                    "exit_time": now.isoformat(),
+                    "exit_time": timezone.localtime(now).isoformat(),
                     "admin_action": True,
                     "action_url": "/parking-recommend",
                     "action_type": "navigate",
