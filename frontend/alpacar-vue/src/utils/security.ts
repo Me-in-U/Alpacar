@@ -70,10 +70,7 @@ export function sanitizeUserData(user: any): any {
   if (!user) return null;
   
   return {
-    email: maskEmail(user.email),
-    name: maskName(user.name),
     nickname: user.nickname, // 닉네임은 노출 허용
-    phone: maskPhone(user.phone),
     push_on: user.push_on,
     score: user.score,
     is_staff: user.is_staff,
@@ -116,31 +113,6 @@ export function decryptUserData(encryptedData: string): any | null {
     console.warn('User data decryption failed:', error);
     return null;
   }
-}
-
-// 이메일 마스킹
-function maskEmail(email: string): string {
-  if (!email) return '';
-  const [localPart, domain] = email.split('@');
-  if (localPart.length <= 2) {
-    return '*'.repeat(localPart.length) + '@' + domain;
-  }
-  return localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1] + '@' + domain;
-}
-
-// 이름 마스킹
-function maskName(name: string): string {
-  if (!name) return '';
-  if (name.length <= 2) {
-    return name[0] + '*'.repeat(name.length - 1);
-  }
-  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1];
-}
-
-// 전화번호 마스킹
-function maskPhone(phone: string): string {
-  if (!phone) return '';
-  return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
 }
 
 // 보안 토큰 유틸리티

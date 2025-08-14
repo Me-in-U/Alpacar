@@ -23,10 +23,7 @@ export interface Vehicle {
 }
 
 export interface User {
-	email: string;
-	name: string;
 	nickname: string;
-	phone: string;
 	push_on: boolean;
 	score: number;
 	is_staff: boolean;
