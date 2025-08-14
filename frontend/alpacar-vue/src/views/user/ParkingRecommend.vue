@@ -144,7 +144,7 @@
 						<!-- 추천 핀 -->
 						<img class="pin" src="@/assets/pin.png" alt="pin" v-if="pinStyle.top" :style="pinStyle" />
 						<!-- 내 차 아이콘(연출용) -->
-						<img class="car" src="@/assets/my_car.png" alt="car" />
+						<img class="car" src="@/assets/my-car.png" alt="car" />
 					</div>
 
 					<div class="legend">
@@ -529,7 +529,7 @@ function checkAutoComplete() {
 
 /* 수동 완료 */
 function onComplete() {
-	router.push("/parking-complete");
+	router.push("/parking-history");
 }
 
 /* SVG 유틸 */
@@ -776,10 +776,10 @@ onBeforeUnmount(() => {
 }
 .car {
 	position: absolute;
-	top: calc(50% + 16px);
+	top: calc(50% + 12.5px);
 	left: 10px;
-	width: 56px;
-	height: 32px;
+	width: 50px;
+	height: 25px;
 }
 
 /* 범례 */
