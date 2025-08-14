@@ -34,27 +34,41 @@ import MainTest from "@/views/user/MainTest.vue";
 // 보안 강화된 로그인 상태 확인 함수
 async function isAuthenticated(): Promise<boolean> {
 	try {
+		const userStore = useUserStore();
+		
+		// 먼저 사용자 정보가 복원되었는지 확인
+		if (!userStore.me) {
+			const restoredUser = userStore.restoreUserFromStorage();
+			if (restoredUser) {
+				console.log("라우터에서 사용자 정보 복원:", restoredUser);
+			}
+		}
+		
 		// 보안 토큰 매니저에서 토큰 확인
 		const token = SecureTokenManager.getSecureToken("access_token");
 
-		if (!token) {
+		// 토큰이 있거나 복원된 사용자 정보가 있으면 인증된 것으로 간주
+		if (!token && !userStore.me) {
 			return false;
 		}
 
-		// 자동 로그인인 경우 만료 여부 확인
-		const expiryDate = localStorage.getItem("auto_login_expiry");
-		if (expiryDate) {
-			const userStore = useUserStore();
-			const isExpired = await userStore.checkAutoLoginExpiry();
-			if (isExpired) {
-				return false;
+		// 자동 로그인인 경우 만료 여부 확인 (토큰이 있을 때만)
+		if (token) {
+			const expiryDate = localStorage.getItem("auto_login_expiry");
+			if (expiryDate) {
+				const isExpired = await userStore.checkAutoLoginExpiry();
+				if (isExpired) {
+					return false;
+				}
 			}
 		}
 
 		return true;
 	} catch (error) {
 		console.warn("Authentication check failed:", error);
-		return false;
+		// 에러 발생 시에도 복원된 사용자 정보가 있으면 인증된 것으로 간주
+		const userStore = useUserStore();
+		return !!userStore.me;
 	}
 }
 
