@@ -88,19 +88,27 @@ export default defineComponent({
 		// 페이지 불러오기
 		const normalizePageUrl = (url: string | null) => {
 			if (!url) return null;
+
+			// 1) page 파라미터만 뽑고
+			let page = "1";
 			try {
-				const u = new URL(url, window.location.origin);
-				const page = u.searchParams.get("page") || "1";
-				return `${BACKEND_BASE_URL}/vehicle-events/?page=${page}`;
+				const tmp = new URL(url, BACKEND_BASE_URL); // 절대/상대 모두 파싱
+				page = tmp.searchParams.get("page") || "1";
 			} catch {
-				// 이미 상대경로거나 query만 온 케이스
-				return url;
+				// url이 '?page=2' 같은 케이스
+				const m = url.match(/[?&]page=(\d+)/);
+				if (m) page = m[1];
 			}
+
+			// 2) 항상 HTTPS의 BACKEND_BASE_URL 기준으로 재조립
+			const base = new URL(BACKEND_BASE_URL);
+			return `${base.origin}/vehicle-events/?page=${page}`;
 		};
-		const fetchPage = async (url = `${BACKEND_BASE_URL}/vehicle-events/?page=1`) => {
+		const fetchPage = async (url: string | null = `${BACKEND_BASE_URL}/vehicle-events/?page=1`) => {
+			url = normalizePageUrl(url); // ✅ 추가
 			loading.value = true;
 			const token = SecureTokenManager.getSecureToken("access_token");
-			const res = await fetch(url, {
+			const res = await fetch(url!, {
 				method: "GET",
 				headers: {
 					Authorization: `Bearer ${token}`,
@@ -108,18 +116,19 @@ export default defineComponent({
 				},
 			});
 			if (!res.ok) {
-				loading.value = false; // ✅ 실패 시에도 로딩 해제
+				loading.value = false;
 				console.log("이벤트 불러오기 실패", res.status, res.statusText);
 				alert("페이지 로딩 실패");
 				throw new Error("이벤트 불러오기 실패");
 			}
-			console.log("이벤트 불러오기 성공", res.status, res.statusText);
 			const data = await res.json();
+
 			logs.value = data.results;
-			nextPage.value = data.next;
-			prevPage.value = data.previous;
+			nextPage.value = normalizePageUrl(data.next); // ✅ 저장 시도 정규화
+			prevPage.value = normalizePageUrl(data.previous); // ✅ 저장 시도 정규화
 			loading.value = false;
 		};
+
 		const formatDate = (iso: string | null) => {
 			if (!iso) return "-";
 			// 로컬 타임존, 24h 포맷
