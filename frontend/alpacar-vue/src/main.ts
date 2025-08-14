@@ -6,6 +6,7 @@ import App from "./App.vue";
 import router from "./router";
 import { useUserStore } from "@/stores/user";
 import { registerServiceWorker, subscribeToPushNotifications } from "@/utils/pwa";
+import { SecureTokenManager } from "@/utils/security";
 
 const app = createApp(App);
 const pinia = createPinia();
@@ -16,14 +17,47 @@ app.use(router);
 // 앱 시작 시 한 번만 실행 (로그인 페이지가 아닐 때만)
 const userStore = useUserStore();
 const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
+
+// 사용자 정보 복원 시도
+const restoredUser = userStore.restoreUserFromStorage();
+
+// API 호출 중복 방지를 위한 플래그
+let isInitializing = false;
+
 if (!isLoginPage) {
-	const token = localStorage.getItem("access_token");
-	if (token) {
-		userStore.fetchMe(token).catch(() => {
-			// 토큰이 만료됐거나 오류가 나면 로그인 페이지로
-			userStore.clearUser();
-			router.push("/login");
-		});
+	// 보안 토큰 관리자에서 토큰 가져오기
+	const token = SecureTokenManager.getSecureToken("access_token");
+	if (token && !isInitializing) {
+		isInitializing = true;
+		
+		// 복원된 사용자 정보가 있으면 API 호출 지연
+		const delayTime = restoredUser ? 500 : 0;
+		
+		setTimeout(async () => {
+			try {
+				await userStore.fetchMe(token);
+				console.log("사용자 정보 로드 성공");
+			} catch (error: any) {
+				console.warn("사용자 정보 로드 실패:", error);
+				
+				// 401/403 에러만 토큰 만료로 처리
+				if (error.message.includes('401') || error.message.includes('403')) {
+					const isExpired = await userStore.checkAutoLoginExpiry();
+					if (isExpired) {
+						userStore.clearUser();
+						router.push("/login");
+					}
+				} else {
+					// 네트워크 에러나 서버 에러는 무시 (복원된 정보 유지)
+					console.log("네트워크/서버 에러로 인한 실패 - 기존 세션 유지");
+				}
+			} finally {
+				isInitializing = false;
+			}
+		}, delayTime);
+	} else if (!restoredUser && !token) {
+		// 토큰도 없고 복원된 사용자 정보도 없으면 로그인 페이지로
+		router.push("/login");
 	}
 }
 
@@ -59,7 +93,7 @@ window.addEventListener("load", async () => {
 			
 			// 로그인된 사용자의 경우에만 푸시 알림 구독 시도 (로그인 페이지 제외)
 			const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
-			const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			
 			if (token && !isLoginPage) {
 				// 페이지 로드 후 3초 뒤에 알림 권한 요청 (사용자 경험 개선)

@@ -44,8 +44,13 @@ export function encryptToken(token: string): string {
 // 보안 토큰 복호화
 export function decryptToken(encryptedData: string): string | null {
   try {
+    if (!encryptedData || typeof encryptedData !== 'string') {
+      return null;
+    }
+    
     const [sessionKey, encrypted] = encryptedData.split(':');
     if (!sessionKey || !encrypted) {
+      console.warn('암호화된 토큰 형식이 올바르지 않음');
       return null;
     }
     
