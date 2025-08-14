@@ -1,12 +1,3 @@
-# djangoApp/asgi.py
-"""
-ASGI config for djangoApp project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
-"""
 import os
 
 # settings 모듈 지정
@@ -17,18 +8,19 @@ from django.core.asgi import get_asgi_application
 
 django_asgi_app = get_asgi_application()
 
+# 로깅 설정
+import logging
+
 # Channels import (이제 models, apps 모두 로드된 이후)
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 
-# 라우팅 설정
-import streamapp.routing
 import events.routing
 import jetson.routing
 
-# 로깅 설정
-import logging
+# 라우팅 설정
+import streamapp.routing
 
 logger = logging.getLogger("channels")
 
@@ -44,9 +36,6 @@ async def debug_scope(scope, receive, send):
     app = ProtocolTypeRouter(
         {
             "http": django_asgi_app,
-            # "websocket": SessionMiddlewareStack(
-            #     URLRouter(ocr_app.routing.websocket_urlpatterns)
-            # ),
             "websocket": AuthMiddlewareStack(
                 URLRouter(
                     streamapp.routing.websocket_urlpatterns

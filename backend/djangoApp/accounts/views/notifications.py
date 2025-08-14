@@ -1,18 +1,28 @@
 # accounts/views/notifications.py
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
-from django.shortcuts import get_object_or_404
-from django.conf import settings
-from django.utils import timezone
 import random
 
-from ..models import Notification
-from ..serializers.notifications import NotificationSerializer, NotificationUpdateSerializer
-from ..utils import create_notification, send_vehicle_entry_notification, send_parking_complete_notification, send_grade_upgrade_notification
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
 from vehicles.models import Vehicle
+
+from ..models import Notification
+from ..serializers.notifications import (
+    NotificationSerializer,
+    NotificationUpdateSerializer,
+)
+from ..utils import (
+    create_notification,
+    send_grade_upgrade_notification,
+    send_parking_complete_notification,
+    send_vehicle_entry_notification,
+)
 
 
 class NotificationPagination(PageNumberPagination):
