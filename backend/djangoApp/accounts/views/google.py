@@ -1,6 +1,6 @@
 # accounts/views/google.py
 
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode
 
 import requests
 from allauth.socialaccount.models import SocialAccount
@@ -11,6 +11,9 @@ from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
+from urllib.parse import urlparse, urlencode
+from django.shortcuts import redirect
+
 
 # ── 환경／상수 ───────────────────────────────────────────────────────────
 

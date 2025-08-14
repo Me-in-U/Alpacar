@@ -13,19 +13,7 @@ from accounts.views.auth import (
     check_email,
     check_nickname,
 )
-from accounts.views.email_verify import (
-    SignupEmailVerifyRequestAPIView,
-    SignupEmailVerifyVerifyAPIView,
-)
 from accounts.views.google import google_callback, google_login
-from accounts.views.notifications import (
-    notification_delete,
-    notification_delete_all,
-    notification_detail,
-    notification_list,
-    notification_mark_all_read,
-    notification_unread_count,
-)
 from accounts.views.password_change import PasswordChangeAPI
 from accounts.views.password_reset import (
     PasswordResetConfirmAPIView,
@@ -34,6 +22,18 @@ from accounts.views.password_reset import (
 )
 from accounts.views.profile import UserProfileAPI, set_parking_skill
 from accounts.views.push import push_setting, subscribe_push, unsubscribe_push
+from accounts.views.email_verify import (
+    SignupEmailVerifyRequestAPIView,
+    SignupEmailVerifyVerifyAPIView,
+)
+from accounts.views.notifications import (
+    notification_list,
+    notification_detail, 
+    notification_delete, 
+    notification_delete_all, 
+    notification_mark_all_read, 
+    notification_unread_count
+)
 
 urlpatterns = [
     # ─ 회원가입 / 로그인 / 토큰갱신 ──────────────────────────────────────────
