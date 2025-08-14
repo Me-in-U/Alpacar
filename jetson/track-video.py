@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import json
 import math
@@ -17,12 +15,7 @@ import cv2
 import numpy as np
 import websocket
 from ultralytics import YOLO
-try:
-    from ml.recommender import recommend_best_zone
-    from ml.step_predictor import load_model
-except Exception:
-    recommend_best_zone = None  # type: ignore
-    load_model = None  # type: ignore
+from ml.recommender import recommend_best_zone
 
 # Module logger
 logger = logging.getLogger(__name__)
@@ -76,6 +69,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "B2",
         "left_pillar": True,
         "right_pillar": False,
+        "small_only": False,
     },
     {
         "id": "B2", 
@@ -84,6 +78,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "B3",
         "left_pillar": False,
         "right_pillar": False,
+        "small_only": False,
     },
     {
         "id": "B3", 
@@ -92,6 +87,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "",
         "left_pillar": False,
         "right_pillar": True,
+        "small_only": False,
     },
     {
         "id": "C1", 
@@ -100,6 +96,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "C2",
         "left_pillar": True,
         "right_pillar": False,
+        "small_only": True,
     },
     {
         "id": "C2", 
@@ -108,6 +105,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "C3",
         "left_pillar": False,
         "right_pillar": False,
+        "small_only": True,
     },
     {
         "id": "C3", 
@@ -116,6 +114,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "",
         "left_pillar": False,
         "right_pillar": True,
+        "small_only": True,
     },
     {
         "id": "A1", 
@@ -124,6 +123,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "",
         "left_pillar": False,
         "right_pillar": True,
+        "small_only": False,
     },
     {
         "id": "A2", 
@@ -132,6 +132,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "A1",
         "left_pillar": False,
         "right_pillar": False,
+        "small_only": False,
     },
     {
         "id": "A3", 
@@ -140,6 +141,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "A2",
         "left_pillar": True,
         "right_pillar": False,
+        "small_only": False,
     },
     {
         "id": "A4", 
@@ -148,6 +150,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "",
         "left_pillar": False,
         "right_pillar": True,
+        "small_only": False,
     },
     {
         "id": "A5", 
@@ -156,6 +159,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
         "right_zone": "A4",
         "left_pillar": True,
         "right_pillar": False,
+        "small_only": False,
     },
 ]
 
@@ -238,7 +242,7 @@ class ZoneInfoHelper:
     @staticmethod
     def get_adjacent_zone_info(zones_norm: List[Dict[str, Any]], zone_info: Dict[str, Any], slot_map: Dict[str, str], 
                               occupant_to_zone: Dict[int, str], last_angle_by_id: Dict[int, float],
-                              last_center_by_id: Dict[int, Tuple[float, float]], plate_mgr: PlateManager) -> Dict[str, Any]:
+                              last_center_by_id: dict[int, tuple[float, float]], plate_mgr) -> dict[str, any]:
         """인접 구역 정보 추출"""
         result = {
             "left_occupied": 0, "left_angle": 0.0, "left_offset": 0.0, "left_size": 0,
@@ -269,12 +273,13 @@ class ZoneInfoHelper:
                     zones_norm, right_zone_id, occupant_to_zone, last_angle_by_id, last_center_by_id, plate_mgr, result, "right"
                 )
         
+        # logger.info(f"[ZoneInfoHelper] result: {result}")
         return result
     
     @staticmethod
     def _fill_adjacent_vehicle_info(zones_norm: List[Dict[str, Any]], zone_upper: str, occupant_to_zone: Dict[int, str], 
                                    last_angle_by_id: Dict[int, float], last_center_by_id: Dict[int, Tuple[float, float]], 
-                                   plate_mgr: PlateManager, result: Dict[str, Any], side: str):
+                                   plate_mgr, result: Dict[str, Any], side: str):
         """인접 차량 정보 채우기"""
         found_vehicle = False
         for tid, occupied_zone in occupant_to_zone.items():
@@ -284,26 +289,26 @@ class ZoneInfoHelper:
                 angle_rad = last_angle_by_id.get(tid, 0.0)
                 result[f"{side}_angle"] = angle_rad
                 
-                # offset 계산 (주차 구역 중심과 차량 중심 간의 거리)
-                vehicle_center = last_center_by_id.get(tid)
-                if vehicle_center:
-                    # 주차 구역 정보 찾기
-                    zone_info = ZoneInfoHelper.find_zone_by_id(zones_norm, zone_upper)
-                    if zone_info and "rect" in zone_info:
-                        zone_rect = zone_info["rect"]
-                        # 주차 구역 중심 계산 (정규화된 좌표)
-                        zone_cx = (zone_rect[0] + zone_rect[2]) / 2
-                        zone_cy = (zone_rect[1] + zone_rect[3]) / 2
-                        # 차량 중심 (정규화된 좌표)
-                        vehicle_cx, vehicle_cy = vehicle_center
-                        # 유클리드 거리 계산
-                        offset = math.sqrt((vehicle_cx - zone_cx)**2 + (vehicle_cy - zone_cy)**2)
-                        result[f"{side}_offset"] = offset
-                        # logger.debug(f"[Feature] {side} offset calculated: {offset:.4f}")
-                    else:
-                        result[f"{side}_offset"] = 0.0
-                else:
-                    result[f"{side}_offset"] = 0.0
+                # # offset 계산 (주차 구역 중심과 차량 중심 간의 거리)
+                # vehicle_center = last_center_by_id.get(tid)
+                # if vehicle_center:
+                #     # 주차 구역 정보 찾기
+                #     zone_info = ZoneInfoHelper.find_zone_by_id(zones_norm, zone_upper)
+                #     if zone_info and "rect" in zone_info:
+                #         zone_rect = zone_info["rect"]
+                #         # 주차 구역 중심 계산 (정규화된 좌표)
+                #         zone_cx = (zone_rect[0] + zone_rect[2]) / 2
+                #         zone_cy = (zone_rect[1] + zone_rect[3]) / 2
+                #         # 차량 중심 (정규화된 좌표)
+                #         vehicle_cx, vehicle_cy = vehicle_center
+                #         # 유클리드 거리 계산
+                #         offset = math.sqrt((vehicle_cx - zone_cx)**2 + (vehicle_cy - zone_cy)**2)
+                #         result[f"{side}_offset"] = offset
+                #         # logger.debug(f"[Feature] {side} offset calculated: {offset:.4f}")
+                #     else:
+                #         result[f"{side}_offset"] = 0.0
+                # else:
+                #     result[f"{side}_offset"] = 0.0
                 
                 # 크기 정보
                 license_plate = plate_mgr.get(tid)
@@ -316,11 +321,11 @@ class ZoneInfoHelper:
                         result[f"{side}_size"] = specs.get("size_code", 2)
                 break
         
-        # 디버깅: 인접 차량 정보가 제대로 설정되었는지 확인
-        if found_vehicle:
-            logger.debug(f"[Feature] {side} adjacent vehicle found: angle={result[f'{side}_angle']:.4f}rad, offset={result.get(f'{side}_offset', 0.0):.4f}")
-        else:
-            logger.debug(f"[Feature] {side} adjacent zone {zone_upper} has no vehicle")
+        # # 디버깅: 인접 차량 정보가 제대로 설정되었는지 확인
+        # if found_vehicle:
+        #     logger.debug(f"[Feature] {side} adjacent vehicle found: angle={result[f'{side}_angle']:.4f}rad, offset={result.get(f'{side}_offset', 0.0):.4f}")
+        # else:
+        #     logger.debug(f"[Feature] {side} adjacent zone {zone_upper} has no vehicle")
     
     @staticmethod
     def calculate_goal_position(zone_rect: List[float], frame_wh: Optional[Tuple[int, int]] = None) -> Tuple[float, float]:
@@ -663,16 +668,25 @@ class WSClient:
 
     def close(self) -> None:
         try:
+            logger.info("[WebSocket] 연결 종료 시작")
             self._stop_flag.set()
             if self.wsapp is not None:
                 try:
+                    logger.info("[WebSocket] WebSocketApp 종료 중...")
                     self.wsapp.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[WebSocket] WebSocketApp 종료 중 오류: {e}")
             if self._thread and self._thread.is_alive():
-                pass
-        except Exception:
-            pass
+                logger.info("[WebSocket] 백그라운드 스레드 종료 대기 중...")
+                try:
+                    self._thread.join(timeout=3.0)  # 3초 타임아웃
+                    if self._thread.is_alive():
+                        logger.warning("[WebSocket] 백그라운드 스레드 종료 타임아웃")
+                except Exception as e:
+                    logger.error(f"[WebSocket] 스레드 종료 중 오류: {e}")
+            logger.info("[WebSocket] 연결 종료 완료")
+        except Exception as e:
+            logger.error(f"[WebSocket] 종료 중 예상치 못한 오류: {e}")
 
 # =============================
 # Drawing / Visualization
@@ -1345,21 +1359,9 @@ class TrackerApp:
         self._last_poly_by_id: Dict[int, np.ndarray] = {}
         self._last_frame_wh: Tuple[int, int] = (0, 0)
 
-        self.recommender_model = None
         self._event_queue: "asyncio.Queue[Dict[str, Any]]" = asyncio.Queue()
         self._event_handlers: Dict[str, List[Callable[[Dict[str, Any]], Awaitable[None]]]] = {}
         self._event_loop_task: Optional[asyncio.Task] = None
-        try:
-            if load_model is not None:
-                default_path = Path(__file__).parents[1] / "ml" / "artifacts" / "best_step_model.joblib"
-                model_path = Path(os.getenv("RECOMMENDER_MODEL_PATH", str(default_path)))
-                if model_path.exists():
-                    self.recommender_model = load_model(str(model_path))
-                    logger.info(f"[Recommender] 모델 로드: {model_path}")
-                else:
-                    logger.info(f"[Recommender] 모델 파일 없음: {model_path}")
-        except Exception as e:
-            logger.exception(f"[Recommender] 모델 로드 실패: {e}")
 
     # ============ In-file EventBus ============
     def _on(self, message_type: str, handler: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
@@ -1370,14 +1372,27 @@ class TrackerApp:
         await self._event_queue.put(payload)
 
     async def _event_loop(self) -> None:
-        while True:
-            payload = await self._event_queue.get()
-            msg_type = str(payload.get("message_type", ""))
-            for handler in self._event_handlers.get(msg_type, []):
+        logger.info("[EventBus] 이벤트 루프 시작")
+        try:
+            while True:
                 try:
-                    await handler(payload)
+                    payload = await self._event_queue.get()
+                    msg_type = str(payload.get("message_type", ""))
+                    for handler in self._event_handlers.get(msg_type, []):
+                        try:
+                            await handler(payload)
+                        except Exception as e:
+                            logger.exception(f"[EventBus] handler error for {msg_type}: {e}")
+                except asyncio.CancelledError:
+                    logger.info("[EventBus] 이벤트 루프 취소됨")
+                    break
                 except Exception as e:
-                    logger.exception(f"[EventBus] handler error for {msg_type}: {e}")
+                    logger.error(f"[EventBus] 이벤트 루프 오류: {e}")
+                    await asyncio.sleep(0.1)  # 잠시 대기 후 계속
+        except Exception as e:
+            logger.error(f"[EventBus] 이벤트 루프 예상치 못한 오류: {e}")
+        finally:
+            logger.info("[EventBus] 이벤트 루프 종료")
 
     async def _send_ws(self, payload: Dict[str, Any]) -> None:
         await asyncio.to_thread(self.ws.send_json, payload)
@@ -1530,9 +1545,12 @@ class TrackerApp:
                     "controlled_width": width_m, "controlled_length": length_m,
                     "goal_position_x": goal_x, "goal_position_y": goal_y,
                     "zone_id": str(zid),
+                    "agent_angle_tier": "intermediate",
+                    "left_angle_deg": np.degrees(0.0),
+                    "right_angle_deg": np.degrees(0.0),
                 }
                 features.append(feature)
-                # logger.debug(f"[Feature] Zone {zid}: no zone info, using defaults")
+                logger.debug(f"[Feature] Zone {zid}: no zone info, using defaults")
                 continue
 
             # 인접 구역 정보 추출
@@ -1550,6 +1568,9 @@ class TrackerApp:
                 "zone_id": str(zid),
                 "goal_position_x": goal_x,
                 "goal_position_y": goal_y,
+                "agent_angle_tier": "intermediate",
+                "left_angle_deg": np.degrees(adjacent_info.get("left_angle", 0.0)),
+                "right_angle_deg": np.degrees(adjacent_info.get("right_angle", 0.0)),
             }
             
             # 각도 및 offset 정보 디버깅
@@ -1578,56 +1599,67 @@ class TrackerApp:
         ]
 
     async def _listen_assignment_request(self) -> None:
-        while True:
-            try:
-                msg = await self.ws.recv()
+        logger.info("[Assignment] 할당 요청 리스너 시작")
+        try:
+            while True:
                 try:
-                    data = json.loads(msg)
-                except Exception:
-                    continue
-                if not isinstance(data, dict):
-                    continue
-                if data.get("message_type") == "request_assignment":
-                    logger.info(f"assignment request: {data}")
-                    slot_map = self._get_slot_map()
+                    msg = await self.ws.recv()
+                    try:
+                        data = json.loads(msg)
+                    except Exception as e:
+                        logger.debug(f"[Assignment] JSON 파싱 오류: {e}")
+                        continue
+                    if not isinstance(data, dict):
+                        continue
+                    if data.get("message_type") == "request_assignment":
+                        logger.info(f"assignment request: {data}")
+                        slot_map = self._get_slot_map()
 
-                    license_plate = str(data.get("license_plate") or "")
-                    if license_plate:
-                        self.plate_mgr.enqueue_plate(license_plate)
-                    size_class = str(data.get("size_class") or "")
+                        license_plate = str(data.get("license_plate") or "")
+                        if license_plate:
+                            self.plate_mgr.enqueue_plate(license_plate)
+                        size_class = str(data.get("size_class") or "")
 
-                    if license_plate and size_class:
-                        self.plate_mgr.plate_to_size_class[license_plate] = size_class
-                        self.resv.set_size_class(license_plate, size_class)
+                        if license_plate and size_class:
+                            self.plate_mgr.plate_to_size_class[license_plate] = size_class
+                            self.resv.set_size_class(license_plate, size_class)
 
-                    # free인 구역들만 추출
-                    free_zones = [z for z, state in slot_map.items() if state == "free"]
-                                
-                    suggested_zone = ExceptionHandler.safe_execute(
-                        lambda: self._get_suggested_zone_from_recommender(size_class, free_zones),
-                        default=""
-                    )
-                    if suggested_zone:
-                        logger.info(f"[Recommender] 추천 구역: {suggested_zone}")
+                        # free인 구역들만 추출
+                        free_zones = [z for z, state in slot_map.items() if state == "free"]
+                                     
+                        suggested_zone = self._get_suggested_zone_from_recommender(size_class, free_zones)
+                        if suggested_zone:
+                            logger.info(f"[Recommender] 추천 구역: {suggested_zone}")
+                        else:
+                            logger.info(f"[Recommender] 추천 구역 없음")
 
-                    # 추천 구역이 free이면 사용, 아니면 fallback
-                    assigned_zone = ""
-                    if suggested_zone and suggested_zone in free_zones:
-                        assigned_zone = suggested_zone
-                        logger.info(f"[Assignment] 추천 구역 사용: {assigned_zone}")
-                    elif free_zones:
-                        assigned_zone = "A3" #free_zones[0]
-                        logger.info(f"[Assignment] fallback 구역 사용: {assigned_zone}")
+                        # 추천 구역이 free이면 사용, 아니면 fallback
+                        assigned_zone = ""
+                        if suggested_zone and suggested_zone in free_zones:
+                            assigned_zone = suggested_zone
+                            logger.info(f"[Assignment] 추천 구역 사용: {assigned_zone}")
+                        elif free_zones:
+                            assigned_zone = free_zones[0]
+                            logger.info(f"[Assignment] fallback 구역 사용: {assigned_zone}")
 
-                    await self._reserve_zone(license_plate, assigned_zone, slot_map)
+                        await self._reserve_zone(license_plate, assigned_zone, slot_map)
 
-                    await self._emit({
-                        "message_type": "assignment",
-                        "license_plate": license_plate,
-                        "assignment": assigned_zone,
-                    })
-            except Exception:
-                break
+                        await self._emit({
+                            "message_type": "assignment",
+                            "license_plate": license_plate,
+                            "assignment": assigned_zone,
+                        })
+                except asyncio.CancelledError:
+                    logger.info("[Assignment] 할당 요청 리스너 취소됨")
+                    break
+                except Exception as e:
+                    logger.error(f"[Assignment] 메시지 처리 중 오류: {e}")
+                    # 잠시 대기 후 계속
+                    await asyncio.sleep(0.1)
+        except Exception as e:
+            logger.error(f"[Assignment] 리스너 루프 오류: {e}")
+        finally:
+            logger.info("[Assignment] 할당 요청 리스너 종료")
 
     def _resize_for_display(
         self, im: np.ndarray, max_w: int = OUTPUT_WIDTH, max_h: int = OUTPUT_HEIGHT
@@ -1781,27 +1813,42 @@ class TrackerApp:
         # free인 구역들만 추출
         free_zones = [z for z, state in slot_map.items() if state == "free"]
         
+        if not free_zones:
+            logger.warning("[Assignment] 사용 가능한 free 구역이 없습니다.")
+            return ""
+        
         # 추천 모델이 있으면 사용
-        if self.recommender_model is not None and recommend_best_zone is not None:
-            suggested_zone = ExceptionHandler.safe_execute(
-                lambda: self._get_suggested_zone_from_recommender(size_class or "", free_zones),
-                default=""
-            )
-            if suggested_zone in free_zones:
-                return suggested_zone
+        suggested_zone = self._get_suggested_zone_from_recommender(size_class or "", free_zones)
+        if suggested_zone and suggested_zone in free_zones:
+            logger.info(f"[Assignment] 추천 모델 사용: {suggested_zone}")
+            return suggested_zone
         
         # fallback: 첫 번째 free 구역
-        return free_zones[0] if free_zones else ""
+        fallback_zone = free_zones[0]
+        logger.info(f"[Assignment] fallback 사용: {fallback_zone}")
+        return fallback_zone
     
     def _get_suggested_zone_from_recommender(self, size_class: str, free_zones: List[str]) -> str:
         """추천 모델에서 구역 제안 받기"""
-        feats = self._build_features_for_free_zones(size_class, free_zones)
-        best = recommend_best_zone(self.recommender_model, feats)
-        if best:
-            top = best[0] if isinstance(best, list) else best
-            logger.info(f"[Recommender] 추천 구역: {top}")
-            return str(top.get("zone_id") or "").strip()
-        return ""
+        try:
+            feats = self._build_features_for_free_zones(size_class, free_zones)
+            logger.debug(f"[Recommender] 입력 특성: {feats}")
+            
+            best = recommend_best_zone(feats)
+            logger.info(f"[Recommender] 추천 구역 목록: {best}")
+            
+            if best:
+                top = best[0]
+                logger.info(f"[Recommender] 추천 구역: {top}")
+                return str(top.get("zone_id") or "").strip()
+            
+            logger.warning("[Recommender] 추천 결과가 없습니다.")
+            return ""
+            
+        except Exception as e:
+            logger.error(f"[Recommender] 예측 모델 오류: {e}")
+            logger.info("[Recommender] fallback으로 첫 번째 free 구역 사용")
+            return free_zones[0] if free_zones else ""
 
     async def _reserve_zone(self, license_plate: str, assigned_zone: str, slot_map: Dict[str, str]) -> None:
         if not assigned_zone:
@@ -1912,6 +1959,7 @@ class TrackerApp:
         prev_ts = time.time()
         fps_ema = 0.0
 
+        listener_task = None
         try:
             listener_task = asyncio.create_task(self._listen_assignment_request())
 
@@ -1954,7 +2002,7 @@ class TrackerApp:
                     except Exception:
                         pass
 
-                    await self._handle_exit_events()
+                    # await self._handle_exit_events()
 
                     if not headless:
                         self.vis.draw_parking_zones(im0)
@@ -1987,34 +2035,79 @@ class TrackerApp:
                     if not headless:
                         im_disp = self._resize_for_display(im0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
                         cv2.imshow(window_name, im_disp)
-                        if cv2.waitKey(1) & 0xFF == 27:
+                        key = cv2.waitKey(1) & 0xFF
+                        if key == 27:  # ESC key
+                            logger.info("[Main] ESC 키로 종료 요청됨")
                             break
                         try:
                             if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                                logger.info("[Main] 윈도우가 닫혀서 종료")
                                 break
                         except Exception:
                             pass
+                except KeyboardInterrupt:
+                    logger.info("[Main] KeyboardInterrupt로 종료 요청됨")
+                    break
                 except Exception as loop_err:
                     logger.exception(f"[RunLoop] error: {loop_err}")
                 finally:
                     await asyncio.sleep(0)
+        except KeyboardInterrupt:
+            logger.info("[Main] KeyboardInterrupt로 종료 요청됨")
+        except Exception as e:
+            logger.exception(f"[Main] 예상치 못한 오류: {e}")
         finally:
+            logger.info("[Main] 프로그램 종료 중...")
+            # 리소스 정리
             try:
-                if 'listener_task' in locals() and not listener_task.done():
+                if listener_task and not listener_task.done():
+                    logger.info("[Main] listener_task 취소 중...")
                     listener_task.cancel()
                     try:
-                        await listener_task
+                        await asyncio.wait_for(listener_task, timeout=2.0)
+                    except asyncio.TimeoutError:
+                        logger.warning("[Main] listener_task 취소 타임아웃")
                     except Exception:
                         pass
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[Main] listener_task 정리 중 오류: {e}")
+            
             try:
+                if self._event_loop_task and not self._event_loop_task.done():
+                    logger.info("[Main] event_loop_task 취소 중...")
+                    self._event_loop_task.cancel()
+                    try:
+                        await asyncio.wait_for(self._event_loop_task, timeout=2.0)
+                    except asyncio.TimeoutError:
+                        logger.warning("[Main] event_loop_task 취소 타임아웃")
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.error(f"[Main] event_loop_task 정리 중 오류: {e}")
+            
+            try:
+                logger.info("[Main] WebSocket 연결 종료 중...")
                 self.ws.close()
-            except Exception:
-                pass
-            if not headless:
-                cv2.destroyAllWindows()
+            except Exception as e:
+                logger.error(f"[Main] WebSocket 종료 중 오류: {e}")
+            
+            try:
+                if not headless:
+                    logger.info("[Main] OpenCV 윈도우 정리 중...")
+                    cv2.destroyAllWindows()
+            except Exception as e:
+                logger.error(f"[Main] OpenCV 윈도우 정리 중 오류: {e}")
+            
+            logger.info("[Main] 프로그램 종료 완료")
 
 if __name__ == "__main__":
-    ws = WSClient(WSS_URL)
-    asyncio.run(TrackerApp(ws).run())
+    try:
+        ws = WSClient(WSS_URL)
+        logger.info("[Main] 프로그램 시작")
+        asyncio.run(TrackerApp(ws).run())
+    except KeyboardInterrupt:
+        logger.info("[Main] KeyboardInterrupt로 프로그램 종료")
+    except Exception as e:
+        logger.exception(f"[Main] 프로그램 실행 중 오류: {e}")
+    finally:
+        logger.info("[Main] 프로그램 완전 종료")
