@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from events.models import VehicleEvent
+from parking.origin import set_ws_origin
 from vehicles.models import Vehicle
 from accounts.utils import create_notification
 from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
@@ -119,8 +120,10 @@ def set_space_status(request):
         return Response({"error": "space not found"}, status=404)
     if ps.status == new_status:
         return Response({"ok": True})
-    ps.status = new_status
-    ps.save(update_fields=["status"])
+    # ✅ admin origin 태깅
+    with set_ws_origin("admin"):
+        ps.status = new_status
+        ps.save(update_fields=["status"])
     return Response({"ok": True})
 
 
@@ -192,7 +195,9 @@ def assign_space(request):
         new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
         # 푸시 알림 전송
         try:
-            print(f"[ADMIN] 주차 배정 알림 전송 시도: {vehicle.license_plate} → {zone}{slot_number}")
+            print(
+                f"[ADMIN] 주차 배정 알림 전송 시도: {vehicle.license_plate} → {zone}{slot_number}"
+            )
             create_notification(
                 user=vehicle.user,
                 title="🅿️ 주차 구역 배정",
@@ -209,24 +214,33 @@ def assign_space(request):
             )
             print(f"[ADMIN] 주차 배정 알림 전송 완료: {vehicle.license_plate}")
         except Exception as e:
-            print(f"[ADMIN ERROR] 주차 배정 알림 전송 실패: {vehicle.license_plate} - {str(e)}")
+            print(
+                f"[ADMIN ERROR] 주차 배정 알림 전송 실패: {vehicle.license_plate} - {str(e)}"
+            )
     else:
         if pa.space_id == new_space.id:
             return Response(ParkingAssignmentSerializer(pa).data, status=200)
         old_space = pa.space
-        pa.space = new_space
-        pa.save(update_fields=["space", "updated_at"])
-        if old_space and old_space.status != "free":
-            old_space.status = "free"
-            old_space.current_vehicle = None
-            old_space.save(update_fields=["status", "current_vehicle", "updated_at"])
-        new_space.status = "reserved"
-        new_space.current_vehicle = vehicle
-        new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
+        with set_ws_origin("admin"):
+            pa.space = new_space
+            pa.save(update_fields=["space", "updated_at"])
+            if old_space and old_space.status != "free":
+                old_space.status = "free"
+                old_space.current_vehicle = None
+                old_space.save(
+                    update_fields=["status", "current_vehicle", "updated_at"]
+                )
+            new_space.status = "reserved"
+            new_space.current_vehicle = vehicle
+            new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
         # 푸시 알림 전송 (재배정)
         try:
-            old_space_name = f"{old_space.zone}{old_space.slot_number}" if old_space else "없음"
-            print(f"[ADMIN] 주차 재배정 알림 전송 시도: {vehicle.license_plate} {old_space_name} → {zone}{slot_number}")
+            old_space_name = (
+                f"{old_space.zone}{old_space.slot_number}" if old_space else "없음"
+            )
+            print(
+                f"[ADMIN] 주차 재배정 알림 전송 시도: {vehicle.license_plate} {old_space_name} → {zone}{slot_number}"
+            )
             create_notification(
                 user=vehicle.user,
                 title="🔄 주차 구역 재배정",
@@ -248,7 +262,9 @@ def assign_space(request):
             )
             print(f"[ADMIN] 주차 재배정 알림 전송 완료: {vehicle.license_plate}")
         except Exception as e:
-            print(f"[ADMIN ERROR] 주차 재배정 알림 전송 실패: {vehicle.license_plate} - {str(e)}")
+            print(
+                f"[ADMIN ERROR] 주차 재배정 알림 전송 실패: {vehicle.license_plate} - {str(e)}"
+            )
 
     # 실시간 방송은 signals가 처리
     return Response(

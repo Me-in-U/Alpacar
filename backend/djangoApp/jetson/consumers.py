@@ -7,9 +7,15 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from django.db.models import Q
 from events.models import VehicleEvent
 from parking.models import ParkingSpace
-from parking.services import add_score_from_jetson, handle_assignment_from_jetson
+from parking.services import (
+    add_score_from_jetson,
+    handle_assignment_from_jetson,
+    mark_parking_complete_from_ai,
+)
 from django.utils import timezone
 from django.db import transaction
+from channels.generic.websocket import AsyncWebsocketConsumer
+import json
 
 JETSON_CONTROL_GROUP = "jetson-control"
 PARKING_STATUS_GROUP = "parking-status"
@@ -61,7 +67,11 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                 )
 
             await self._broadcast_to_viewers(
-                {"message_type": "car_position", "vehicles": vehicles_out}
+                {
+                    "message_type": "car_position",
+                    "vehicles": vehicles_out,
+                    "origin": "ai",
+                }
             )
             return
 
@@ -161,21 +171,31 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                 )
                 return
 
-            ok, msg = await database_sync_to_async(add_score_from_jetson)(plate, score)
+            # 1) 점수 저장
+            ok_score, msg_score = await database_sync_to_async(add_score_from_jetson)(
+                plate, score
+            )
+
+            # 2) ✅ 점수 수신을 '주차 완료'로 간주하여 상태 전환 (VehicleEvent→Parking, ParkingSpace→occupied)
+            ok_park, msg_park, occupied_label = await database_sync_to_async(
+                mark_parking_complete_from_ai
+            )(plate, slot_label or None)
+
+            # 3) ACK 응답 (둘 다 성공해야 success)
             await self.send(
                 text_data=json.dumps(
                     {
                         "message_type": "score_ack",
                         "license_plate": plate,
                         "score": score,
-                        "zone_id": slot_label or assigned_label,
-                        "status": "success" if ok else "error",
-                        "detail": msg,
+                        "zone_id": slot_label or assigned_label or occupied_label,
+                        "status": "success" if (ok_score and ok_park) else "error",
+                        "detail": f"{msg_score}; {msg_park}",
                     },
                     ensure_ascii=False,
                 )
             )
-            # 방송은 signals/뷰에서 필요 시 처리
+            # 방송은 signals가 처리 (VehicleEvent/Space 저장 시 자동 브로드캐스트)
             return
 
         if msg_type == "re-assignment":
@@ -221,6 +241,7 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                     "assignment": new_label,
                     "status": "success" if ok else "error",
                     "detail": msg,
+                    "origin": "ai",
                 }
             )
             return
@@ -271,6 +292,7 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                                 "license_plate": None,
                             }
                         },
+                        "origin": "ai",
                     }
                 )
             return
@@ -318,6 +340,9 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
         return f"{s.zone}{s.slot_number}"
 
     async def _broadcast_to_viewers(self, payload: Dict[str, Any]) -> None:
+        # ✅ origin 기본값 보정
+        if "origin" not in payload:
+            payload["origin"] = "ai"
         await self.channel_layer.group_send(
             PARKING_STATUS_GROUP, {"type": "broadcast", "payload": payload}
         )
@@ -448,7 +473,11 @@ class ParkingStatusConsumer(AsyncWebsocketConsumer):
         space_payload = await self._snapshot_space_all()
         await self.send(
             text_data=json.dumps(
-                {"message_type": "parking_space", "spaces": space_payload},
+                {
+                    "message_type": "parking_space",
+                    "spaces": space_payload,
+                    "origin": "system",
+                },
                 ensure_ascii=False,
             )
         )
@@ -458,6 +487,7 @@ class ParkingStatusConsumer(AsyncWebsocketConsumer):
                 {
                     "message_type": "active_vehicles",
                     "results": active_payload.get("results", []),
+                    "origin": "system",
                 },
                 ensure_ascii=False,
             )

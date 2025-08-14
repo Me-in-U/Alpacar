@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { SecureTokenManager } from "@/utils/security";
 
 export interface Notification {
 	id: number;
@@ -28,7 +29,7 @@ export const useNotificationStore = defineStore("notification", {
 	}),
 	actions: {
 		async fetchNotifications(refresh = false) {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 
 			this.isLoading = true;
@@ -71,7 +72,7 @@ export const useNotificationStore = defineStore("notification", {
 		},
 
 		async fetchUnreadCount() {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 
 			try {
@@ -96,7 +97,7 @@ export const useNotificationStore = defineStore("notification", {
 		},
 
 		async markAsRead(notificationId: number) {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 
 			try {
@@ -127,7 +128,7 @@ export const useNotificationStore = defineStore("notification", {
 		},
 
 		async deleteNotification(notificationId: number) {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 
 			try {
@@ -160,7 +161,7 @@ export const useNotificationStore = defineStore("notification", {
 		},
 
 		async deleteAllNotifications() {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 
 			try {
@@ -192,7 +193,7 @@ export const useNotificationStore = defineStore("notification", {
 		},
 
 		async markAllAsRead() {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 
 			try {

@@ -1,6 +1,7 @@
 // src/utils/pwa.ts - PWA 및 푸시 알림 관리
 
 import { BACKEND_BASE_URL } from './api';
+import { SecureTokenManager } from './security';
 
 export interface NotificationSubscription {
   endpoint: string;
@@ -21,38 +22,120 @@ export interface PushNotificationData {
 // VAPID 공개 키 - 서버에서 동적으로 가져오거나 환경 변수 사용
 let VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
-// 사용자 스토어에서 VAPID 키 가져오기 함수
+// 개발 모드 확인 (배포 환경에서도 개발 모드 강제 활성화)
+const isDevelopment = import.meta.env.DEV || import.meta.env.NODE_ENV === 'development' || import.meta.env.VITE_FORCE_DEV_MODE === 'true';
+const isProduction = import.meta.env.PROD || import.meta.env.NODE_ENV === 'production';
+
+console.log('PWA 환경 정보:', {
+  isDev: isDevelopment,
+  isProd: isProduction,
+  hasEnvVapidKey: !!VAPID_PUBLIC_KEY,
+  envMode: import.meta.env.MODE
+});
+
+// 사용자 스토어에서 VAPID 키 가져오기 함수 (강화된 검색)
 function getVapidKeyFromUser(): string | null {
   try {
-    // 1. localStorage에서 user 객체 확인
-    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
-    if (userStr) {
-      const user = JSON.parse(userStr);
-      console.log('localStorage user 객체:', user);
-      if (user && user.vapid_public_key && typeof user.vapid_public_key === 'string') {
-        return user.vapid_public_key;
+    console.log('VAPID 키 검색 시작 - 모든 저장소 확인...');
+    
+    // 1. localStorage에서 암호화된 사용자 데이터 우선 확인
+    const encryptedUserData = localStorage.getItem('secure_user_data');
+    if (encryptedUserData) {
+      try {
+        // 복호화 시도 (security.ts의 decryptUserData 사용)
+        console.log('암호화된 사용자 데이터 발견, 복호화 시도...');
+        // 복호화 로직이 있다면 여기에 추가
+        // const decryptedUser = decryptUserData(encryptedUserData);
+      } catch (decryptError) {
+        console.warn('암호화된 데이터 복호화 실패:', decryptError);
+      }
+    }
+    
+    // 2. localStorage와 sessionStorage에서 user 객체 확인 (확장된 검색)
+    const storageKeys = ['user', 'secure_user_data', 'user-store'];
+    const storageTypes = [localStorage, sessionStorage];
+    
+    for (const storage of storageTypes) {
+      for (const key of storageKeys) {
+        const userStr = storage.getItem(key);
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            console.log(`${storage === localStorage ? 'localStorage' : 'sessionStorage'}에서 ${key} 확인:`, {
+              hasVapidKey: !!user.vapid_public_key,
+              hasMe: !!user.me,
+              userStructure: Object.keys(user)
+            });
+            
+            // 직접 vapid_public_key 확인
+            if (user && user.vapid_public_key && typeof user.vapid_public_key === 'string') {
+              console.log('VAPID 키 발견:', user.vapid_public_key.substring(0, 10) + '...');
+              return user.vapid_public_key;
+            }
+            
+            // Pinia store 구조 확인 (user.me.vapid_public_key)
+            if (user && user.me && user.me.vapid_public_key && typeof user.me.vapid_public_key === 'string') {
+              console.log('Pinia store에서 VAPID 키 발견:', user.me.vapid_public_key.substring(0, 10) + '...');
+              return user.me.vapid_public_key;
+            }
+          } catch (parseError) {
+            console.warn(`${key} 파싱 실패:`, parseError);
+          }
+        }
       }
     }
 
-    // 2. Pinia store에서 직접 접근 시도
-    const storeStr = localStorage.getItem('user-store');
-    if (storeStr) {
-      const store = JSON.parse(storeStr);
-      console.log('Pinia store 확인:', store);
-      if (store && store.me && store.me.vapid_public_key) {
-        return store.me.vapid_public_key;
-      }
-    }
-
-    console.warn('사용자 정보에서 VAPID 키를 찾을 수 없음');
+    // 3. 액세스 토큰 확인 (서버에서 다시 받아올 필요가 있는지 체크)
+    const accessToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    console.log('액세스 토큰 상태:', accessToken ? '존재함' : '없음');
+    
+    console.warn('사용자 정보에서 VAPID 키를 찾을 수 없음 - 재로그인 필요');
   } catch (error) {
-    console.warn('사용자 정보에서 VAPID 키 추출 실패:', error);
+    console.error('사용자 정보에서 VAPID 키 추출 중 오류:', error);
   }
   return null;
 }
 
-// 동적 VAPID 키 가져오기
-function getVapidKey(): string {
+// 백엔드 API에서 VAPID 키 가져오기
+async function fetchVapidKeyFromAPI(): Promise<string | null> {
+  try {
+    console.log('백엔드 API에서 VAPID 키 가져오기 시도...');
+    
+    const token = SecureTokenManager.getSecureToken('access_token');
+    if (!token) {
+      console.warn('인증 토큰이 없음 - API 호출 스킨');
+      return null;
+    }
+    
+    const response = await fetch(`${BACKEND_BASE_URL}/push/setting/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`API 응답 오류: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    if (data.vapid_public_key && typeof data.vapid_public_key === 'string') {
+      console.log('백엔드 API에서 VAPID 키 가져오기 성공:', data.vapid_public_key.substring(0, 10) + '...');
+      return data.vapid_public_key;
+    }
+    
+    console.warn('백엔드 API 응답에 VAPID 키가 없음');
+    return null;
+  } catch (error) {
+    console.error('백엔드 API VAPID 키 가져오기 실패:', error);
+    return null;
+  }
+}
+
+// 동적 VAPID 키 가져오기 (개선된 오류 처리)
+async function getVapidKey(): Promise<string> {
   console.log('VAPID 키 검색 시작...');
   
   // 1. 환경 변수 우선 사용 (로컬 개발)
@@ -61,7 +144,14 @@ function getVapidKey(): string {
     return VAPID_PUBLIC_KEY;
   }
   
-  // 2. 사용자 정보에서 가져오기 (배포 환경)
+  // 2. 백엔드 API에서 가져오기 (새로운 방식)
+  const apiVapidKey = await fetchVapidKeyFromAPI();
+  if (apiVapidKey && typeof apiVapidKey === 'string' && apiVapidKey.length > 0) {
+    console.log('백엔드 API에서 VAPID 키 사용:', apiVapidKey.substring(0, 10) + '...');
+    return apiVapidKey;
+  }
+  
+  // 3. 사용자 정보에서 가져오기 (기존 방식 - 백업)
   const userVapidKey = getVapidKeyFromUser();
   if (userVapidKey && typeof userVapidKey === 'string' && userVapidKey.length > 0) {
     console.log('사용자 정보에서 VAPID 키 사용:', userVapidKey.substring(0, 10) + '...');
@@ -70,9 +160,22 @@ function getVapidKey(): string {
   
   console.error('VAPID 키를 찾을 수 없음:', {
     envKey: VAPID_PUBLIC_KEY ? `${VAPID_PUBLIC_KEY.substring(0, 10)}...` : 'MISSING',
-    userKey: userVapidKey ? `${userVapidKey.substring(0, 10)}...` : 'MISSING'
+    apiKey: apiVapidKey ? `${apiVapidKey.substring(0, 10)}...` : 'MISSING',
+    userKey: userVapidKey ? `${userVapidKey.substring(0, 10)}...` : 'MISSING',
+    isDev: isDevelopment,
+    storageCheck: {
+      localStorage: !!localStorage.getItem('user'),
+      sessionStorage: !!sessionStorage.getItem('user'),
+      secureUserData: !!localStorage.getItem('secure_user_data'),
+      userStore: !!localStorage.getItem('user-store')
+    }
   });
-  throw new Error('VAPID 키를 찾을 수 없습니다. 로그인 후 다시 시도해주세요.');
+  
+  if (isDevelopment) {
+    throw new Error('개발 환경에서는 .env 파일에 VITE_VAPID_PUBLIC_KEY를 설정하거나, 백엔드 서버가 정상 동작하고 있는지 확인해 주세요.');
+  } else {
+    throw new Error('VAPID 키가 설정되지 않았습니다. 다시 로그인해 주세요.');
+  }
 }
 
 // URL-safe base64를 Uint8Array로 변환
@@ -307,11 +410,11 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
 
   console.log('✅ 브라우저 기본 지원 확인 완료');
 
-  // 동적 VAPID 키 가져오기
+  // 동적 VAPID 키 가져오기 (개선된 오류 처리)
   let vapidKey: string;
   try {
     console.log('🔑 VAPID 키 가져오기 시도...');
-    vapidKey = getVapidKey();
+    vapidKey = await getVapidKey();
     console.log('✅ VAPID 키 확인 성공:', {
       length: vapidKey.length,
       prefix: vapidKey.substring(0, 10) + '...',
@@ -319,7 +422,16 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
     });
   } catch (error) {
     console.error('❌ VAPID 키 가져오기 실패:', error);
-    throw new Error('VAPID 키 설정에 문제가 있습니다. 로그인을 다시 시도해주세요.');
+    
+    // 사용자 친화적 오류 메시지 제공
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('로그인')) {
+      throw new Error('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');
+    } else if (errorMessage.includes('설정')) {
+      throw new Error('서버 설정에 문제가 있습니다. 잠시 후 다시 시도하거나 관리자에게 문의하세요.');
+    } else {
+      throw new Error('푸시 알림 설정에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+    }
   }
 
   // Service Worker 등록 확인
@@ -561,9 +673,9 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
 export async function sendSubscriptionToServer(subscription: PushSubscription): Promise<boolean> {
   console.log('📡 서버에 구독 정보 전송 시도...');
   
-  // 개발 모드에서는 서버 통신 우회
-  const isDev = import.meta.env.VITE_DEV_MODE === 'true';
-  if (isDev) {
+  // 개발 모드에서는 서버 통신 우회 (선택적)
+  const skipServerSend = import.meta.env.VITE_DEV_MODE === 'true' || import.meta.env.VITE_SKIP_PUSH_SERVER === 'true';
+  if (skipServerSend) {
     console.log('🚧 개발 모드: 서버 통신 우회, 구독 성공으로 가정');
     return true;
   }

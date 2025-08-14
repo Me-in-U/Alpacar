@@ -1,6 +1,13 @@
 import { defineStore } from "pinia";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/utils/pwa";
+import { 
+  SecureTokenManager, 
+  encryptUserData, 
+  decryptUserData, 
+  sanitizeUserData,
+  validateAutoLoginExpiry 
+} from "@/utils/security";
 
 export interface VehicleModel {
 	id: number;
@@ -33,36 +40,110 @@ export const useUserStore = defineStore("user", {
 		vehicles: [] as Vehicle[],
 		vehicleModels: [] as VehicleModel[],
 		isToggling: false,
+		// API 호출 중복 방지
+		isLoading: false,
+		lastFetchTime: 0,
 	}),
 	actions: {
 		setUser(user: User) {
 			this.me = user;
-			// 사용자 정보를 localStorage에 저장 (PWA에서 VAPID 키 접근용)
-			localStorage.setItem("user", JSON.stringify(user));
+			// 보안 강화: 민감한 정보는 암호화하여 저장, 마스킹된 정보는 평문 저장
+			try {
+				const encryptedUserData = encryptUserData(user);
+				localStorage.setItem("secure_user_data", encryptedUserData);
+				
+				// 디스플레이용 마스킹된 정보만 평문 저장
+				const sanitizedUser = sanitizeUserData(user);
+				localStorage.setItem("user", JSON.stringify(sanitizedUser));
+			} catch (error) {
+				console.error("사용자 정보 저장 실패:", error);
+				// 암호화 실패 시 기본 저장 방식 사용 (하위 호환성)
+				localStorage.setItem("user", JSON.stringify(sanitizeUserData(user)));
+			}
 		},
 		clearUser() {
 			this.me = null;
 			this.vehicles = [];
+			// 보안 강화: 모든 보안 토큰과 데이터 정리
+			SecureTokenManager.clearAllSecureTokens();
+			// 기존 평문 토큰도 제거
 			localStorage.removeItem("access_token");
 			localStorage.removeItem("refresh_token");
-			localStorage.removeItem("user");
+			sessionStorage.removeItem("access_token");
+			sessionStorage.removeItem("refresh_token");
+		},
+
+		// 보안 사용자 정보 복원 함수
+		restoreUserFromStorage(): User | null {
+			try {
+				// 먼저 암호화된 데이터에서 복원 시도
+				const encryptedUserData = localStorage.getItem("secure_user_data");
+				if (encryptedUserData) {
+					const userData = decryptUserData(encryptedUserData);
+					if (userData) {
+						this.me = userData;
+						return userData;
+					}
+				}
+				
+				// 암호화된 데이터가 없거나 복호화 실패 시 마스킹된 데이터 사용
+				const userDataString = localStorage.getItem("user");
+				if (userDataString) {
+					const userData = JSON.parse(userDataString);
+					this.me = userData;
+					return userData;
+				}
+				
+				return null;
+			} catch (error) {
+				console.warn("사용자 정보 복원 실패:", error);
+				return null;
+			}
+		},
+
+		// 자동 로그인 만료 체크 함수 (보안 강화)
+		async checkAutoLoginExpiry(): Promise<boolean> {
+			try {
+				const isValid = await validateAutoLoginExpiry(BACKEND_BASE_URL);
+				if (!isValid) {
+					console.log("자동 로그인이 만료되었습니다.");
+					return true;
+				}
+				return false;
+			} catch (error) {
+				console.warn("자동 로그인 만료 검증 실패:", error);
+				// 검증 실패 시 만료된 것으로 간주
+				SecureTokenManager.clearAllSecureTokens();
+				return true;
+			}
 		},
 		async fetchMe(accessToken: string, baseUrl?: string) {
-			const apiUrl = baseUrl || BACKEND_BASE_URL;
-
-			const res = await fetch(`${apiUrl}/users/me/`, {
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${accessToken}`,
-				},
-				// 성능 최적화 옵션
-				cache: "no-cache",
-				keepalive: true,
-			});
-
-			if (!res.ok) {
-				throw new Error(`프로필 조회 실패 (${res.status})`);
+			// 중복 호출 방지 - 최근 3초 이내에 호출했으면 스킵
+			const now = Date.now();
+			if (this.isLoading || (this.me && now - this.lastFetchTime < 3000)) {
+				console.log("fetchMe 중복 호출 방지 - 기존 정보 사용");
+				return this.me;
 			}
+
+			this.isLoading = true;
+			this.lastFetchTime = now;
+
+			try {
+				const apiUrl = baseUrl || BACKEND_BASE_URL;
+
+				const res = await fetch(`${apiUrl}/users/me/`, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${accessToken}`,
+					},
+					// 성능 최적화 옵션
+					cache: "no-cache",
+					keepalive: true,
+				});
+
+				if (!res.ok) {
+					throw new Error(`프로필 조회 실패 (${res.status})`);
+				}
 
 			// 응답이 JSON인지 확인
 			const contentType = res.headers.get("content-type");
@@ -86,9 +167,15 @@ export const useUserStore = defineStore("user", {
 
 			this.setUser(profile);
 			return profile;
+			} catch (error) {
+				console.error("fetchMe 오류:", error);
+				throw error;
+			} finally {
+				this.isLoading = false;
+			}
 		},
 		async updateProfile(data: Partial<Pick<User, "nickname">>) {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 			const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
 				method: "PUT",
@@ -107,7 +194,7 @@ export const useUserStore = defineStore("user", {
 			return this.me;
 		},
 		async changePassword(currentPassword: string, newPassword: string) {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 
 			const res = await fetch(`${BACKEND_BASE_URL}/auth/password-change/`, {
@@ -132,7 +219,7 @@ export const useUserStore = defineStore("user", {
 			}
 			return await res.json();
 		},
-		async login(email: string, password: string) {
+		async login(email: string, password: string, autoLogin: boolean = false) {
 			const res = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
 				method: "POST",
 				headers: {
@@ -163,16 +250,45 @@ export const useUserStore = defineStore("user", {
 				throw new Error("서버에서 올바른 인증 토큰을 받지 못했습니다.");
 			}
 
-			localStorage.setItem("access_token", data.access);
-			localStorage.setItem("refresh_token", data.refresh);
+			// 보안 강화: 암호화된 토큰 저장
+			if (autoLogin) {
+				// 기존 세션 토큰 제거 후 localStorage에 암호화하여 저장
+				SecureTokenManager.removeSecureToken("access_token");
+				SecureTokenManager.removeSecureToken("refresh_token");
+				SecureTokenManager.setSecureToken("access_token", data.access, false);
+				SecureTokenManager.setSecureToken("refresh_token", data.refresh, false);
+				// 자동 로그인 만료 시간 설정 (1년 후)
+				const expiryDate = new Date();
+				expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+				localStorage.setItem("auto_login_expiry", expiryDate.toISOString());
+				console.log("보안 자동 로그인 설정됨 - 1년간 유지 (암호화)");
+			} else {
+				// 기존 localStorage 토큰 제거 (자동 로그인 정보 삭제)
+				localStorage.removeItem(SecureTokenManager.TOKEN_PREFIX + "access_token");
+				localStorage.removeItem(SecureTokenManager.TOKEN_PREFIX + "refresh_token");
+				localStorage.removeItem("auto_login_expiry");
+				// 일반 로그인: sessionStorage에 암호화하여 저장
+				SecureTokenManager.setSecureToken("access_token", data.access, true);
+				SecureTokenManager.setSecureToken("refresh_token", data.refresh, true);
+				console.log("보안 일반 로그인 설정됨 - 브라우저 종료 시 만료 (암호화)");
+			}
 
 			await this.fetchMe(data.access);
+			
+			// 로그인 성공 시 차량 정보도 미리 로드 (라우터 가드 성능 개선)
+			try {
+				await this.fetchMyVehicles();
+				console.log("로그인 시 차량 정보 미리 로드 완료");
+			} catch (vehicleError) {
+				console.warn("차량 정보 로드 실패 (무시):", vehicleError);
+			}
+			
 			return this.me;
 		},
 
-		async adminLogin(email: string, password: string) {
-			// 일반 로그인 시도
-			await this.login(email, password);
+		async adminLogin(email: string, password: string, autoLogin: boolean = false) {
+			// 일반 로그인 시도 (자동 로그인 옵션 포함)
+			await this.login(email, password, autoLogin);
 			// 관리자인지 체크
 			if (!this.me?.is_staff) {
 				// 권한 없으면 초기화 후 에러
@@ -221,6 +337,15 @@ export const useUserStore = defineStore("user", {
 				localStorage.setItem("refresh_token", data.refresh);
 
 				await this.fetchMe(data.access, backendUrl);
+				
+				// 로그인 성공 시 차량 정보도 미리 로드 (라우터 가드 성능 개선)
+				try {
+					await this.fetchMyVehicles();
+					console.log("동적 URL 로그인 시 차량 정보 미리 로드 완료");
+				} catch (vehicleError) {
+					console.warn("차량 정보 로드 실패 (무시):", vehicleError);
+				}
+				
 				return this.me;
 			} catch (error: any) {
 				// Mixed Content나 네트워크 오류에 대한 사용자 친화적 메시지
@@ -234,18 +359,47 @@ export const useUserStore = defineStore("user", {
 		async togglePush(on: boolean) {
 			if (!this.me) {
 				console.warn("togglePush: 유저 정보 없음");
-				return;
+				throw new Error("로그인이 필요합니다.");
 			}
 			if (this.isToggling) {
 				console.warn("togglePush: 이미 처리 중");
 				return;
 			}
+			
 			console.log("[togglePush] 시작, 변경 요청:", on);
+			console.log("[togglePush] 사용자 VAPID 키 상태:", {
+				hasVapidKey: !!this.me.vapid_public_key,
+				vapidKeyLength: this.me.vapid_public_key?.length || 0,
+				vapidKeyPreview: this.me.vapid_public_key?.substring(0, 10) + '...' || 'MISSING'
+			});
+			
 			this.isToggling = true;
 			const prev = this.me.push_on;
 			this.me.push_on = on;
 
 			try {
+				// VAPID 키 사전 체크
+				if (!this.me.vapid_public_key) {
+					console.error("[togglePush] VAPID 키 없음 - 사용자 정보 새로고침 시도");
+					
+					// 사용자 정보 새로고침 시도
+					const token = SecureTokenManager.getSecureToken("access_token");
+					if (token) {
+						try {
+							await this.fetchMe(token);
+							if (!this.me?.vapid_public_key) {
+								throw new Error("서버에서 VAPID 키를 받지 못했습니다. 관리자에게 문의하세요.");
+							}
+							console.log("[togglePush] 사용자 정보 새로고침 성공, VAPID 키 확인됨");
+						} catch (refreshError) {
+							console.error("사용자 정보 새로고침 실패:", refreshError);
+							throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해 주세요.");
+						}
+					} else {
+						throw new Error("로그인이 필요합니다.");
+					}
+				}
+
 				if (on) {
 					// PWA utils의 통합된 구독 함수 사용
 					console.log("[togglePush] PWA 구독 시도");
@@ -259,7 +413,7 @@ export const useUserStore = defineStore("user", {
 				}
 
 				// 서버에 설정 저장
-				const token = localStorage.getItem("access_token");
+				const token = SecureTokenManager.getSecureToken("access_token");
 				if (!token) {
 					throw new Error("인증 토큰이 없습니다.");
 				}
@@ -273,8 +427,12 @@ export const useUserStore = defineStore("user", {
 					},
 					body: JSON.stringify({ push_on: on }),
 				});
-				if (!saveRes.ok) throw new Error("설정 저장 실패");
-				console.log("[togglePush] 설정 저장 성공");
+				if (!saveRes.ok) {
+					const errorText = await saveRes.text();
+					console.error("서버 저장 오류:", saveRes.status, errorText);
+					throw new Error(`서버 설정 저장 실패 (${saveRes.status})`);
+				}
+				console.log("[togglePush] 서버 설정 저장 성공");
 			} catch (e) {
 				console.error("[togglePush] 오류 발생, 롤백", e);
 				this.me.push_on = prev; // 롤백
@@ -282,12 +440,14 @@ export const useUserStore = defineStore("user", {
 				// 사용자에게 구체적인 오류 메시지 제공
 				let errorMessage = "푸시 알림 설정에 실패했습니다.";
 				if (e instanceof Error) {
-					if (e.message.includes("VAPID")) {
+					if (e.message.includes("VAPID") || e.message.includes("서버에서")) {
 						errorMessage = "서버 설정 오류입니다. 관리자에게 문의하세요.";
-					} else if (e.message.includes("Service Worker")) {
+					} else if (e.message.includes("Service Worker") || e.message.includes("HTTPS")) {
 						errorMessage = "HTTPS 환경에서 사용해주세요.";
-					} else if (e.message.includes("Permission")) {
+					} else if (e.message.includes("Permission") || e.message.includes("권한")) {
 						errorMessage = "알림 권한을 허용해주세요.";
+					} else if (e.message.includes("로그인") || e.message.includes("세션")) {
+						errorMessage = "로그인이 만료되었습니다. 다시 로그인해 주세요.";
 					} else if (e.message.includes("인증")) {
 						errorMessage = "로그인 상태를 확인해주세요.";
 					}
@@ -301,7 +461,7 @@ export const useUserStore = defineStore("user", {
 
 		// 차량 조회
 		async fetchMyVehicles() {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("토큰이 없습니다.");
 
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/`, {
@@ -317,7 +477,7 @@ export const useUserStore = defineStore("user", {
 		},
 		// 모델 리스트 불러오기
 		async fetchVehicleModels() {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicle-models/`, {
 				headers: {
 					"Content-Type": "application/json",
@@ -330,7 +490,7 @@ export const useUserStore = defineStore("user", {
 
 		// 번호판 중복 체크
 		async checkLicense(license: string): Promise<boolean> {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(license)}`, {
 				headers: {
 					"Content-Type": "application/json",
@@ -343,7 +503,7 @@ export const useUserStore = defineStore("user", {
 		},
 		// 차량 등록
 		async addVehicle(modelId: number, license_plate: string) {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/`, {
 				method: "POST",
 				headers: {
@@ -361,7 +521,7 @@ export const useUserStore = defineStore("user", {
 		},
 		// 차량 제거 기능
 		async removeVehicle(id: number) {
-			const token = localStorage.getItem("access_token");
+			const token = SecureTokenManager.getSecureToken("access_token");
 			if (!token) throw new Error("로그인이 필요합니다.");
 			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/${id}/`, {
 				method: "DELETE",

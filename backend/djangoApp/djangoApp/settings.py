@@ -44,9 +44,11 @@ ALLOWED_HOSTS = [
     "localhost",
     ".ngrok-free.app",
     "i13e102.p.ssafy.io",
+    "https://ios.kr",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://i13e102.p.ssafy.io",
+    "https://ios.kr",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -252,6 +254,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://i13e102.p.ssafy.io",
     "http://192.168.137.1:5173",
+    "https://ios.kr",
+    "https://www.ios.kr",
 ]
 
 ROOT_URLCONF = "djangoApp.urls"
