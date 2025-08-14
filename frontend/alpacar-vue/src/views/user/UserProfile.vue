@@ -78,7 +78,7 @@
 							</div>
 							<div class="user-info__content">
 								<div class="user-info__label">이름</div>
-								<div class="user-info__value">{{ userInfo?.name || "-" }}</div>
+								<div class="user-info__value">{{ isLoadingUserInfo ? '로딩 중...' : (userInfo?.name || "-") }}</div>
 							</div>
 						</div>
 
@@ -91,7 +91,7 @@
 							</div>
 							<div class="user-info__content">
 								<div class="user-info__label">이메일</div>
-								<div class="user-info__value">{{ userInfo?.email || "-" }}</div>
+								<div class="user-info__value">{{ isLoadingUserInfo ? '로딩 중...' : (userInfo?.email || "-") }}</div>
 							</div>
 						</div>
 
@@ -104,7 +104,7 @@
 							</div>
 							<div class="user-info__content">
 								<div class="user-info__label">전화번호</div>
-								<div class="user-info__value">{{ formatPhoneNumber(userInfo?.phone) || "-" }}</div>
+								<div class="user-info__value">{{ isLoadingUserInfo ? '로딩 중...' : (formatPhoneNumber(userInfo?.phone) || "-") }}</div>
 							</div>
 						</div>
 					</div>
@@ -292,7 +292,29 @@ const router = useRouter();
 const userStore = useUserStore();
 
 /* 상태 / 계산 */
-const userInfo = computed(() => userStore.me);
+// 동적으로 로딩되는 사용자 상세 정보 (민감정보 포함)
+const detailedUserInfo = ref<any>(null);
+const isLoadingUserInfo = ref(false);
+
+// 로컬 스토리지의 기본 사용자 정보 + 동적으로 로딩된 민감정보
+const userInfo = computed(() => detailedUserInfo.value || userStore.me);
+
+// 민감한 사용자 정보 동적 로딩
+const loadDetailedUserInfo = async () => {
+  if (isLoadingUserInfo.value) return;
+  
+  try {
+    isLoadingUserInfo.value = true;
+    const userData = await userStore.fetchDetailedUserInfo();
+    detailedUserInfo.value = userData;
+    console.log('[UserProfile] 사용자 상세 정보 로딩 완료');
+  } catch (error) {
+    console.error('[UserProfile] 사용자 정보 로딩 실패:', error);
+    // 로딩 실패 시 기본 정보 사용 (민감정보 없이)
+  } finally {
+    isLoadingUserInfo.value = false;
+  }
+};
 const vehicles = computed(() => userStore.vehicles);
 
 // 소셜 로그인 유저 여부 확인
@@ -719,6 +741,9 @@ const setupPWAListeners = () => {
 onMounted(async () => {
   setupPWAListeners();
   await checkNotificationStatus();
+  
+  // 민감한 사용자 정보 동적 로딩
+  await loadDetailedUserInfo();
 });
 </script>
 
