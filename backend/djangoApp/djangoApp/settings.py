@@ -44,11 +44,15 @@ ALLOWED_HOSTS = [
     "localhost",
     ".ngrok-free.app",
     "i13e102.p.ssafy.io",
-    "https://alpacar.kr",
-    "https://www.alpacar.kr",
+    "ios.kr",
+    "www.ios.kr",
+    "alpacar.kr",
+    "www.alpacar.kr",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://i13e102.p.ssafy.io",
+    "https://ios.kr",
+    "https://www.ios.kr",
     "https://alpacar.kr",
     "https://www.alpacar.kr",
 ]
@@ -255,6 +259,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:8000",
     "https://i13e102.p.ssafy.io",
+    "https://ios.kr",
+    "https://www.ios.kr",
     "https://alpacar.kr",
     "https://www.alpacar.kr",
 ]

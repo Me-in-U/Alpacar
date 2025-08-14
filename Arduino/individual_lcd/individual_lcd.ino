@@ -21,7 +21,7 @@ const char* WS_HOST = "192.168.30.180";
 const uint16_t WS_PORT = 8000;
 const char* WS_PATH = "/ws/platedisplay/";
 
-// ====== OLED(SSD1306 128x64 I2C) ======
+// ====== OLED(SSD1306 128x32 I2C) ======
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(
   U8G2_R0, U8X8_PIN_NONE, SCL, SDA);
 
@@ -52,7 +52,9 @@ String extractJsonString(const String& json, const char* key) {
   return json.substring(q1 + 1, q2);
 }
 
-// ---------- 멀티바이트(UTF-8) 줄바꿈 출력 ----------
+// ─────────────────────────────────────────────────────────────
+// UTF-8 한/영 자동 줄바꿈 (명시적 \n 먼저 처리) + 상단 패딩
+// ─────────────────────────────────────────────────────────────
 void drawMultilineUTF8(const String& raw) {
   const int SCREEN_W = 128;
   const int SCREEN_H = 64;
@@ -182,7 +184,8 @@ void ensureWiFiConnected() {
     displayStatus("WiFi FAIL");
   }
 }
-// ---------- WebSocket 이벤트 ----------
+
+// ——— WebSocket 이벤트 핸들러 ———
 void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch (type) {
     case WStype_CONNECTED:
