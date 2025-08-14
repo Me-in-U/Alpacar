@@ -44,6 +44,8 @@ ALLOWED_HOSTS = [
     "localhost",
     ".ngrok-free.app",
     "i13e102.p.ssafy.io",
+    "https://alpacar.kr",
+    "https://www.alpacar.kr",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://i13e102.p.ssafy.io",
