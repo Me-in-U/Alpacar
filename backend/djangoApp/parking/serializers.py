@@ -37,10 +37,16 @@ class VehicleSimpleSerializer(serializers.ModelSerializer):
 
 
 class ParkingAssignmentSerializer(serializers.ModelSerializer):
-    space_display = serializers.CharField(source="space", read_only=True)
+    space_display = serializers.SerializerMethodField(read_only=True)
     vehicle = VehicleSimpleSerializer(read_only=True)
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     space = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    def get_space_display(self, obj):
+        """주차 공간 정보 반환 - 구역과 슬롯 번호만"""
+        if obj.space:
+            return f"{obj.space.zone}-{obj.space.slot_number}"
+        return "N/A"
 
     class Meta:
         model = ParkingAssignment
@@ -78,8 +84,10 @@ class ParkingHistorySerializer(serializers.ModelSerializer):
         return obj.start_time.strftime("%H:%M")
 
     def get_space(self, obj):
-        """주차 공간 정보 반환"""
-        return str(obj.space) if obj.space else "N/A"
+        """주차 공간 정보 반환 - 구역과 슬롯 번호만"""
+        if obj.space:
+            return f"{obj.space.zone}-{obj.space.slot_number}"
+        return "N/A"
 
     def get_score(self, obj):
         """해당 배정의 점수 반환"""

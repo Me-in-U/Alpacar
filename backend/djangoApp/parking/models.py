@@ -57,7 +57,7 @@ class ParkingSpace(models.Model):
         unique_together = (("zone", "slot_number"),)  # 구역+번호 조합 유일
 
     def __str__(self):
-        return f"{self.zone}-{self.slot_number} ({self.get_status_display()})"
+        return f"{self.zone}-{self.slot_number}"
 
 
 class ParkingAssignment(models.Model):
