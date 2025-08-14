@@ -408,6 +408,17 @@ const requestPhoneChange = async () => {
   showEmailVerificationModal.value = true;
 };
 
+// 도우미: 상세정보 강제 새로고침
+const refreshDetailedUserInfo = async () => {
+  try {
+    // 재요청(캐시 회피용 파라미터)
+    const fresh = await apiClient.get("/users/me/", { params: { _ts: Date.now() } });
+    detailedUserInfo.value = fresh.data; // 화면에 즉시 반영
+  } catch (e) {
+    console.warn("[UserSetting] 상세정보 새로고침 실패(무시):", e);
+  }
+};
+
 const executePhoneChange = async () => {
   if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
   if (!newPhoneNumber.value || !isPhoneValid.value) { alert("올바른 전화번호를 입력해주세요."); return; }
@@ -420,6 +431,12 @@ const executePhoneChange = async () => {
 
   try {
     await apiClient.put("/users/me/", payload);   // ← fetch 대신 apiClient 사용
+
+    detailedUserInfo.value = {
+      ...(detailedUserInfo.value || {}),
+      phone: newPhoneNumber.value,
+    };
+
     alert("전화번호가 성공적으로 변경되었습니다.");
     showEmailVerificationModal.value = false;
     showPhoneModal.value = false;
@@ -428,19 +445,25 @@ const executePhoneChange = async () => {
     emailSent.value = false;
     emailVerified.value = false;
     verificationCode.value = "";
-    await userStore.fetchMe();                    // UI 최신화
+
+    // 실제 서버 값으로 확정 반영 (스토어 요약 + 상세 동시 갱신)
+    await Promise.all([
+      userStore.fetchMe(),            // 요약 정보 갱신(전화번호는 저장 X이지만 세션 최신화)
+      refreshDetailedUserInfo(),      // 상세 정보 갱신(화면에 바인딩되는 값)
+    ]);
   } catch (e: any) {
     if (e?.code === "SESSION_EXPIRED") {
       userStore.clearUser();
       router.push("/login");
       return;
     }
-    const msg = e?.response?.data?.detail || e?.response?.data?.message || e?.message || "서버 오류";
+    const msg =
+      e?.response?.data?.detail ||
+      e?.response?.data?.message ||
+      e?.message || "서버 오류";
     alert("전화번호 변경 실패: " + msg);
   }
 };
-
-
 
 /* ====== 비밀번호 ====== */
 const showPasswordModal = ref(false);
