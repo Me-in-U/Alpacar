@@ -1,7 +1,12 @@
 # streamapp\routing.py
-from django.urls import path
+from django.urls import path, re_path
 
-from streamapp.consumers import OCRTextConsumer, PiUploadConsumer, StreamConsumer
+from streamapp.consumers import (
+    OCRTextConsumer,
+    PiUploadConsumer,
+    PlateDisplayConsumer,
+    StreamConsumer,
+)
 
 # WebSocket 엔드포인트
 websocket_urlpatterns = [
@@ -11,4 +16,5 @@ websocket_urlpatterns = [
     path("ws/stream/", StreamConsumer.as_asgi()),
     # OCR 번호판 텍스트 전용 WebSocket 엔드포인트
     path("ws/text/", OCRTextConsumer.as_asgi()),
+    re_path(r"^ws/platedisplay/?$", PlateDisplayConsumer.as_asgi()),
 ]

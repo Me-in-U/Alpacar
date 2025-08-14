@@ -14,6 +14,8 @@ from parking.services import (
 )
 from django.utils import timezone
 from django.db import transaction
+from channels.generic.websocket import AsyncWebsocketConsumer
+import json
 
 JETSON_CONTROL_GROUP = "jetson-control"
 PARKING_STATUS_GROUP = "parking-status"
