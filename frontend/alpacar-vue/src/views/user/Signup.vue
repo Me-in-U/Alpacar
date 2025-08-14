@@ -267,44 +267,18 @@ export default defineComponent({
 				alert("중복확인 실패");
 			}
 		};
-		// 자동 로그인 처리 함수
+		// 자동 로그인 처리 함수 (보안 개선)
 		const performAutoLogin = async () => {
 			try {
-				const loginRes = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						email: formData.email,
-						password: formData.password,
-					}),
-				});
-
-				const loginData = await loginRes.json();
-
-				if (loginRes.ok && loginData.access) {
-					// 토큰 저장
-					localStorage.setItem("access_token", loginData.access);
-					if (loginData.refresh) {
-						localStorage.setItem("refresh_token", loginData.refresh);
-					}
-
-					// 사용자 정보 저장 (있는 경우)
-					if (loginData.user) {
-						localStorage.setItem("user", JSON.stringify(loginData.user));
-					}
-
-					console.log("자동 로그인 성공");
-					router.push("/social-login-info");
-				} else {
-					console.error("자동 로그인 실패:", loginData);
-					alert("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
-					router.push("/login");
-				}
+				// userStore의 보안 로그인 기능 사용하여 민감한 정보 암호화 저장
+				await userStore.login(formData.email, formData.password, false);
+				
+				console.log("자동 로그인 성공");
+				router.push("/social-login-info");
 			} catch (error) {
 				console.error("자동 로그인 중 오류:", error);
 				alert("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
 				router.push("/login");
-				alert("중복확인 실패");
 			}
 		};
 		// 회원가입 요청
