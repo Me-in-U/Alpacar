@@ -254,6 +254,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://i13e102.p.ssafy.io",
     "http://192.168.137.1:5173",
+    "https://ios.kr",
+    "https://www.ios.kr",
 ]
 
 ROOT_URLCONF = "djangoApp.urls"
