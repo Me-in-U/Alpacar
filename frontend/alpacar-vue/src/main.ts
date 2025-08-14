@@ -37,6 +37,14 @@ if (!isLoginPage) {
 			try {
 				await userStore.fetchMe(token);
 				console.log("사용자 정보 로드 성공");
+				
+				// 차량 정보도 미리 로드 (라우터 가드 성능 개선)
+				try {
+					await userStore.fetchMyVehicles();
+					console.log("앱 초기화 시 차량 정보 미리 로드 완료");
+				} catch (vehicleError) {
+					console.warn("차량 정보 로드 실패 (무시):", vehicleError);
+				}
 			} catch (error: any) {
 				console.warn("사용자 정보 로드 실패:", error);
 				
