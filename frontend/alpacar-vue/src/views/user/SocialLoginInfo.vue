@@ -119,8 +119,16 @@ const getSecureToken = () => {
 onMounted(() => {
 	const token = getSecureToken();
 	if (!token) {
-		alert("로그인이 필요합니다.");
-		router.push("/login");
+		console.log("[SOCIAL-LOGIN-INFO] 토큰 없음 - 로그인 페이지로 리다이렉트");
+		router.replace("/login");
+		return;
+	}
+	
+	// 사용자 정보도 확인
+	const isAdmin = userStore.me?.is_staff ?? false;
+	if (!userStore.me && !isAdmin) {
+		console.log("[SOCIAL-LOGIN-INFO] 사용자 정보 없음 - 로그인 페이지로 리다이렉트");
+		router.replace("/login");
 		return;
 	}
 	
@@ -141,13 +149,14 @@ const verifyToken = async (token: string) => {
 		if (response.status === 401) {
 			// 토큰이 만료된 경우 - userStore의 clearUser 사용
 			userStore.clearUser();
-			alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
-			router.push("/login");
+			console.log("[SOCIAL-LOGIN-INFO] 토큰 만료 - 로그인 페이지로 리다이렉트");
+			router.replace("/login");
 		}
 	} catch (error) {
 		console.error("토큰 검증 중 오류:", error);
 		// 네트워크 오류 등의 경우 로그인 페이지로 이동
-		router.push("/login");
+		console.log("[SOCIAL-LOGIN-INFO] 토큰 검증 실패 - 로그인 페이지로 리다이렉트");
+		router.replace("/login");
 	}
 };
 
@@ -197,8 +206,8 @@ const addVehicle = async () => {
 
 	const token = getSecureToken();
 	if (!token) {
-		alert("로그인이 필요합니다.");
-		router.push("/login");
+		console.log("[SOCIAL-LOGIN-INFO] 차량 등록 중 토큰 없음 - 로그인 페이지로 리다이렉트");
+		router.replace("/login");
 		return;
 	}
 
@@ -237,8 +246,8 @@ const addVehicle = async () => {
 				} else if (response.status === 401) {
 					// 세션 만료 시 로그인 페이지로 이동
 					userStore.clearUser();
-					alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
-					router.push("/login");
+					console.log("[SOCIAL-LOGIN-INFO] 세션 만료 - 로그인 페이지로 리다이렉트");
+					router.replace("/login");
 				} else {
 					alert("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
@@ -263,8 +272,8 @@ const completeSetup = async () => {
 	try {
 		const token = getSecureToken();
 		if (!token) {
-			alert("로그인이 필요합니다.");
-			router.push("/login");
+			console.log("[SOCIAL-LOGIN-INFO] 설정 완료 중 토큰 없음 - 로그인 페이지로 리다이렉트");
+			router.replace("/login");
 			return;
 		}
 
@@ -297,8 +306,8 @@ const completeSetup = async () => {
 				} else if (response.status === 401) {
 					// 세션 만료 시 로그인 페이지로 이동
 					userStore.clearUser();
-					alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
-					router.push("/login");
+					console.log("[SOCIAL-LOGIN-INFO] 세션 만료 - 로그인 페이지로 리다이렉트");
+					router.replace("/login");
 				} else {
 					alert("주차실력 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
