@@ -199,7 +199,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
       // 끊기면 대기 화면
       clearDisplayToIdle(SLOT_LABEL);
       ensureWiFiConnected();
-      break;
+      break; 
 
     case WStype_ERROR:
       displayStatus("WS 에러");
