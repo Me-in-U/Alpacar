@@ -1,13 +1,13 @@
 # accounts\views\profile.py
-from allauth.socialaccount.models import SocialAccount
 from django.conf import settings
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from allauth.socialaccount.models import SocialAccount
 
 from accounts.serializers.profile import ProfileSerializer
 
@@ -30,11 +30,11 @@ class UserProfileAPI(APIView):
         data = serializer.data  # 직렬화된 프로필 데이터 취득
         # DEBUG: 프로필 데이터 로그 출력
         print(f"[DEBUG] PROFILE GET for {user.email} → {data!r}")
-
+        
         # 소셜 로그인 사용자 여부 확인 (user_id 기반)
         is_social_user = SocialAccount.objects.filter(user_id=user.id).exists()
         data["is_social_user"] = is_social_user
-
+        
         data["vapid_public_key"] = settings.VAPID_PUBLIC_KEY
         # DEBUG: VAPID 키 로그 출력
         print(f"[DEBUG]   + vapid_public_key → {data['vapid_public_key']}")
@@ -56,21 +56,22 @@ class UserProfileAPI(APIView):
 
 
 @swagger_auto_schema(
-    method="post",
+    method='post',
     operation_description="사용자의 주차 실력과 점수를 설정합니다.",
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
-            "parking_skill": openapi.Schema(
-                type=openapi.TYPE_STRING,
+            'parking_skill': openapi.Schema(
+                type=openapi.TYPE_STRING, 
                 description="주차 실력 (beginner, intermediate, advanced)",
-                enum=["beginner", "intermediate", "advanced"],
+                enum=['beginner', 'intermediate', 'advanced']
             ),
-            "score": openapi.Schema(
-                type=openapi.TYPE_INTEGER, description="주차 점수 (0-100)"
-            ),
+            'score': openapi.Schema(
+                type=openapi.TYPE_INTEGER, 
+                description="주차 점수 (0-100)"
+            )
         },
-        required=["parking_skill", "score"],
+        required=['parking_skill', 'score']
     ),
     responses={
         200: openapi.Response(
@@ -78,15 +79,15 @@ class UserProfileAPI(APIView):
             schema=openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 properties={
-                    "message": openapi.Schema(type=openapi.TYPE_STRING),
-                    "parking_skill": openapi.Schema(type=openapi.TYPE_STRING),
-                    "score": openapi.Schema(type=openapi.TYPE_INTEGER),
-                },
-            ),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING),
+                    'parking_skill': openapi.Schema(type=openapi.TYPE_STRING),
+                    'score': openapi.Schema(type=openapi.TYPE_INTEGER)
+                }
+            )
         ),
         400: "잘못된 요청 데이터",
-        401: "인증되지 않은 사용자",
-    },
+        401: "인증되지 않은 사용자"
+    }
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -95,23 +96,23 @@ def set_parking_skill(request):
     POST /api/user/parking-skill/
     → 사용자의 주차 실력과 점수를 설정
     """
-    parking_skill = request.data.get("parking_skill")
-    score = request.data.get("score")
-
+    parking_skill = request.data.get('parking_skill')
+    score = request.data.get('score')
+    
     if not parking_skill or score is None:
         return Response(
             {"detail": "parking_skill과 score는 필수입니다."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
+    
     # 유효한 주차 실력인지 확인
-    valid_skills = ["beginner", "intermediate", "advanced"]
+    valid_skills = ['beginner', 'intermediate', 'advanced']
     if parking_skill not in valid_skills:
         return Response(
             {"detail": f"parking_skill은 {valid_skills} 중 하나여야 합니다."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
+    
     # 점수 범위 확인
     try:
         score = int(score)
@@ -125,16 +126,14 @@ def set_parking_skill(request):
             {"detail": "score는 정수여야 합니다."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
+    
     # 사용자 정보 업데이트
     user = request.user
     user.score = score
     user.save()
-
-    return Response(
-        {
-            "message": "주차 실력이 설정되었습니다.",
-            "parking_skill": parking_skill,
-            "score": score,
-        }
-    )
+    
+    return Response({
+        "message": "주차 실력이 설정되었습니다.",
+        "parking_skill": parking_skill,
+        "score": score
+    })
