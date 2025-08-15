@@ -76,10 +76,10 @@ def send_push_notification(user, title, message, data=None, notification_type='s
         'body': message,
         'icon': '/icons/favicon-32x32.png',  # PWA 아이콘
         'badge': '/icons/favicon-16x16.png',
-        'tag': 'notification',
+        'tag': f'notification-{notification_type}',
         'requireInteraction': True,
         'type': notification_type,  # ← Service Worker에서 라우팅에 사용할 type 필드
-        'data': data
+        'data': data if data else {}
     }
     
     # VAPID 설정
@@ -113,10 +113,18 @@ def send_push_notification(user, title, message, data=None, notification_type='s
             )
             print(f"[PUSH] 전송 성공: {title}")
         except WebPushException as ex:
-            print(f"[PUSH ERROR] WebPush 실패: {ex.response.status_code} - {str(ex)}")
-            if ex.response.status_code in [404, 410]:
-                subscription.delete()
-                print(f"[PUSH] 만료된 구독 정보 삭제: {subscription.endpoint[:50]}...")
+            # WebPush 응답이 있는 경우
+            if hasattr(ex, 'response') and ex.response is not None:
+                print(f"[PUSH ERROR] WebPush 실패: {ex.response.status_code} - {str(ex)}")
+                if ex.response.status_code in [404, 410]:
+                    subscription.delete()
+                    print(f"[PUSH] 만료된 구독 정보 삭제: {subscription.endpoint[:50]}...")
+            else:
+                print(f"[PUSH ERROR] WebPush 실패 (응답 없음): {str(ex)}")
+                # 테스트 엔드포인트인 경우 삭제
+                if 'test-endpoint' in subscription.endpoint:
+                    subscription.delete()
+                    print(f"[PUSH] 테스트 구독 정보 삭제: {subscription.endpoint[:50]}...")
         except Exception as ex:
             print(f"[PUSH ERROR] 일반 오류: {str(ex)}")
 
@@ -132,7 +140,8 @@ def send_vehicle_entry_notification(user, entry_data):
     plate_number = entry_data.get('plate_number', '차량')
     parking_lot = entry_data.get('parking_lot', 'SSAFY 주차장')
     
-    title = "🚗 입차 알림"
+    # 이모지 인코딩 문제 해결
+    title = "입차 알림"
     message = f"{plate_number} 차량이 {parking_lot}에 입차하였습니다. 알림을 클릭하면 추천 주차자리를 안내드리겠습니다."
     
     # 입차 알림 데이터에 페이지 라우팅 정보 추가
@@ -160,7 +169,8 @@ def send_parking_complete_notification(user, parking_data):
     parking_space = parking_data.get('parking_space', 'A5')
     score = parking_data.get('score')
     
-    title = "🅿️ 주차 완료"
+    # 이모지 인코딩 문제 해결 - 간단한 텍스트 사용
+    title = "주차 완료"
     
     if score is not None:
         message = f"{plate_number} 차량이 {parking_space} 구역에 주차를 완료했습니다. 이번 주차의 점수는 {score}점입니다."
@@ -185,7 +195,8 @@ def send_grade_upgrade_notification(user, grade_data):
         user: 알림을 받을 사용자
         grade_data: 등급 정보 (이전 등급, 새 등급 등)
     """
-    title = "🎉 등급 승급 축하!"
+    # 이모지 인코딩 문제 해결
+    title = "등급 승급 축하!"
     old_grade = grade_data.get('old_grade', '이전 등급')
     new_grade = grade_data.get('new_grade', '새 등급')
     current_score = grade_data.get('current_score', user.score)
