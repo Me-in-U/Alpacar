@@ -29,7 +29,7 @@ import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 import { SecureTokenManager } from "@/utils/security";
 import UserSetting from "@/views/user/UserSetting.vue";
-import MainTest from "@/views/user/MainTest.vue";
+
 
 // 보안 강화된 로그인 상태 확인 함수
 async function isAuthenticated(): Promise<boolean> {
