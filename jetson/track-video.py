@@ -1624,8 +1624,11 @@ class TrackerApp:
 
                         # free인 구역들만 추출
                         free_zones = [z for z, state in slot_map.items() if state == "free"]
+                        
+                        # 사용자 실력 레벨 가져오기
+                        user_skill_level = data.get("user_skill_level", "beginner")
                                      
-                        suggested_zone = self._get_suggested_zone_from_recommender(size_class, free_zones)
+                        suggested_zone = self._get_suggested_zone_from_recommender(size_class, free_zones, user_skill_level)
                         if suggested_zone:
                             logger.info(f"[Recommender] 추천 구역: {suggested_zone}")
                         else:
@@ -1640,8 +1643,9 @@ class TrackerApp:
                             assigned_zone = free_zones[0]
                             logger.info(f"[Assignment] fallback 구역 사용: {assigned_zone}")
 
-                        # data에서 실력값(skill_level)을 가져오고, 없으면 None
-                        skill_level = data.get("skill_level", "beginner")
+                        # 사용자 실력 레벨 가져오기
+                        user_skill_level = data.get("user_skill_level", "beginner")
+                        logger.info(f"[Assignment] 사용자 실력 레벨: {user_skill_level}")
 
                         await self._reserve_zone(license_plate, assigned_zone, slot_map)
 
@@ -1649,7 +1653,7 @@ class TrackerApp:
                             "message_type": "assignment",
                             "license_plate": license_plate,
                             "assignment": assigned_zone,
-                            "skill_level": skill_level,
+                            "user_skill_level": user_skill_level,
                         })
                 except asyncio.CancelledError:
                     logger.info("[Assignment] 할당 요청 리스너 취소됨")
@@ -1830,14 +1834,15 @@ class TrackerApp:
         logger.info(f"[Assignment] fallback 사용: {fallback_zone}")
         return fallback_zone
     
-    def _get_suggested_zone_from_recommender(self, size_class: str, free_zones: List[str]) -> str:
-        """추천 모델에서 구역 제안 받기"""
+    def _get_suggested_zone_from_recommender(self, size_class: str, free_zones: List[str], user_skill_level: str = "beginner") -> str:
+        """추천 모델에서 구역 제안 받기 (사용자 실력 레벨 고려)"""
         try:
             feats = self._build_features_for_free_zones(size_class, free_zones)
+            logger.info(f"[Recommender] 사용자 실력 레벨: {user_skill_level}")
             for feat in feats:
                 logger.debug(f"[Recommender] 입력 특성: {feat}")
             
-            best = recommend_best_zone(feats)
+            best = recommend_best_zone(feats, user_skill_level=user_skill_level)
             
             if best:
                 # best 목록에서 주차구역이 compact 라면 small_only 부터 추천 best 순으로

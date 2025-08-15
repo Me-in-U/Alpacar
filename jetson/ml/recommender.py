@@ -146,12 +146,13 @@ def predict_per_zone(features_per_zone):
 #         logger.exception("[Recommender] failed with error")
 #         return []
 
-def recommend_best_zone(features_per_zone, max_time=18.0):
+def recommend_best_zone(features_per_zone, max_time=18.0, user_skill_level="beginner"):
     """
-    보정 강화 버전
+    보정 강화 버전 (사용자 실력 레벨 고려)
       - 보너스 가중/상한 상향
       - 점수 가중치에서 보너스 비중 확대
       - 동률/근접 시 쉬운 자리 우선 타이브레이커
+      - 사용자 실력에 따른 가중치 조정
     """
     # === 튜닝 상수(필요시 여기만 수정) ===
     EASE_LEFT_PILLAR      = 0.15   # 기존 0.10 → 0.15
@@ -160,10 +161,30 @@ def recommend_best_zone(features_per_zone, max_time=18.0):
     EASE_INTERMEDIATE     = 0.07   # 기존 0.05 → 0.07
     EASE_CLAMP_MAX        = 0.45   # 기존 0.30 → 0.45
 
-    # 최종 점수 가중치(합 1.0 권장)
-    W_DEG   = 0.40               # 기존 0.50 → 0.40
-    W_TIME  = 0.30               # 기존 0.35 → 0.30
-    W_EASE  = 0.30               # 기존 0.15 → 0.30
+    # 사용자 실력 레벨에 따른 가중치 조정
+    if user_skill_level == "beginner":
+        # 초급자: 쉬운 주차 공간 우선 (ease_bonus 가중치 높임)
+        W_DEG   = 0.30
+        W_TIME  = 0.25
+        W_EASE  = 0.45
+        logger.info("[Recommender] 초급자 모드: 쉬운 주차 공간 우선")
+    elif user_skill_level == "intermediate":
+        # 중급자: 균형잡힌 추천
+        W_DEG   = 0.40
+        W_TIME  = 0.30
+        W_EASE  = 0.30
+        logger.info("[Recommender] 중급자 모드: 균형잡힌 추천")
+    elif user_skill_level == "advanced":
+        # 상급자: 정확한 주차 우선 (각도 점수 가중치 높임)
+        W_DEG   = 0.50
+        W_TIME  = 0.35
+        W_EASE  = 0.15
+        logger.info("[Recommender] 상급자 모드: 정확한 주차 우선")
+    else:
+        # 기본값
+        W_DEG   = 0.40
+        W_TIME  = 0.30
+        W_EASE  = 0.30
 
     # 점수 동률/근접일 때 쉬운 자리 우선 기준
     TIE_EPS = 1e-6               # 완전 동률

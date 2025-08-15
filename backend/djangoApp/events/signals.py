@@ -6,7 +6,7 @@ from django.dispatch import receiver
 from events.models import VehicleEvent
 from parking.models import ParkingAssignment, ParkingSpace
 from events.broadcast import broadcast_parking_log_event
-from jetson.broadcast import send_request_assignment
+from jetson.broadcast import send_request_assignment, get_user_skill_level
 from jetson.feed import (
     broadcast_parking_space,
     broadcast_active_vehicles,
@@ -66,7 +66,13 @@ def request_assignment_on_event_created(
         vehicle = instance.vehicle
         model = getattr(vehicle, "model", None)
         size_class = getattr(model, "size_class", None)
+        
+        # 사용자 실력 레벨 가져오기
+        user_skill_level = None
+        if hasattr(vehicle, 'user') and vehicle.user:
+            user_skill_level = get_user_skill_level(vehicle.user.score)
+        
         if size_class:
-            send_request_assignment(vehicle.license_plate, size_class)
+            send_request_assignment(vehicle.license_plate, size_class, user_skill_level)
 
     transaction.on_commit(_send)
