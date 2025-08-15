@@ -21,9 +21,9 @@ class ParkingSpace(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ("free", "비어있음"),
-        ("occupied", "사용중"),
-        ("reserved", "예약됨"),
+        ("free", "free"),
+        ("occupied", "occupied"),
+        ("reserved", "reserved"),
     ]
 
     zone = models.CharField("구역", max_length=10)  # 주차 구역 이름
@@ -57,6 +57,10 @@ class ParkingSpace(models.Model):
         unique_together = (("zone", "slot_number"),)  # 구역+번호 조합 유일
 
     def __str__(self):
+        return f"{self.zone}-{self.slot_number}"
+    
+    def get_display_with_status(self):
+        """상태와 함께 표시하는 별도 메서드"""
         return f"{self.zone}-{self.slot_number} ({self.get_status_display()})"
 
 
