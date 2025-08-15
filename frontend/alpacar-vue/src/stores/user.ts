@@ -40,7 +40,6 @@ export const useUserStore = defineStore("user", {
 		isToggling: false,
 		// API 호출 중복 방지
 		isLoading: false,
-		lastFetchTime: 0,
 	}),
 	actions: {
 		setUser(user: User) {
@@ -126,15 +125,13 @@ export const useUserStore = defineStore("user", {
 			}
 		},
 		async fetchMe(accessToken?: string, baseUrl?: string) {
-			// 중복 호출 방지 - 최근 3초 이내에 호출했으면 스킵
-			const now = Date.now();
-			if (this.isLoading || (this.me && now - this.lastFetchTime < 3000)) {
-				console.log("fetchMe 중복 호출 방지 - 기존 정보 사용");
+			// 이미 로딩 중이면 대기
+			if (this.isLoading) {
+				console.log("fetchMe 이미 로딩 중 - 기존 요청 완료 대기");
 				return this.me;
 			}
 
 			this.isLoading = true;
-			this.lastFetchTime = now;
 
 			try {
 				// 인자 없으면 보안 토큰 관리자에서 가져옴
@@ -239,7 +236,7 @@ export const useUserStore = defineStore("user", {
 				body: JSON.stringify({ email, password }),
 				// 성능 최적화 옵션
 				cache: "no-cache",
-				keepalive: true,
+				keepalive: false, // keepalive를 false로 변경 (더 빠른 응답)
 			});
 
 			if (!res.ok) {
@@ -285,13 +282,12 @@ export const useUserStore = defineStore("user", {
 
 			await this.fetchMe(data.access);
 			
-			// 로그인 성공 시 차량 정보도 미리 로드 (라우터 가드 성능 개선)
-			try {
-				await this.fetchMyVehicles();
-				console.log("로그인 시 차량 정보 미리 로드 완료");
-			} catch (vehicleError) {
+			// 로그인 성공 시 차량 정보 백그라운드에서 로드 (차단하지 않음)
+			this.fetchMyVehicles().then(() => {
+				console.log("로그인 후 차량 정보 백그라운드 로드 완료");
+			}).catch((vehicleError) => {
 				console.warn("차량 정보 로드 실패 (무시):", vehicleError);
-			}
+			});
 			
 			return this.me;
 		},
@@ -348,13 +344,12 @@ export const useUserStore = defineStore("user", {
 
 				await this.fetchMe(data.access, backendUrl);
 				
-				// 로그인 성공 시 차량 정보도 미리 로드 (라우터 가드 성능 개선)
-				try {
-					await this.fetchMyVehicles();
-					console.log("동적 URL 로그인 시 차량 정보 미리 로드 완료");
-				} catch (vehicleError) {
+				// 로그인 성공 시 차량 정보 백그라운드에서 로드 (차단하지 않음)
+				this.fetchMyVehicles().then(() => {
+					console.log("동적 URL 로그인 후 차량 정보 백그라운드 로드 완료");
+				}).catch((vehicleError) => {
 					console.warn("차량 정보 로드 실패 (무시):", vehicleError);
-				}
+				});
 				
 				return this.me;
 			} catch (error: any) {
