@@ -1,9 +1,17 @@
 # parking\models.py
 from django.db import models
 from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.db.models import Avg
+import random
+import pytz
 
 from events.models import VehicleEvent
 from vehicles.models import Vehicle
+
+# 한국 시간대 설정
+KST = pytz.timezone('Asia/Seoul')
 
 
 class ParkingSpace(models.Model):
@@ -47,8 +55,8 @@ class ParkingSpace(models.Model):
         on_delete=models.SET_NULL,
         related_name="current_space",
     )
-    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각
-    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각
+    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각 (한국 시간대)
+    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각 (한국 시간대)
 
     class Meta:
         db_table = "parking_space"  # 테이블명 지정
@@ -59,9 +67,6 @@ class ParkingSpace(models.Model):
     def __str__(self):
         return f"{self.zone}-{self.slot_number}"
     
-    def get_display_with_status(self):
-        """상태와 함께 표시하는 별도 메서드"""
-        return f"{self.zone}-{self.slot_number} ({self.get_status_display()})"
 
 
 class ParkingAssignment(models.Model):
@@ -112,8 +117,8 @@ class ParkingAssignment(models.Model):
         default="ASSIGNED",
     )  # 배정 상태
 
-    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각
-    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각
+    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각 (한국 시간대)
+    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각 (한국 시간대)
 
     class Meta:
         db_table = "parking_assignment"  # 테이블명 지정
@@ -143,7 +148,7 @@ class ParkingAssignmentHistory(models.Model):
         blank=True,
     )  # 관련 배정 (삭제 시 null)
     score = models.IntegerField("점수", help_text="변경된 점수")  # 변경된 점수
-    created_at = models.DateTimeField("변경 시각", auto_now_add=True)  # 이력 기록 시각
+    created_at = models.DateTimeField("변경 시각", auto_now_add=True)  # 이력 기록 시각 (한국 시간대)
 
     class Meta:
         db_table = "parking_assignment_history"  # 테이블명 지정
@@ -154,3 +159,50 @@ class ParkingAssignmentHistory(models.Model):
         return (
             f"{self.user.nickname} - {self.score}점 @ {self.created_at}"  # 대표 문자열
         )
+
+
+@receiver(post_save, sender=ParkingAssignment)
+def create_parking_score_on_completion(sender, instance, created, **kwargs):
+    """
+    주차 배정이 완료(COMPLETED)될 때 자동으로 점수 생성
+    """
+    if instance.status == 'COMPLETED' and instance.end_time:
+        # 이미 점수가 생성되었는지 확인
+        existing_history = ParkingAssignmentHistory.objects.filter(
+            assignment=instance
+        ).first()
+        
+        if not existing_history:
+            # 사용자의 현재 점수를 그대로 사용
+            current_user_score = instance.user.score
+            
+            # 사용자 점수가 0이거나 설정되지 않은 경우 기본값 사용
+            if current_user_score == 0:
+                new_score = 75  # 기본값
+            else:
+                new_score = current_user_score
+            
+            # 점수 히스토리 생성 (한국 시간대 적용)
+            ParkingAssignmentHistory.objects.create(
+                user=instance.user,
+                assignment=instance,
+                score=new_score
+            )
+            
+            # 사용자 평균 점수 업데이트
+            update_user_average_score(instance.user)
+
+
+def update_user_average_score(user):
+    """
+    사용자의 평균 점수를 계산하여 User 모델의 score 필드 업데이트
+    """
+    from accounts.models import User
+    
+    avg_score = ParkingAssignmentHistory.objects.filter(
+        user=user
+    ).aggregate(avg_score=Avg('score'))['avg_score']
+    
+    if avg_score is not None:
+        user.score = round(avg_score)
+        user.save(update_fields=['score'])

@@ -97,13 +97,11 @@ class ParkingHistorySerializer(serializers.ModelSerializer):
             if history:
                 return history.score
             else:
-                # 임시로 랜덤값 반환
-                import random
-
-                return random.randint(60, 95)
+                # 점수 히스토리가 없는 경우 null 또는 기본값 반환
+                return None
         except Exception:
-            # 에러 발생시 기본값 반환
-            return 75
+            # 에러 발생시 null 반환
+            return None
 
 
 class ParkingScoreHistorySerializer(serializers.ModelSerializer):

@@ -30,4 +30,8 @@ urlpatterns = [
     path("vehicle-events/active/", active_vehicle_events),
     # 주차 배정 생성
     path("parking/assign/", views.assign_space),
+    # 관리자 주차 완료 처리
+    path("parking/admin/complete/", views.admin_complete_parking, name="admin-complete-parking"),
+    # 관리자 사용자 점수 업데이트
+    path("parking/admin/update-scores/", views.update_all_user_scores, name="admin-update-scores"),
 ]
