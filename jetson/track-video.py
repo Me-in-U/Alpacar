@@ -187,16 +187,16 @@ class VehicleSpecsHelper:
     
     # 차량 크기별 사양 정보 (미터 단위)
     SIZE_CLASS_SPECS = {
-        "COMPACT": {"width": 2.0, "length": 4.2, "size_code": 1},
-        "MIDSIZE": {"width": 2.5, "length": 5.0, "size_code": 2},
-        "SUV": {"width": 2.8, "length": 5.2, "size_code": 3}
+        "compact": {"width": 2.0, "length": 4.2, "size_code": 1},
+        "midsize": {"width": 2.5, "length": 5.0, "size_code": 2},
+        "suv": {"width": 2.8, "length": 5.2, "size_code": 3}
     }
     
     # 차량 크기별 박스 크기 (픽셀 단위)
     SIZE_CLASS_BOXES = {
-        "COMPACT": (200, 80),
-        "MIDSIZE": (250, 100),
-        "SUV": (300, 120)
+        "compact": (200, 80),
+        "midsize": (250, 100),
+        "suv": (300, 120)
     }
     
     @classmethod
@@ -311,14 +311,18 @@ class ZoneInfoHelper:
                 #     result[f"{side}_offset"] = 0.0
                 
                 # 크기 정보
-                license_plate = plate_mgr.get(tid)
-                if license_plate:
-                    size_class = plate_mgr.get_size_class(license_plate)
-                    if size_class:
-                        specs = VehicleSpecsHelper.get_specs_from_size_class(size_class)
-                        result[f"{side}_width"] = specs.get("width", 2.5)
-                        result[f"{side}_length"] = specs.get("length", 5.0)
-                        result[f"{side}_size"] = specs.get("size_code", 2)
+                # 플레이트가 없어도 midsize 기준으로 기본값을 넣어야 함
+                size_class = None
+                if tid is not None:
+                    license_plate = plate_mgr.get(tid)
+                    if license_plate:
+                        size_class = plate_mgr.get_size_class(license_plate)
+                if not size_class:
+                    size_class = "midsize"
+                specs = VehicleSpecsHelper.get_specs_from_size_class(size_class)
+                result[f"{side}_width"] = specs.get("width", 2.5)
+                result[f"{side}_length"] = specs.get("length", 5.0)
+                result[f"{side}_size"] = specs.get("size_code", 2)
                 break
         
         # # 디버깅: 인접 차량 정보가 제대로 설정되었는지 확인
@@ -1531,46 +1535,40 @@ class TrackerApp:
 
         features: List[Dict] = []
         for zid in free_zones:
-            # 구역 정보 찾기
             zone_info = ZoneInfoHelper.find_zone_by_id(self.parking.zones_norm, zid)
-            
-            if zone_info is None:
-                # 구역 정보가 없으면 기본값으로 설정
-                goal_x, goal_y = ZoneInfoHelper.calculate_goal_position([0, 0, 1, 1], self._last_frame_wh)
-                feature = {
-                    "left_occupied": 0, "left_angle": 0.0, "left_offset": 0.0, "left_size": 0,
-                    "left_width": 0, "left_length": 0, "left_has_pillar": 0,
-                    "right_occupied": 0, "right_angle": 0.0, "right_offset": 0.0, "right_size": 0,
-                    "right_width": 0, "right_length": 0, "right_has_pillar": 0,
-                    "controlled_width": width_m, "controlled_length": length_m,
-                    "goal_position_x": goal_x, "goal_position_y": goal_y,
-                    "zone_id": str(zid),
-                    "agent_angle_tier": "intermediate",
-                    "left_angle_deg": np.degrees(0.0),
-                    "right_angle_deg": np.degrees(0.0),
-                }
-                features.append(feature)
-                logger.debug(f"[Feature] Zone {zid}: no zone info, using defaults")
+                
+
+            # 만약 구역이 차종과 매칭되지 않으면 continue
+            # small_only가 True면 compact만 허용, False면 compact 외만 허용
+            small_only = zone_info.get("small_only", False)
+            if (small_only and size_class != "compact") or (not small_only and size_class == "compact"):
                 continue
 
-            # 인접 구역 정보 추출
+            feature = {
+                "left_occupied": 0, "left_angle": 0.0, "left_offset": 0.0, "left_size": 0,
+                "left_width": 0, "left_length": 0, "left_has_pillar": 0,
+                "right_occupied": 0, "right_angle": 0.0, "right_offset": 0.0, "right_size": 0,
+                "right_width": 0, "right_length": 0, "right_has_pillar": 0,
+                "controlled_width": width_m, "controlled_length": length_m,
+                "zone_id": str(zid),
+                "agent_angle_tier": "intermediate",
+                "left_angle_deg": 0.0,
+                "right_angle_deg": 0.0,
+            }
+            logger.debug(f"[Feature] Zone {zid}: no zone info, using defaults")
+
             adjacent_info = ZoneInfoHelper.get_adjacent_zone_info(
                 self.parking.zones_norm, zone_info, slot_map, occupant_to_zone, self._last_angle_by_id, self._last_center_by_id, self.plate_mgr
             )
             
-            # 목표 위치 계산
-            goal_x, goal_y = ZoneInfoHelper.calculate_goal_position(zone_info["rect"], self._last_frame_wh)
-
             feature = {
                 **adjacent_info,
                 "controlled_width": width_m,
                 "controlled_length": length_m,
                 "zone_id": str(zid),
-                "goal_position_x": goal_x,
-                "goal_position_y": goal_y,
                 "agent_angle_tier": "intermediate",
-                "left_angle_deg": np.degrees(adjacent_info.get("left_angle", 0.0)),
-                "right_angle_deg": np.degrees(adjacent_info.get("right_angle", 0.0)),
+                "left_angle_deg": adjacent_info.get("left_angle", 0.0) * 180 / np.pi - 90 if adjacent_info.get("left_angle", 0.0) != 0 else 0.0,
+                "right_angle_deg": adjacent_info.get("right_angle", 0.0) * 180 / np.pi - 90 if adjacent_info.get("right_angle", 0.0) != 0 else adjacent_info.get("right_angle", 0.0) * 180 / np.pi,
             }
             
             # 각도 및 offset 정보 디버깅
@@ -1642,12 +1640,16 @@ class TrackerApp:
                             assigned_zone = free_zones[0]
                             logger.info(f"[Assignment] fallback 구역 사용: {assigned_zone}")
 
+                        # data에서 실력값(skill_level)을 가져오고, 없으면 None
+                        skill_level = data.get("skill_level", "beginner")
+
                         await self._reserve_zone(license_plate, assigned_zone, slot_map)
 
                         await self._emit({
                             "message_type": "assignment",
                             "license_plate": license_plate,
                             "assignment": assigned_zone,
+                            "skill_level": skill_level,
                         })
                 except asyncio.CancelledError:
                     logger.info("[Assignment] 할당 요청 리스너 취소됨")
@@ -1832,12 +1834,21 @@ class TrackerApp:
         """추천 모델에서 구역 제안 받기"""
         try:
             feats = self._build_features_for_free_zones(size_class, free_zones)
-            logger.debug(f"[Recommender] 입력 특성: {feats}")
+            for feat in feats:
+                logger.debug(f"[Recommender] 입력 특성: {feat}")
             
             best = recommend_best_zone(feats)
-            logger.info(f"[Recommender] 추천 구역 목록: {best}")
             
             if best:
+                # best 목록에서 주차구역이 compact 라면 small_only 부터 추천 best 순으로
+                # compact 차량일 때 small_only 구역 우선 추천, 없으면 best[0] 사용
+                if size_class == "compact":
+                    small_only_zones = [item for item in best if item.get("small_only", False)]
+                    if small_only_zones:
+                        top = small_only_zones[0]
+                        logger.info(f"[Recommender] compact 차량, small_only 우선 추천: {top}")
+                        return str(top.get("zone_id") or "").strip()
+                # 그 외에는 best[0] 사용
                 top = best[0]
                 logger.info(f"[Recommender] 추천 구역: {top}")
                 return str(top.get("zone_id") or "").strip()
@@ -1880,7 +1891,6 @@ class TrackerApp:
                         "score": round(score, 2),
                         "zone_id": zid,
                     })
-                    # 예약 완료 처리 중앙화
                     self.resv.complete(assigned_vehicle, zid, lambda: asyncio.create_task(self._send_snapshot(None, 0, 0)))
                     logger.info(f"[ParkingCompletion] 예약 완료 처리: plate={assigned_vehicle}, zone={zid}")
 
@@ -1990,6 +2000,7 @@ class TrackerApp:
                     polys, centers = self.vis.draw_boxes(im0, r, angles, boxes_size=boxes_size)
                     
                     self.parking.update(centers, ids, w_full, h_full, now_ts)
+                    await self._handle_exit_events()
 
                     # 최근 프레임 정보 보관 (템플릿 매칭용)
                     try:
@@ -2002,7 +2013,6 @@ class TrackerApp:
                     except Exception:
                         pass
 
-                    # await self._handle_exit_events()
 
                     if not headless:
                         self.vis.draw_parking_zones(im0)
@@ -2017,6 +2027,7 @@ class TrackerApp:
 
                     self._handle_mispark_release(self._get_occupant_map())
                     await self._handle_preemption_and_reassign()
+                    await self._handle_exit_events()
 
                     await self._handle_lost_tracks(now_ts)
 

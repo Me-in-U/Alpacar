@@ -1,0 +1,14 @@
+# Ultralytics 🚀 AGPL-3.0 라이선스 - https://ultralytics.com/license
+
+# mode="track" 사용 시 ByteTrack 트래커의 Ultralytics 기본 설정
+# 문서 및 예시는 https://docs.ultralytics.com/modes/track/ 참고
+# ByteTrack 소스코드는 https://github.com/ifzhang/ByteTrack 참고
+
+tracker_type: bytetrack # 트래커 종류, ['botsort', 'bytetrack'] 중 선택
+track_high_thresh: 0.2 # 1차 연관(association) 임계값
+track_low_thresh: 0.1 # 2차 연관(association) 임계값
+new_track_thresh: 0.8 # 어떤 트랙과도 매칭되지 않을 때 새 트랙을 시작하는 임계값
+track_buffer: 90 # 트랙을 제거할 시점을 계산하는 버퍼(프레임 단위)
+match_thresh: 0.8 # 트랙 매칭 임계값
+fuse_score: False # 매칭 전 신뢰도 점수와 IOU 거리를 결합할지 여부
+# min_box_area: 10  # 최소 박스 면적 임계값(트래커 평가용, 현재는 사용하지 않음)
