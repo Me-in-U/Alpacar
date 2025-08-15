@@ -13,6 +13,18 @@ from vehicles.models import Vehicle
 # 한국 시간대 설정
 KST = pytz.timezone('Asia/Seoul')
 
+def korean_now():
+    """한국 시간대의 현재 시간을 반환"""
+    return timezone.now().astimezone(KST)
+
+def get_korean_now():
+    """한국 시간대의 현재 시간을 반환 (모델 필드용)"""
+    from datetime import datetime
+    # UTC 현재 시간을 한국 시간대로 변환
+    utc_now = timezone.now()
+    korean_time = utc_now.astimezone(KST)
+    return korean_time
+
 
 class ParkingSpace(models.Model):
     """
@@ -64,6 +76,17 @@ class ParkingSpace(models.Model):
         verbose_name_plural = "주차 공간"
         unique_together = (("zone", "slot_number"),)  # 구역+번호 조합 유일
 
+    def save(self, *args, **kwargs):
+        """저장 시 한국 시간대 적용"""
+        # 새로 생성되는 객체인 경우 created_at을 한국 시간으로 설정
+        if not self.pk and not self.created_at:
+            self.created_at = get_korean_now()
+        
+        # 업데이트되는 경우 updated_at을 한국 시간으로 설정
+        self.updated_at = get_korean_now()
+        
+        super().save(*args, **kwargs)
+        
     def __str__(self):
         return f"{self.zone}-{self.slot_number}"
     
@@ -105,8 +128,8 @@ class ParkingAssignment(models.Model):
         related_name="assignments",
     )  # 배정된 주차 공간
     start_time = models.DateTimeField(
-        "입차 시각", default=timezone.now
-    )  # 입차 시각 기본 현재 시각
+        "입차 시각", default=get_korean_now
+    )  # 입차 시각 기본 현재 시각 (한국 시간대)
     end_time = models.DateTimeField(
         "출차 시각", null=True, blank=True
     )  # 출차 시각(미출차 시 null)
@@ -125,6 +148,21 @@ class ParkingAssignment(models.Model):
         verbose_name = "주차 배정"
         verbose_name_plural = "주차 배정"
 
+    def set_korean_end_time(self):
+        """출차 시각을 한국 시간대로 설정"""
+        self.end_time = get_korean_now()
+        
+    def save(self, *args, **kwargs):
+        """저장 시 한국 시간대 적용"""
+        # 새로 생성되는 객체인 경우 created_at을 한국 시간으로 설정
+        if not self.pk and not self.created_at:
+            self.created_at = get_korean_now()
+        
+        # 업데이트되는 경우 updated_at을 한국 시간으로 설정
+        self.updated_at = get_korean_now()
+        
+        super().save(*args, **kwargs)
+        
     def __str__(self):
         return f"{self.space} - {self.get_status_display()}"  # 대표 문자열
 
@@ -155,6 +193,14 @@ class ParkingAssignmentHistory(models.Model):
         verbose_name = "배정 점수 히스토리"
         verbose_name_plural = "배정 점수 히스토리"
 
+    def save(self, *args, **kwargs):
+        """저장 시 한국 시간대 적용"""
+        # 새로 생성되는 객체인 경우 created_at을 한국 시간으로 설정
+        if not self.pk and not self.created_at:
+            self.created_at = get_korean_now()
+        
+        super().save(*args, **kwargs)
+        
     def __str__(self):
         return (
             f"{self.user.nickname} - {self.score}점 @ {self.created_at}"  # 대표 문자열
@@ -183,11 +229,14 @@ def create_parking_score_on_completion(sender, instance, created, **kwargs):
                 new_score = current_user_score
             
             # 점수 히스토리 생성 (한국 시간대 적용)
-            ParkingAssignmentHistory.objects.create(
+            history = ParkingAssignmentHistory(
                 user=instance.user,
                 assignment=instance,
                 score=new_score
             )
+            # 명시적으로 한국 시간대 설정
+            history.created_at = get_korean_now()
+            history.save()
             
             # 사용자 평균 점수 업데이트
             update_user_average_score(instance.user)

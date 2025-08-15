@@ -9,7 +9,7 @@ from events.models import VehicleEvent
 from parking.origin import set_ws_origin
 from vehicles.models import Vehicle
 from accounts.utils import create_notification
-from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace, update_user_average_score
+from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace, update_user_average_score, get_korean_now
 from .serializers import (
     AssignRequestSerializer,
     ParkingAssignmentSerializer,
@@ -87,7 +87,7 @@ def complete_parking(request, assignment_id):
             id=assignment_id, user=request.user, status="ASSIGNED"
         )
         assignment.status = "COMPLETED"
-        assignment.end_time = timezone.now()
+        assignment.end_time = get_korean_now()
         assignment.save()
         space = assignment.space
         space.status = "free"
@@ -125,7 +125,7 @@ def admin_complete_parking(request):
         
         # 주차 완료 처리
         assignment.status = "COMPLETED"
-        assignment.end_time = timezone.now()
+        assignment.end_time = get_korean_now()
         assignment.save()
         
         # 주차 공간 상태 업데이트
