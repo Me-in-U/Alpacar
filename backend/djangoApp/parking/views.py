@@ -9,7 +9,7 @@ from events.models import VehicleEvent
 from parking.origin import set_ws_origin
 from vehicles.models import Vehicle
 from accounts.utils import create_notification
-from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
+from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace, update_user_average_score
 from .serializers import (
     AssignRequestSerializer,
     ParkingAssignmentSerializer,
@@ -91,7 +91,8 @@ def complete_parking(request, assignment_id):
         assignment.save()
         space = assignment.space
         space.status = "free"
-        space.save(update_fields=["status"])
+        space.current_vehicle = None
+        space.save(update_fields=["status", "current_vehicle"])
         return Response(
             {
                 "message": "주차가 완료되었습니다.",
@@ -100,6 +101,67 @@ def complete_parking(request, assignment_id):
         )
     except ParkingAssignment.DoesNotExist:
         return Response({"error": "주차 배정을 찾을 수 없습니다."}, status=404)
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def admin_complete_parking(request):
+    """
+    관리자가 수동으로 주차를 완료 처리하는 API
+    """
+    license_plate = request.data.get("license_plate")
+    if not license_plate:
+        return Response({"error": "차량 번호가 필요합니다."}, status=400)
+    
+    try:
+        # 해당 차량의 진행 중인 주차 배정 찾기
+        vehicle = Vehicle.objects.select_related("user").get(license_plate=license_plate)
+        assignment = ParkingAssignment.objects.filter(
+            vehicle=vehicle, status="ASSIGNED"
+        ).first()
+        
+        if not assignment:
+            return Response({"error": "진행 중인 주차 배정을 찾을 수 없습니다."}, status=404)
+        
+        # 주차 완료 처리
+        assignment.status = "COMPLETED"
+        assignment.end_time = timezone.now()
+        assignment.save()
+        
+        # 주차 공간 상태 업데이트
+        space = assignment.space
+        space.status = "free"
+        space.current_vehicle = None
+        space.save(update_fields=["status", "current_vehicle"])
+        
+        # 알림 전송
+        try:
+            create_notification(
+                user=vehicle.user,
+                title="🏁 주차 완료",
+                message=f"{license_plate} 차량의 주차가 완료되었습니다.",
+                notification_type="parking_complete",
+                data={
+                    "plate_number": license_plate,
+                    "space": f"{space.zone}-{space.slot_number}",
+                    "completion_time": timezone.now().isoformat(),
+                    "admin_action": True,
+                },
+            )
+        except Exception as e:
+            print(f"[ADMIN ERROR] 주차 완료 알림 전송 실패: {license_plate} - {str(e)}")
+        
+        return Response(
+            {
+                "message": f"{license_plate} 차량의 주차가 완료되었습니다.",
+                "assignment": ParkingAssignmentSerializer(assignment).data,
+            }
+        )
+        
+    except Vehicle.DoesNotExist:
+        return Response({"error": "차량을 찾을 수 없습니다."}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["POST"])
@@ -270,3 +332,28 @@ def assign_space(request):
     return Response(
         ParkingAssignmentSerializer(pa).data, status=201 if created else 200
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def update_all_user_scores(request):
+    """
+    모든 사용자의 평균 점수를 재계산하여 업데이트하는 관리자 API
+    """
+    try:
+        from accounts.models import User
+        
+        updated_count = 0
+        users_with_history = User.objects.filter(score_histories__isnull=False).distinct()
+        
+        for user in users_with_history:
+            update_user_average_score(user)
+            updated_count += 1
+        
+        return Response({
+            "message": f"{updated_count}명의 사용자 점수가 업데이트되었습니다.",
+            "updated_count": updated_count
+        })
+        
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
