@@ -366,7 +366,7 @@ export default defineComponent({
 .signup-container {
 	width: 100%;
 	min-height: 100vh;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	position: relative;
 	overflow-x: hidden;
 	font-family: "Inter", sans-serif;
@@ -484,7 +484,7 @@ export default defineComponent({
 }
 
 .input-field:focus {
-	border-color: #776b5d;
+	border-color: #4B3D34;
 }
 
 .input-field.error {
@@ -504,7 +504,7 @@ export default defineComponent({
 
 .duplicate-check-button {
 	height: 27px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 4px;
 	color: #ffffff;
@@ -531,7 +531,7 @@ export default defineComponent({
 .signup-button {
 	width: 100%;
 	height: 50px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -543,9 +543,9 @@ export default defineComponent({
 }
 
 .signup-button:hover {
-	background-color: #665a4d;
+	background-color: #594D44;
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 /* 비활성화된 상태일 때 */
 .signup-button:disabled {

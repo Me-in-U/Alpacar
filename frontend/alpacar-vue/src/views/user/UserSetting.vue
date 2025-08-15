@@ -630,7 +630,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   width: 440px;
   height: 956px;
   position: relative;
-  background: #f3edea;
+  background: #F9F5EC;
   overflow: hidden;
   margin: 0 auto;
 }
@@ -741,7 +741,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 }
 
 .modal {
-  background: #f3eeea;
+  background: #F9F5EC;
   width: 90%;
   max-width: 360px;
   padding: 27px 24px 32px;

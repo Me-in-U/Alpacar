@@ -552,10 +552,10 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	background: #f3eeea;
+	background: #F9F5EC;
 }
 .container {
-	background: #f3eeea;
+	background: #F9F5EC;
 	min-height: calc(100vh - 64px);
 	padding: 48px 64px;
 	box-sizing: border-box;
