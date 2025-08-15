@@ -20,10 +20,11 @@ def korean_now():
 def get_korean_now():
     """한국 시간대의 현재 시간을 반환 (모델 필드용)"""
     from datetime import datetime
-    # UTC 현재 시간을 한국 시간대로 변환
+    # UTC 현재 시간을 한국 시간대로 변환 후 naive datetime으로 반환
     utc_now = timezone.now()
     korean_time = utc_now.astimezone(KST)
-    return korean_time
+    # naive datetime으로 변환 (타임존 정보 제거)
+    return korean_time.replace(tzinfo=None)
 
 
 class ParkingSpace(models.Model):
