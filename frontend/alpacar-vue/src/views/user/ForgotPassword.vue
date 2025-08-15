@@ -157,7 +157,7 @@ export default defineComponent({
 .forgot-password-container {
 	width: 100%;
 	min-height: 100vh;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	position: relative;
 	overflow-x: hidden;
 	font-family: "Inter", sans-serif;
@@ -237,7 +237,7 @@ export default defineComponent({
 }
 
 .input-field:focus {
-	border-color: #776b5d;
+	border-color: #4B3D34;
 }
 
 .input-with-button {
@@ -266,17 +266,17 @@ button:disabled {
 /* 버튼 호버링: 활성화된 버튼만 */
 .send-verification-button:not(:disabled):hover,
 .change-password-button:not(:disabled):hover {
-	background-color: #665a4d;
+	background-color: #594D44;
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 
 .verify-button:not(:disabled):hover {
-	background-color: #665a4d;
+	background-color: #594D44;
 }
 .verify-button {
 	height: 30px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 4px;
 	color: #ffffff;
@@ -300,7 +300,7 @@ button:disabled {
 .change-password-button {
 	width: 100%;
 	height: 50px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -312,9 +312,9 @@ button:disabled {
 
 .send-verification-button:hover,
 .change-password-button:hover {
-	background-color: #665a4d;
+	background-color: #594D44;
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 
 .button-text {

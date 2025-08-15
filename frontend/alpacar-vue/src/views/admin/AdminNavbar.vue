@@ -128,7 +128,7 @@ const handleLogout = () => {
 
 /* NAVBAR */
 .nav-wrapper {
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	height: 64px;
 	display: flex;
 	align-items: center;
@@ -160,7 +160,7 @@ const handleLogout = () => {
 	transition: background-color 0.2s;
 }
 .menu-item:hover {
-	background-color: #5f554b;
+	background-color: #594D44;
 }
 
 .signout {
@@ -188,7 +188,7 @@ const handleLogout = () => {
 	top: 64px; /* navbar 높이 */
 	left: 0;
 	right: 0;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;

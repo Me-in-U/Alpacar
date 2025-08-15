@@ -170,7 +170,7 @@ onMounted(() => {
 	width: 440px;
 	height: 956px;
 	position: relative;
-	background: #f3eeea;
+	background: #F9F5EC;
 	overflow: hidden;
 	margin: 0 auto;
 }
@@ -233,7 +233,7 @@ onMounted(() => {
 }
 
 .history-text.score {
-	color: #776b5d;
+	color: #4B3D34;
 	font-weight: 600;
 }
 
@@ -244,7 +244,7 @@ onMounted(() => {
 }
 
 .show-more-btn {
-	background: #776b5d;
+	background: #4B3D34;
 	color: #ffffff;
 	border: none;
 	border-radius: 20px;
@@ -257,9 +257,9 @@ onMounted(() => {
 }
 
 .show-more-btn:hover {
-	background: #665a4d;
+	background: #594D44;
 	transform: translateY(-1px);
-	box-shadow: 0 2px 8px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 2px 8px rgba(75, 61, 52, 0.3);
 }
 
 .chart-section {
@@ -290,7 +290,7 @@ onMounted(() => {
 }
 
 .retry-btn {
-	background: #776b5d;
+	background: #4B3D34;
 	color: #ffffff;
 	border: none;
 	border-radius: 6px;
@@ -303,9 +303,9 @@ onMounted(() => {
 }
 
 .retry-btn:hover {
-	background: #665a4d;
+	background: #594D44;
 	transform: translateY(-1px);
-	box-shadow: 0 2px 8px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 2px 8px rgba(75, 61, 52, 0.3);
 }
 
 /* Responsive Design */
