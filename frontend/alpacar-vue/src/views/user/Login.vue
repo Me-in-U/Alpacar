@@ -147,7 +147,7 @@ export default defineComponent({
 .login-container {
 	width: 100%;
 	min-height: 100vh;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	position: relative;
 	overflow-x: hidden;
 	font-family: "Inter", sans-serif;
@@ -221,7 +221,7 @@ export default defineComponent({
 }
 
 .input:focus {
-	border-color: #776b5d;
+	border-color: #4B3D34;
 }
 
 /* Auto Login Checkbox */
@@ -252,8 +252,8 @@ export default defineComponent({
 }
 
 .auto-login-checkbox:checked {
-	background-color: #776b5d;
-	border-color: #776b5d;
+	background-color: #4B3D34;
+	border-color: #4B3D34;
 }
 
 .auto-login-checkbox:checked::after {
@@ -278,7 +278,7 @@ export default defineComponent({
 .login-button {
 	width: 100%;
 	height: 50px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -296,9 +296,9 @@ export default defineComponent({
 }
 
 .login-button:hover:not(:disabled) {
-	background-color: #665a4d;
+	background-color: #594D44;
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 
 .loading {

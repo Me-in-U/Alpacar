@@ -565,7 +565,7 @@ onBeforeUnmount(() => {
 	max-width: 440px;
 	min-height: 100vh;
 	position: relative;
-	background: #f3eeea;
+	background: #F9F5EC;
 	margin: 0 auto;
 	overflow: hidden;
 	display: flex;

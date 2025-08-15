@@ -63,7 +63,7 @@ const showReassign = ref(false)
   width: 440px;
   height: 956px;
   position: relative;
-  background: #F3EEEA;
+  background: #F9F5EC;
   overflow: hidden;
   margin: 0 auto;
 }
@@ -83,14 +83,14 @@ const showReassign = ref(false)
 button {
   margin: 0 8px;
   padding: 8px 16px;
-  background: #776b5d;
+  background: #4B3D34;
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
 }
 button:hover {
-  background: #5f554b;
+  background: #594D44;
 }
 
 /* dark-modal 클래스가 붙은 AlertModal 내부 스타일 덮어쓰기 */

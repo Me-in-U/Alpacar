@@ -75,8 +75,8 @@ export default {
             datasets: [{
               label: '주차점수',
               data: chartData.scores,
-              backgroundColor: '#F3EEEA',
-              borderColor: '#776B5D',
+              backgroundColor: '#F9F5EC',
+              borderColor: '#4B3D34',
               borderWidth: 2,
               borderRadius: 10,
               borderSkipped: false,
@@ -97,7 +97,7 @@ export default {
               },
               tooltip: {
                 enabled: true,
-                backgroundColor: '#776B5D',
+                backgroundColor: '#4B3D34',
                 titleColor: '#FFFFFF',
                 bodyColor: '#FFFFFF',
                 cornerRadius: 6,
@@ -238,7 +238,7 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #776B5D;
+  color: #4B3D34;
   font-size: 14px;
   font-family: 'Inter', sans-serif;
   font-weight: 500;

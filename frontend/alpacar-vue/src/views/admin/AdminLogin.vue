@@ -96,7 +96,7 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 }
 
 .login-wrapper {
@@ -176,8 +176,8 @@ export default defineComponent({
 }
 
 .auto-login-checkbox:checked {
-	background-color: #776b5d;
-	border-color: #776b5d;
+	background-color: #4B3D34;
+	border-color: #4B3D34;
 }
 
 .auto-login-checkbox:checked::after {
@@ -199,7 +199,7 @@ export default defineComponent({
 }
 
 .login-button {
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	color: white;
 	text-align: center;
 	padding: 12px;
@@ -216,7 +216,7 @@ export default defineComponent({
 }
 
 .login-button:hover:not(:disabled) {
-	background-color: #5f554a;
+	background-color: #594D44;
 }
 
 .loading {

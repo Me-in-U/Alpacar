@@ -2,123 +2,128 @@
   <div class="main-page-container">
     <Header />
 
-```
-<!-- Main Content -->
-<div class="main-content">
-  <!-- Welcome Message -->
-  <div class="welcome-section">
-    <h1 class="welcome-title">알파카와 함께,</h1>
-    <p class="welcome-subtitle">내 차에 딱 맞는 주차 공간을 찾아보세요</p>
-  </div>
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Welcome Message -->
+      <div class="welcome-section">
+        <h1 class="welcome-title">알파카와 함께,</h1>
+        <p class="welcome-subtitle">내 차에 딱 맞는 주차 공간을 찾아보세요</p>
+      </div>
 
-  <!-- User Profile Card with 3D Animation -->
-  <div class="profile-card-container">
-    <div
-      class="profile-card"
-      :class="{ 'is-flipped': isCardFlipped, 'dragging': isDragging || isMouseDragging }"
-      :style="holoGradeVars"
-      @click="handleClick"
-      @mousedown="handleMouseDown"
-      @mousemove="handleMouseMove"
-      @mouseup="handleMouseUp"
-      @mouseleave="handleMouseLeave"
-      @touchstart.prevent="handleTouchStart"
-      @touchmove.prevent="handleTouchMove"
-      @touchend.prevent="handleTouchEnd"
-      ref="cardRef"
-    >
-      <div class="card-inner">
-        <!-- Front Side (Original Profile) -->
-        <div class="card-front">
-          <div class="profile-header"></div>
-          <div class="profile-content">
-            <div class="profile-left">
-              <div class="avatar-container">
-                <img :src="avatarImage" alt="User Avatar" class="avatar-image" />
-              </div>
-            </div>
-            <div class="profile-right">
-              <div class="skill-badge">
-                <div class="skill-icon">
-                  <div class="skill-circle" :style="skillCircleVars"></div>
+      <!-- User Profile Card with 3D Animation -->
+      <div class="profile-card-container">
+        <div
+          class="profile-card"
+          :class="{ 'is-flipped': isCardFlipped, 'dragging': isDragging || isMouseDragging }"
+          :style="holoGradeVars"
+          @click="handleClick"
+          @mousedown="handleMouseDown"
+          @mousemove="handleMouseMove"
+          @mouseup="handleMouseUp"
+          @mouseleave="handleMouseLeave"
+          @touchstart.prevent="handleTouchStart"
+          @touchmove.prevent="handleTouchMove"
+          @touchend.prevent="handleTouchEnd"
+          ref="cardRef"
+        >
+          <div class="card-inner">
+            <!-- Front Side (Original Profile) -->
+            <div class="card-front">
+              <div class="profile-header"></div>
+              <div class="profile-content">
+                <div class="profile-left">
+                  <div class="avatar-container">
+                    <img :src="avatarImage" alt="User Avatar" class="avatar-image" />
+                  </div>
                 </div>
-                <span class="skill-text" :data-text="gradeInfo.text" :style="{ color: gradeInfo.color }">{{ gradeInfo.text }}</span>
-              </div>
-              <div class="user-info">
-                <div class="user-name">
-                  <span class="label">Name</span>
-                  <span class="separator">|</span>
-                  <span class="value">{{ userName }}</span>
-                </div>
-                <div class="user-number">
-                  <span class="label">No.</span>
-                  <span class="separator">|</span>
-                  <span class="value">{{ userVehicleNumber }}</span>
-                </div>
-                <p class='touch-text-description'>카드를 두번 터치하면 화면이 돌아갑니다.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Back Side (Profile Details) -->
-        <div class="card-back">
-          <div class="back-header"></div>
-          <div class="back-content">
-            <div class="back-title">
-              <h2>{{ gradeInfo.text }}({{ userScore }}점)</h2>
-            </div>
-            <div class="grade-display">
-              <div class="grade-bar">
-                <div class="grade-fill" :style="{ width: userScore + '%' }"></div>
-                <div class="grade-marker" :style="{ left: `calc(${Math.max(5, Math.min(95, userScore))}% - 20px)` }">
-                  <div class="marker-icon">
-                    <img :src="carWithAlpacaImage" alt="Car With Alpaca" />
+                <div class="profile-right">
+                  <div class="skill-badge">
+                    <div class="skill-icon">
+                      <div class="skill-circle" :style="skillCircleVars"></div>
+                    </div>
+                    <span class="skill-text" :data-text="gradeInfo.text" :style="{ color: gradeInfo.color }">{{ gradeInfo.text }}</span>
+                  </div>
+                  <div class="user-info">
+                    <div class="user-name">
+                      <span class="label">Name</span>
+                      <span class="separator">|</span>
+                      <span class="value">{{ userName }}</span>
+                    </div>
+                    <div class="user-number">
+                      <span class="label">No.</span>
+                      <span class="separator">|</span>
+                      <span class="value">{{ userVehicleNumber }}</span>
+                    </div>
+                    <p class='touch-text-description'>카드를 두번 터치하면 화면이 돌아갑니다.</p>
                   </div>
                 </div>
               </div>
             </div>
+
+            <!-- Back Side (Profile Details) -->
+            <div class="card-back">
+              <div class="back-header"></div>
+              <div class="back-content">
+                <div class="back-title">
+                  <h2>{{ gradeInfo.text }}({{ userScore }}점)</h2>
+                </div>
+                <div class="grade-display">
+                  <div class="grade-bar">
+                    <img class="road-bg" :src="roadSrc" alt="" />
+                    <div class="grade-fill" :style="{ width: userScore + '%' }"></div>
+                    <div class="grade-marker" :style="{ left: `${Math.max(5, Math.min(95, userScore))}%` }">
+                      <div class="marker-icon">
+                        <img :src="carWithAlpacaImage" alt="Car With Alpaca" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="grade-tips">
+                  💡Tip! 점수를 올리고 싶다면?<br>
+                  (주차 점수를 올리는 팁 두 줄)
+                </div>
+              </div>
+            </div>
+
+          </div> <!-- /card-inner -->
+        </div>
+      </div>
+
+      <!-- Menu Items -->
+      <div class="menu-items">
+        <div class="menu-item" @click="goToParkingHistory">
+          <div class="menu-content-wrapper">
+            <div class="menu-icon">
+              <img src="@/assets/alpaca-parkinglog.png" alt="주차기록 아이콘" class="menu-image" />
+            </div>
+            <p class="menu-title">내 주차기록<br>확인하기</p>
           </div>
+          <div class="menu-accent"></div>
         </div>
 
-      </div> <!-- /card-inner -->
-    </div>
-  </div>
-
-  <!-- Menu Items -->
-  <div class="menu-items">
-    <div class="menu-item" @click="goToParkingHistory">
-      <div class="menu-content-wrapper">
-        <div class="menu-icon">
-          <img src="@/assets/alpaca-parkinglog.png" alt="주차기록 아이콘" class="menu-image" />
+        <div class="menu-item" @click="goToParkingRecommend">
+          <div class="menu-content-wrapper">
+            <div class="menu-icon">
+              <img src="@/assets/alpaca-parkingrecommend.png" alt="주차 추천 아이콘" class="menu-image" />
+            </div>
+            <p class="menu-title">주차 자리<br>추천 받기</p>
+          </div>
+          <div class="menu-accent coral"></div>
         </div>
-        <p class="menu-title">내 주차기록<br>확인하기</p>
+
+        <div class="menu-item" @click="goToUserProfile">
+          <div class="menu-content-wrapper">
+            <div class="menu-icon">
+              <img src="@/assets/alpaca-mypage.png" alt="내 정보 아이콘" class="menu-image" />
+            </div>
+            <p class="menu-title">내 정보<br>확인하기</p>
+          </div>
+          <div class="menu-accent sage"></div>
+        </div>
       </div>
     </div>
 
-    <div class="menu-item" @click="goToParkingRecommend">
-      <div class="menu-content-wrapper">
-        <div class="menu-icon">
-          <img src="@/assets/alpaca-parkingrecommend.png" alt="주차 추천 아이콘" class="menu-image" />
-        </div>
-        <p class="menu-title">주차 자리<br>추천 받기</p>
-      </div>
-    </div>
-
-    <div class="menu-item" @click="goToUserProfile">
-      <div class="menu-content-wrapper">
-        <div class="menu-icon">
-          <img src="@/assets/alpaca-mypage.png" alt="내 정보 아이콘" class="menu-image" />
-        </div>
-        <p class="menu-title">내 정보<br>확인하기</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<BottomNavigation />
-
-
+    <BottomNavigation />
   </div>
 </template>
 
@@ -128,13 +133,16 @@ import BottomNavigation from '@/components/BottomNavigation.vue'
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+// HeaderTest import removed - using regular Header component
+
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const carWithAlpacaImage = new URL('@/assets/car-with-alpaca.png', import.meta.url).href
 
-const userScore = computed(() => userStore.me?.score || 90)
+// const userScore = computed(() => userStore.me?.score || 0)
+const userScore = ref(90)
 const userName = computed(() => userStore.me?.nickname || 'User')
 const userVehicleNumber = computed(() => {
   return userStore.vehicles.length > 0 ? userStore.vehicles[0].license_plate : '111 가 1111'
@@ -151,13 +159,13 @@ const gradeInfo = computed(() => {
   const grade = userGrade.value
   switch (grade) {
     case 'beginner':
-      return { text: '초급자', color: '#A17C66' }
+      return { text: '초급자', color: '#E1AD8D' }
     case 'intermediate':
-      return { text: '중급자', color: '#B1AFAE' }
+      return { text: '중급자', color: '#C0C0C0' }
     case 'advanced':
-      return { text: '상급자', color: '#E0C993' }
+      return { text: '상급자', color: '#FFD700' }
     default:
-      return { text: '초급자', color: '#A17C66' }
+      return { text: '초급자', color: '#E1AD8D' }
   }
 })
 
@@ -189,11 +197,11 @@ const skillIcon = computed(() => {
 })
 
 const skillCircleVars = computed(() => {
-  // 등급별 금/은/동 베이스 컬러(원하는 팔레트로 조정 가능)
+  // 등급별 금/은/동 베이스 컬러 유지 (UI 기본 팔레트는 CSS에서 변경)
   const base = {
-    beginner: ['#A17C66', '#684138'],
-    intermediate: ['#DCDEDF', '#676C6F'],
-    advanced: ['#FEE274', '#B18200']
+    beginner: ['#D4A373', '#8B5E3C'],
+    intermediate: ['#C0C0C0', '#7D7D7D'],
+    advanced: ['#FFD700', '#B8860B']
   }[userGrade.value]
 
   return {
@@ -206,36 +214,42 @@ const skillCircleVars = computed(() => {
 /* 등급별 변수 (테두리 그라데이션 팔레트 + 광택 강도 + 헤더 색) */
 const holoGradeVars = computed(() => {
   switch (userGrade.value) {
-    case 'beginner':
+    case 'beginner': // 동 (Bronze)
       return {
-        '--c1': '#A17C66',
-        '--c2': '#684138',
-        '--grade-gloss': 0.40,
-        '--header-color': '#A17C66'
+        '--c1': '#D4A373', // 밝은 브론즈 (고급스러운 황갈색)
+        '--c2': '#8B5E3C', // 어두운 브론즈 (차분한 브라운)
+        '--grade-gloss': 0.45,
+        '--header-color': '#D4A373',
+        '--card-back-bg': '#F2E0C9' // 뒷면 밝은 브론즈
       }
-    case 'intermediate':
+    case 'intermediate': // 은 (Silver)
       return {
-        '--c1': '#DCDEDF',
-        '--c2': '#676C6F',
-        '--grade-gloss': 0.80,
-        '--header-color': '#B1AFAE'
+        '--c1': '#C0C0C0', // 은색
+        '--c2': '#7D7D7D', // 진회색
+        '--grade-gloss': 0.85,
+        '--header-color': '#C0C0C0',
+        '--card-back-bg': '#F0F0F0' // 뒷면 밝은 은색 톤
       }
-    case 'advanced':
+    case 'advanced': // 금 (Gold)
       return {
-        '--c1': '#FEE274',
-        '--c2': '#B18200',
-        '--grade-gloss': 1.15,
-        '--header-color': '#E0C993'
+        '--c1': '#FFD700', // 금색
+        '--c2': '#B8860B', // 황토·금빛 섀도
+        '--grade-gloss': 1.2,
+        '--header-color': '#FFD700',
+        '--card-back-bg': '#FFF3CC' // 뒷면 밝은 금색 톤
       }
     default:
       return {
-        '--c1': '#5C1E01',
-        '--c2': '#743A17',
-        '--grade-gloss': 0.55,
-        '--header-color': '#A17C66'
+        '--c1': '#B87333',
+        '--c2': '#7B3F00',
+        '--grade-gloss': 0.45,
+        '--header-color': '#B87333',
+        '--card-back-bg': '#F3D9C0'
       }
   }
 })
+
+const roadSrc = new URL('@/assets/road.png', import.meta.url).href
 
 const goToParkingHistory = async () => { try { await router.push('/parking-history') } catch (e) { console.error(e) } }
 const goToParkingRecommend = async () => { try { await router.push('/parking-recommend') } catch (e) { console.error(e) } }
@@ -470,16 +484,19 @@ onMounted(async () => {
   width: 440px;
   height: 956px;
   position: relative;
-  background: #F3EEEA;
+  background: #F9F5EC; /* 유지 */
   overflow: hidden;
   margin: 0 auto;
 }
 
 .main-content {
   position: relative;
-  padding-top: 80px;
-  height: calc(100% - 160px);
+  padding-top: 80px; /* 헤더 높이 */
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* 하단 네비 + 안전영역 */
+  height: auto;
+  min-height: 100%;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .welcome-section {
@@ -496,7 +513,7 @@ onMounted(async () => {
 }
 
 .welcome-subtitle {
-  color: #666666;
+  color: #565656; /* #666666 → 팔레트 mid-gray */
   font-size: 16px;
   font-family: 'Inter', sans-serif;
   font-weight: 400;
@@ -651,7 +668,7 @@ onMounted(async () => {
 /* ========= Hologram: 앞면 특정 영역 + 뒷면 헤더만 ========= */
 
 /* 공통 홀로그램 배경 */
-@keyframes _holoSparkleDummy {} /* 일부 빌드에서 빈 규칙 필요할 때 방지용 */
+@keyframes _holoSparkleDummy {}
 .holo-bg {
   background:
     url("https://assets.codepen.io/13471/sparkles.gif"),
@@ -710,15 +727,48 @@ onMounted(async () => {
 .avatar-container {
   width: 90px;
   height: 120px;
-  /* border-radius: 50%; */
   background: #ffffff;
-  border: 3px solid #E5E5E5;
-  display: flex;
+  border: 3px solid transparent; 
+  display: block;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   position: relative; /* ::after 기준 */
+  box-sizing: border-box;
 }
+
+/* 그라데이션 링 */
+.avatar-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 3px;            /* 링 두께 = avatar-container의 border 두께와 동일 */
+  background:
+    url("https://assets.codepen.io/13471/sparkles.gif"),
+    url("https://assets.codepen.io/13471/holo.png"),
+    linear-gradient(115deg, var(--c1), var(--c2));
+  background-size: 160%, 160%, auto;                 /* profile-card::after와 동일 */
+  background-position: 50% 50%, 50% 50%, center;
+  background-repeat: no-repeat;
+  background-blend-mode: screen, screen, normal;
+
+  pointer-events: none;
+
+  /* 링만 보이도록 내부를 투명하게 마스킹 (profile-card::after와 동일 기법) */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+
+  /* 홀로그램 광택 강도: 카드와 동일 변수 사용 */
+  opacity: calc(var(--opc) * var(--grade-gloss));
+  z-index: 2;
+}
+
 .avatar-container::after {
   content: "";
   position: absolute;
@@ -747,21 +797,26 @@ onMounted(async () => {
 }
 
 .avatar-image {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;                   /* 하단에 딱 붙음 */
+  transform: translateX(-50%); /* 가로 중앙 정렬 */
   width: 100px;
   height: 100px;
   object-fit: contain;
+  z-index: 1;
 }
 
 /* 앞면 - 스킬 아이콘/텍스트 */
 .skill-badge {
   display:flex;
   align-items:center;
-  justify-content:center;   /* 가운데 정렬 원하면 */
+  justify-content:center;
   gap:12px;
 }
 
 .skill-icon {
-  flex:0 0 auto;            /* 줄 안에서 고정폭 요소 */
+  flex:0 0 auto;
   display:inline-flex;
   align-items:center;
 }
@@ -773,11 +828,8 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  /* PNG를 배경이 아니라 마스크로! 어두운 픽셀/구멍은 투명 처리됨 */
   -webkit-mask: var(--icon-mask) center/contain no-repeat;
   mask: var(--icon-mask) center/contain no-repeat;
-
-  /* 실제 보이는 채움은 우리가 주는 그라데이션 */
   background: linear-gradient(135deg, var(--icon-g1), var(--icon-g2));
   position: relative; 
 }
@@ -814,18 +866,18 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 700;
   font-family: 'Inter', sans-serif;
-  position: relative;       /* ::after 기준 */
-  display: inline-block;    /* 크기 계산 */
+  position: relative;
+  display: inline-block;
   background: none;
   flex:0 0 auto;
 }
 .skill-text::after {
-  content: attr(data-text);      /* 실제 텍스트를 복제 */
+  content: attr(data-text);
   position: absolute;
   inset: 0;
-  font: inherit;                 /* 크기/자간 동일하게 */
+  font: inherit;
   pointer-events: none;
-  mix-blend-mode: color-dodge;   /* 헤더 느낌 매칭 */
+  mix-blend-mode: color-dodge;
   opacity: calc(var(--opc) * var(--grade-gloss));
   filter: brightness(calc(1 + 0.25 * var(--grade-gloss)))
           contrast(calc(1 + 0.15 * var(--grade-gloss)));
@@ -844,15 +896,13 @@ onMounted(async () => {
   background-size: 160%;
   background-position: var(--px_s) var(--py_s);
   background-blend-mode: overlay;
-
-  /* 핵심: 글자 모양으로만 보이게 클리핑 */
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;  /* 가상요소의 텍스트를 투명 처리 */
+  -webkit-text-fill-color: transparent;
 }
 
 /* 뒷면 - 헤더에만 홀로그램 */
 .card-back {
-  background: #F1EFEC;
+  background: var(--card-back-bg);
   border: 1px solid transparent;
   transform: rotateY(180deg);
 }
@@ -916,7 +966,7 @@ onMounted(async () => {
 }
 
 .touch-text-description {
-  color: #666666;
+  color: #565656; /* #666666 → 팔레트 mid-gray */
   font-size: 12px;
   font-weight: 400;
   font-family: 'Inter', sans-serif;
@@ -938,26 +988,26 @@ onMounted(async () => {
 }
 
 .label {
-  color: #333333;
+  color: #212730; /* #333333 → 팔레트 primary-dark */
   font-size: 16px;
   font-weight: 600;
   font-family: 'Inter', sans-serif;
 }
 
 .separator {
-  color: #666666;
+  color: #272d37; /* #666666 → 팔레트 secondary-dark */
   font-size: 16px;
 }
 
 .value {
-  color: #666666;
+  color: #565656; /* #666666 → 팔레트 mid-gray */
   font-size: 16px;
   font-family: 'Inter', sans-serif;
 }
 
 /* Back content */
 .back-content {
-  padding: 20px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 25px;
@@ -980,19 +1030,38 @@ onMounted(async () => {
   gap: 15px;
 }
 
+.grade-tips {
+  margin-top: 10px;          
+  padding: 8px 12px;         
+  background-color: #f9f9f9; 
+  border-radius: 6px;        
+  border: 1px solid #c1b49e; /* #e0e0e0 → 팔레트 light beige-gray */
+  font-size: 12px;           
+  line-height: 1.4;          
+  color: #565656;            /* #555 → 팔레트 mid-gray */
+  text-align: left;         
+}
+
 .grade-bar {
   position: relative;
   width: 100%;
-  height: 60px;
-  background-image: url('@/assets/road.png');
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  border-radius: 8px;
+  height: 85px;         /* 원하는 전체 크기 */
   overflow: visible;
 }
 
+.road-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 90%;
+  object-fit: contain;  /* 비율 유지 + 컨테이너에 맞춤 */
+  z-index: 0;
+  pointer-events: none;
+}
+
 .grade-fill {
+  position: relative;
+  z-index: 1;
   height: 100%;
   background: transparent;
   transition: width 0.3s ease;
@@ -1001,9 +1070,9 @@ onMounted(async () => {
 .grade-marker {
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-  width: 50px;
-  height: 35px;
+  transform: translateX(-50%) translateY(-50%);
+  width: 60px;
+  height: 45px;
   transition: left 0.3s ease;
   z-index: 2;
   max-width: calc(100% - 10px);
@@ -1019,8 +1088,8 @@ onMounted(async () => {
 }
 
 .marker-icon img {
-  width: 35px;
-  height: 25px;
+  width: 40px;
+  height: 28px;
   object-fit: contain;
 }
 
@@ -1062,6 +1131,23 @@ onMounted(async () => {
   box-shadow: 0 2px 8px rgba(0,0,0,.1);
   cursor: pointer;
   transition: all .3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 1번째 메뉴 */
+.menu-item:nth-child(1) {
+  border-bottom: 2px solid #4E7F58;
+}
+
+/* 2번째 메뉴 */
+.menu-item:nth-child(2) {
+  border-bottom: 2px solid #C7A653;
+}
+
+/* 3번째 메뉴 */
+.menu-item:nth-child(3) {
+  border-bottom: 2px solid #A14436;
 }
 
 .menu-item:hover {
@@ -1100,14 +1186,14 @@ onMounted(async () => {
 .menu-title {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: #212730; /* #333 → 팔레트 primary-dark */
   margin: 0;
   white-space: normal; /* 줄바꿈 허용 */
   text-align: center;
 }
 
 .menu-description {
-  color: #666666;
+  color: #565656; /* #666666 → 팔레트 mid-gray */
   font-size: 14px;
   font-weight: 400;
   font-family: 'Inter', sans-serif;
@@ -1140,6 +1226,15 @@ onMounted(async () => {
   
   .main-content {
     padding-top: 40px;
+    padding-bottom: calc(
+      var(--bottom-nav-height) + 16px
+      + env(safe-area-inset-bottom, 0px)
+    ) !important;
+    /* 일부 브라우저 구버전 호환 (iOS 오래된 사파리) */
+    padding-bottom: calc(
+      var(--bottom-nav-height) + 16px
+      + constant(safe-area-inset-bottom, 0px)
+    ) !important;
   }
 }
 
@@ -1201,4 +1296,5 @@ onMounted(async () => {
   }
 }
 </style>
+
 

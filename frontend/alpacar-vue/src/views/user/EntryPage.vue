@@ -137,13 +137,13 @@ onMounted(() => {
 }
 
 .login-button {
-  background-color: #776b5d;
+  background-color: #4B3D34;
 }
 
 .login-button:hover {
-  background-color: #665a4d;
+  background-color: #594D44;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+  box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 
 .signup-button {

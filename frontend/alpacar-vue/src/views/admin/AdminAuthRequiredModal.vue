@@ -30,7 +30,7 @@ function onClose() {
 }
 
 .modal-container {
-  background-color: #f3eeea;
+  	background-color: #F9F5EC;
   border: 1px solid #000;
   border-radius: 12px;
   padding: 48px 32px;
@@ -47,7 +47,7 @@ function onClose() {
 }
 
 .back-button {
-  background-color: #776b5d;
+  	background-color: #4B3D34;
   color: #fff;
   font-size: 20px;
   font-weight: 600;

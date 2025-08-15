@@ -752,7 +752,7 @@ onMounted(async () => {
 	width: 440px;
 	height: 956px;
 	position: relative;
-	background: #f3edea;
+	background: #F9F5EC;
 	overflow: hidden;
 	margin: 0 auto;
 }
@@ -784,7 +784,7 @@ onMounted(async () => {
 	left: 0;
 	right: 0;
 	height: 3px;
-	background: linear-gradient(90deg, #776b5d, #8b7d6b, #776b5d);
+	background: linear-gradient(90deg, #4B3D34, #594D44, #4B3D34);
 	border-radius: 16px 16px 0 0;
 }
 
@@ -793,7 +793,7 @@ onMounted(async () => {
 	align-items: center;
 	justify-content: space-between;
 	padding: 14px 12px 12px 12px;
-	background: linear-gradient(135deg, #f8f7f5 0%, #f5f4f2 100%);
+	background: linear-gradient(135deg, #EDE6DF 0%, #E1D6CC 100%);
 	border-bottom: 1px solid rgba(119, 107, 93, 0.08);
 }
 
@@ -1027,7 +1027,7 @@ onMounted(async () => {
 .user-info__label {
 	font-size: 14px;
 	font-weight: 500;
-	color: #776b5d;
+	color: #4B3D34;
 	margin-bottom: 2px;
 }
 
@@ -1058,7 +1058,7 @@ onMounted(async () => {
 }
 
 .button {
-	background: #776b5d;
+	background: #4B3D34;
 	border-radius: 5px;
 	cursor: pointer;
 	display: inline-flex;
@@ -1150,7 +1150,7 @@ onMounted(async () => {
 	z-index: 1000;
 }
 .modal {
-	background: #f3eeea;
+	background: #F9F5EC;
 	width: 90%;
 	max-width: 320px;
 	padding: 27px 24px 50px;
@@ -1181,7 +1181,7 @@ onMounted(async () => {
 .modal__button {
 	width: 100%;
 	height: 50px;
-	background: #776b5d;
+	background: #4B3D34;
 	color: #fff;
 	border: none;
 	font-size: 16px;
@@ -1209,7 +1209,7 @@ onMounted(async () => {
 }
 
 .license-check-button {
-	background: #776b5d;
+	background: #4B3D34;
 	color: white;
 	border: none;
 	padding: 8px 12px;
@@ -1273,7 +1273,7 @@ onMounted(async () => {
 	color: #ff9800;
 }
 .status.checking {
-	color: #776b5d;
+	color: #4B3D34;
 }
 
 /* Responsive */
@@ -1383,16 +1383,16 @@ onMounted(async () => {
 }
 .notification-item__desc {
   font-size: 14px;
-  color: #776b5d;
+  color: #4B3D34;
 }
 .notification-item__toggle { margin-left: 16px; }
 
 .toggle-button {
   padding: 8px 16px;
-  border: 2px solid #776b5d;
+  border: 2px solid #4B3D34;
   border-radius: 20px;
   background: #ffffff;
-  color: #776b5d;
+  color: #4B3D34;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -1400,7 +1400,7 @@ onMounted(async () => {
   min-width: 60px;
 }
 .toggle-button:hover { background: rgba(119, 107, 93, 0.1); }
-.toggle-button--active { background: #776b5d; color: #ffffff; }
+.toggle-button--active { background: #4B3D34; color: #ffffff; }
 
 .install-button {
   padding: 8px 16px;
