@@ -102,11 +102,13 @@
 import { defineComponent, reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { useUserStore } from "@/stores/user";
 
 export default defineComponent({
 	name: "Signup",
 	setup() {
 		const router = useRouter();
+		const userStore = useUserStore();
 		const formData = reactive({
 			full_name: "",
 			email: "",
@@ -267,44 +269,18 @@ export default defineComponent({
 				alert("중복확인 실패");
 			}
 		};
-		// 자동 로그인 처리 함수
+		// 자동 로그인 처리 함수 (보안 개선)
 		const performAutoLogin = async () => {
 			try {
-				const loginRes = await fetch(`${BACKEND_BASE_URL}/auth/login/`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						email: formData.email,
-						password: formData.password,
-					}),
-				});
-
-				const loginData = await loginRes.json();
-
-				if (loginRes.ok && loginData.access) {
-					// 토큰 저장
-					localStorage.setItem("access_token", loginData.access);
-					if (loginData.refresh) {
-						localStorage.setItem("refresh_token", loginData.refresh);
-					}
-
-					// 사용자 정보 저장 (있는 경우)
-					if (loginData.user) {
-						localStorage.setItem("user", JSON.stringify(loginData.user));
-					}
-
-					console.log("자동 로그인 성공");
-					router.push("/social-login-info");
-				} else {
-					console.error("자동 로그인 실패:", loginData);
-					alert("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
-					router.push("/login");
-				}
+				// userStore의 보안 로그인 기능 사용하여 민감한 정보 암호화 저장
+				await userStore.login(formData.email, formData.password, false);
+				
+				console.log("자동 로그인 성공");
+				router.push("/social-login-info");
 			} catch (error) {
 				console.error("자동 로그인 중 오류:", error);
 				alert("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
 				router.push("/login");
-				alert("중복확인 실패");
 			}
 		};
 		// 회원가입 요청
@@ -390,7 +366,7 @@ export default defineComponent({
 .signup-container {
 	width: 100%;
 	min-height: 100vh;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	position: relative;
 	overflow-x: hidden;
 	font-family: "Inter", sans-serif;
@@ -508,7 +484,7 @@ export default defineComponent({
 }
 
 .input-field:focus {
-	border-color: #776b5d;
+	border-color: #4B3D34;
 }
 
 .input-field.error {
@@ -528,7 +504,7 @@ export default defineComponent({
 
 .duplicate-check-button {
 	height: 27px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 4px;
 	color: #ffffff;
@@ -555,7 +531,7 @@ export default defineComponent({
 .signup-button {
 	width: 100%;
 	height: 50px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -567,9 +543,9 @@ export default defineComponent({
 }
 
 .signup-button:hover {
-	background-color: #665a4d;
+	background-color: #594D44;
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 /* 비활성화된 상태일 때 */
 .signup-button:disabled {

@@ -325,7 +325,7 @@ const completeSetup = async () => {
 	width: 440px;
 	height: 956px;
 	position: relative;
-	background: #f3eeea;
+	background: #F9F5EC;
 	overflow: hidden;
 	margin: 0 auto;
 }
@@ -454,7 +454,7 @@ const completeSetup = async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 0;
-	border: 1px solid #f3eeea;
+	border: 1px solid #F9F5EC;
 	border-radius: 8px;
 	overflow: hidden;
 }
@@ -473,14 +473,14 @@ const completeSetup = async () => {
 	padding: 0 15px;
 }
 .skill-button.selected {
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	color: #f5f5f5;
 }
 .skill-button:hover {
 	background-color: #d4c8b8;
 }
 .skill-button.selected:hover {
-	background-color: #665a4d;
+	background-color: #594D44;
 }
 
 /* Complete Button */
@@ -494,7 +494,7 @@ const completeSetup = async () => {
 .complete-button {
 	width: 100%;
 	height: 100%;
-	background: #776b5d;
+	background: #4B3D34;
 	border: none;
 	cursor: pointer;
 	overflow: hidden;
@@ -504,9 +504,9 @@ const completeSetup = async () => {
 	transition: all 0.3s ease;
 }
 .complete-button:hover {
-	background: #665a4d;
+	background: #594D44;
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 .button-text {
 	color: white;
@@ -531,7 +531,7 @@ const completeSetup = async () => {
 }
 .modal-content {
 	width: 375px;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	border-radius: 12px;
 	padding: 20px;
 	display: flex;
@@ -570,7 +570,7 @@ const completeSetup = async () => {
 	color: #999999;
 }
 .modal-input:focus {
-	border-color: #776b5d;
+	border-color: #4B3D34;
 }
 .modal-footer {
 	display: flex;
@@ -579,7 +579,7 @@ const completeSetup = async () => {
 .modal-complete-button {
 	width: 280px;
 	height: 50px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -615,7 +615,7 @@ const completeSetup = async () => {
 	color: #ff9800;
 }
 .status.checking {
-	color: #776b5d;
+	color: #4B3D34;
 }
 
 .error-message {

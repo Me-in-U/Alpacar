@@ -5,9 +5,10 @@ import {
   SecureTokenManager, 
   encryptUserData, 
   decryptUserData, 
-  sanitizeUserData,
   validateAutoLoginExpiry 
 } from "@/utils/security";
+import { apiClient } from "@/api/parking";
+
 
 export interface VehicleModel {
 	id: number;
@@ -23,10 +24,7 @@ export interface Vehicle {
 }
 
 export interface User {
-	email: string;
-	name: string;
 	nickname: string;
-	phone: string;
 	push_on: boolean;
 	score: number;
 	is_staff: boolean;
@@ -47,19 +45,29 @@ export const useUserStore = defineStore("user", {
 	actions: {
 		setUser(user: User) {
 			this.me = user;
-			// 보안 강화: 민감한 정보는 암호화하여 저장, 마스킹된 정보는 평문 저장
+			// 🔒 보안 강화: 최소 데이터만 localStorage 저장
+			this.saveMinimalUserData(user);
+		},
+		// 최소 데이터만 추출 (민감정보 완전 차단)
+		saveMinimalUserData(user: any) {
 			try {
-				const encryptedUserData = encryptUserData(user);
-				localStorage.setItem("secure_user_data", encryptedUserData);
-				
-				// 디스플레이용 마스킹된 정보만 평문 저장
-				const sanitizedUser = sanitizeUserData(user);
-				localStorage.setItem("user", JSON.stringify(sanitizedUser));
+				const minimalData = this.extractMinimalData(user);
+				localStorage.setItem("user", JSON.stringify(minimalData));
+				console.log("🔒 [SECURITY] 최소 사용자 데이터 저장:", Object.keys(minimalData));
 			} catch (error) {
-				console.error("사용자 정보 저장 실패:", error);
-				// 암호화 실패 시 기본 저장 방식 사용 (하위 호환성)
-				localStorage.setItem("user", JSON.stringify(sanitizeUserData(user)));
+				console.error("최소 사용자 데이터 저장 실패:", error);
 			}
+		},
+		// 허용된 키만 추출하는 화이트리스트 방식
+		extractMinimalData(userData: any): any {
+			const allowedKeys = ['nickname', 'is_staff', 'push_on', 'score', 'is_social_user'];
+			const minimalData: any = {};
+			allowedKeys.forEach(key => {
+				if (userData && userData.hasOwnProperty(key)) {
+					minimalData[key] = userData[key];
+				}
+			});
+			return minimalData;
 		},
 		clearUser() {
 			this.me = null;
@@ -117,7 +125,7 @@ export const useUserStore = defineStore("user", {
 				return true;
 			}
 		},
-		async fetchMe(accessToken: string, baseUrl?: string) {
+		async fetchMe(accessToken?: string, baseUrl?: string) {
 			// 중복 호출 방지 - 최근 3초 이내에 호출했으면 스킵
 			const now = Date.now();
 			if (this.isLoading || (this.me && now - this.lastFetchTime < 3000)) {
@@ -129,49 +137,51 @@ export const useUserStore = defineStore("user", {
 			this.lastFetchTime = now;
 
 			try {
-				const apiUrl = baseUrl || BACKEND_BASE_URL;
+				// 인자 없으면 보안 토큰 관리자에서 가져옴
+				const token = accessToken || SecureTokenManager.getSecureToken("access_token");
+				if (!token) throw new Error("No token found");
 
-				const res = await fetch(`${apiUrl}/users/me/`, {
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${accessToken}`,
-					},
-					// 성능 최적화 옵션
-					cache: "no-cache",
-					keepalive: true,
+				// baseUrl이 있으면 절대경로, 없으면 apiClient의 baseURL 기준 상대경로
+				const url = baseUrl ? `${baseUrl}/users/me/` : "/users/me/";
+
+				const { data } = await apiClient.get<User>(url, {
+
 				});
 
-				if (!res.ok) {
-					throw new Error(`프로필 조회 실패 (${res.status})`);
-				}
-
-			// 응답이 JSON인지 확인
-			const contentType = res.headers.get("content-type");
-			let profile: User;
-
-			try {
-				if (contentType && contentType.includes("application/json")) {
-					const responseText = await res.text();
-					if (responseText.trim()) {
-						profile = JSON.parse(responseText);
-					} else {
-						throw new Error("서버에서 빈 응답을 반환했습니다.");
-					}
-				} else {
-					throw new Error("서버에서 JSON이 아닌 응답을 반환했습니다.");
-				}
-			} catch (parseError) {
-				console.error("프로필 JSON 파싱 오류:", parseError);
-				throw new Error("프로필 정보를 처리할 수 없습니다.");
-			}
-
-			this.setUser(profile);
-			return profile;
+				this.setUser(data);
+				return data;
 			} catch (error) {
 				console.error("fetchMe 오류:", error);
 				throw error;
 			} finally {
 				this.isLoading = false;
+			}
+		},
+		// 🔒 민감한 사용자 정보 동적 로딩 (UserProfile, UserSetting 전용)
+		async fetchDetailedUserInfo() {
+			const token = SecureTokenManager.getSecureToken("access_token");
+			if (!token) {
+				throw new Error("로그인이 필요합니다.");
+			}
+
+			try {
+				const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${token}`,
+					},
+				});
+
+				if (!res.ok) {
+					throw new Error(`사용자 정보 조회 실패 (${res.status})`);
+				}
+
+				const userData = await res.json();
+				console.log("🔒 [SECURITY] 민감한 사용자 정보 동적 로딩 완료");
+				return userData;
+			} catch (error) {
+				console.error("fetchDetailedUserInfo 오류:", error);
+				throw error;
 			}
 		},
 		async updateProfile(data: Partial<Pick<User, "nickname">>) {

@@ -81,7 +81,7 @@ function close() {
 
 .btn {
   padding: 10px 24px;
-  background: #776b5d;
+  background: #4B3D34;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -90,6 +90,6 @@ function close() {
 }
 
 .btn:hover {
-  background: #5f554b;
+  background: #594D44;
 }
 </style>

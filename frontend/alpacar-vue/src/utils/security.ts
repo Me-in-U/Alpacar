@@ -24,8 +24,8 @@ function generateDeviceKey(): string {
   return CryptoJS.SHA256(fingerprint).toString();
 }
 
-// 보안 토큰 암호화
-export function encryptToken(token: string): string {
+// 보안 토큰 암호화 (내부 사용)
+function encryptToken(token: string): string {
   try {
     const deviceKey = generateDeviceKey();
     const sessionKey = CryptoJS.lib.WordArray.random(256/8).toString();
@@ -41,8 +41,8 @@ export function encryptToken(token: string): string {
   }
 }
 
-// 보안 토큰 복호화
-export function decryptToken(encryptedData: string): string | null {
+// 보안 토큰 복호화 (내부 사용)
+function decryptToken(encryptedData: string): string | null {
   try {
     if (!encryptedData || typeof encryptedData !== 'string') {
       return null;
@@ -65,31 +65,30 @@ export function decryptToken(encryptedData: string): string | null {
   }
 }
 
-// 민감한 사용자 정보 마스킹
-export function sanitizeUserData(user: any): any {
-  if (!user) return null;
-  
-  return {
-    email: maskEmail(user.email),
-    name: maskName(user.name),
-    nickname: user.nickname, // 닉네임은 노출 허용
-    phone: maskPhone(user.phone),
-    push_on: user.push_on,
-    score: user.score,
-    is_staff: user.is_staff,
-    is_social_user: user.is_social_user,
-    // VAPID 공개키는 제거 (필요시 서버에서 다시 요청)
-  };
-}
 
-// 실제 사용자 정보는 암호화하여 저장
+// 실제 사용자 정보는 암호화하여 저장 (민감정보 검증 포함)
 export function encryptUserData(user: any): string {
   try {
+    // 🔒 암호화 전 민감정보 검증
+    const userString = JSON.stringify(user);
+    const sensitivePatterns = [
+      /@[\w.-]+\.[a-zA-Z]{2,}/, // 이메일 패턴
+      /\b\d{3}[-.]?\d{3,4}[-.]?\d{4}\b/, // 전화번호 패턴
+      /"(?:email|name|full_name|phone|password)"\s*:/ // 민감정보 키 패턴
+    ];
+    
+    for (const pattern of sensitivePatterns) {
+      if (pattern.test(userString)) {
+        console.warn('🚨 [SECURITY] 민감정보가 암호화 대상에 포함됨:', userString.substring(0, 100));
+        break;
+      }
+    }
+    
     const deviceKey = generateDeviceKey();
     const sessionKey = CryptoJS.lib.WordArray.random(256/8).toString();
     const combinedKey = CryptoJS.SHA256(deviceKey + sessionKey).toString().substr(0, 32);
     
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(user), combinedKey).toString();
+    const encrypted = CryptoJS.AES.encrypt(userString, combinedKey).toString();
     return `${sessionKey}:${encrypted}`;
   } catch (error) {
     console.error('User data encryption failed:', error);
@@ -116,31 +115,6 @@ export function decryptUserData(encryptedData: string): any | null {
     console.warn('User data decryption failed:', error);
     return null;
   }
-}
-
-// 이메일 마스킹
-function maskEmail(email: string): string {
-  if (!email) return '';
-  const [localPart, domain] = email.split('@');
-  if (localPart.length <= 2) {
-    return '*'.repeat(localPart.length) + '@' + domain;
-  }
-  return localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1] + '@' + domain;
-}
-
-// 이름 마스킹
-function maskName(name: string): string {
-  if (!name) return '';
-  if (name.length <= 2) {
-    return name[0] + '*'.repeat(name.length - 1);
-  }
-  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1];
-}
-
-// 전화번호 마스킹
-function maskPhone(phone: string): string {
-  if (!phone) return '';
-  return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
 }
 
 // 보안 토큰 유틸리티

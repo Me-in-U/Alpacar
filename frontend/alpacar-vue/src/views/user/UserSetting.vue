@@ -31,7 +31,7 @@
               전화번호
             </div>
             <div class="setting-row__value">
-              {{ formatPhoneNumber(userInfo?.phone) || '-' }}
+              {{ isLoadingUserInfo ? '로딩 중...' : (formatPhoneNumber(userInfo?.phone) || '-') }}
             </div>
           </div>
           <span class="chevron" aria-hidden="true">
@@ -229,7 +229,7 @@
         </h3>
 
         <div class="email-info">
-          <span>{{ userInfo?.email }}로 인증번호를 발송합니다.</span>
+          <span>{{ isLoadingUserInfo ? '로딩 중...' : userInfo?.email }}로 인증번호를 발송합니다.</span>
         </div>
 
         <div class="verification-step">
@@ -289,11 +289,35 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
+import { apiClient } from "@/api/parking";
 
 /* ====== 스토어 ====== */
 const router = useRouter();
 const userStore = useUserStore();
-const userInfo = computed(() => userStore.me);
+
+// 동적으로 로딩되는 사용자 상세 정보 (민감정보 포함)
+const detailedUserInfo = ref<any>(null);
+const isLoadingUserInfo = ref(false);
+
+// 로컬 스토리지의 기본 사용자 정보 (민감정보 제외)
+const userInfo = computed(() => detailedUserInfo.value || userStore.me);
+
+// 민감한 사용자 정보 동적 로딩
+const loadDetailedUserInfo = async () => {
+  if (isLoadingUserInfo.value) return;
+  
+  try {
+    isLoadingUserInfo.value = true;
+    const userData = await userStore.fetchDetailedUserInfo();
+    detailedUserInfo.value = userData;
+    console.log('[UserSetting] 사용자 상세 정보 로딩 완료');
+  } catch (error) {
+    console.error('[UserSetting] 사용자 정보 로딩 실패:', error);
+    alert('사용자 정보를 불러오는데 실패했습니다.');
+  } finally {
+    isLoadingUserInfo.value = false;
+  }
+};
 
 const goToUserProfile = () => {
   router.push('/user-profile'); // 또는 router.back();
@@ -304,11 +328,11 @@ const isSocialUser = computed(() => {
   return userInfo.value?.is_social_user || false;
 });
 
-const getAccessToken = () =>
-  localStorage.getItem("access_token") ||
-  sessionStorage.getItem("access_token") ||
-  localStorage.getItem("access") ||
-  sessionStorage.getItem("access");
+// const getAccessToken = () =>
+//   localStorage.getItem("access_token") ||
+//   sessionStorage.getItem("access_token") ||
+//   localStorage.getItem("access") ||
+//   sessionStorage.getItem("access");
 
 /* ====== 행(꺾쇠) 클릭 핸들러 ====== */
 const openPhoneModal = () => {
@@ -361,11 +385,22 @@ const emailVerified = ref(false);
 const verificationCode = ref("");
 const verificationTarget = ref<'phone' | 'password'>('phone');
 
-const requestPhoneChange = () => {
+const requestPhoneChange = async () => {
   if (!newPhoneNumber.value.trim()) {
     alert("새 전화번호를 입력해주세요.");
     return;
   }
+  
+  // 사용자 정보가 로딩되지 않았으면 로딩
+  if (!detailedUserInfo.value) {
+    await loadDetailedUserInfo();
+  }
+  
+  if (!userInfo.value?.email) {
+    alert("이메일 정보를 불러오는데 실패했습니다.");
+    return;
+  }
+  
   verificationTarget.value = "phone";
   emailSent.value = false;
   emailVerified.value = false;
@@ -373,48 +408,34 @@ const requestPhoneChange = () => {
   showEmailVerificationModal.value = true;
 };
 
+// 도우미: 상세정보 강제 새로고침
+const refreshDetailedUserInfo = async () => {
+  try {
+    // 재요청(캐시 회피용 파라미터)
+    const fresh = await apiClient.get("/users/me/", { params: { _ts: Date.now() } });
+    detailedUserInfo.value = fresh.data; // 화면에 즉시 반영
+  } catch (e) {
+    console.warn("[UserSetting] 상세정보 새로고침 실패(무시):", e);
+  }
+};
+
 const executePhoneChange = async () => {
   if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
   if (!newPhoneNumber.value || !isPhoneValid.value) { alert("올바른 전화번호를 입력해주세요."); return; }
 
-  const token = getAccessToken();
-  if (!token) {
-    alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
-    router.push("/login");
-    return;
-  }
-
-  // PUT을 요구하는 백엔드 대비: 필요한 필드는 모두 채워서 보냄
   const payload = {
     phone: newPhoneNumber.value,
     nickname: userInfo.value?.nickname ?? "",
-    name: userInfo.value?.name ?? ""
-    // email은 보통 서버에서 읽기전용이므로 보내지 않음
+    name: userInfo.value?.name ?? "",
   };
 
   try {
-    const res = await fetch(`${BACKEND_BASE_URL}/users/me/`, {
-      method: "PUT",                        // ★ PATCH 대신 PUT
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": `Bearer ${token}` // ★ 인증 헤더 추가
-      },
-      body: JSON.stringify(payload)
-      // (만약 쿠키 세션 기반이라면) credentials: "include" 도 추가
-    });
+    await apiClient.put("/users/me/", payload);   // ← fetch 대신 apiClient 사용
 
-    if (res.status === 401) {
-      alert("인증이 만료되었습니다. 다시 로그인해주세요.");
-      router.push("/login");
-      return;
-    }
-    if (!res.ok) {
-      let msg = "서버 오류";
-      try { const e = await res.json(); msg = e.detail || e.message || msg; } catch {}
-      alert("전화번호 변경 실패: " + msg);
-      return;
-    }
+    detailedUserInfo.value = {
+      ...(detailedUserInfo.value || {}),
+      phone: newPhoneNumber.value,
+    };
 
     alert("전화번호가 성공적으로 변경되었습니다.");
     showEmailVerificationModal.value = false;
@@ -424,15 +445,25 @@ const executePhoneChange = async () => {
     emailSent.value = false;
     emailVerified.value = false;
     verificationCode.value = "";
-    // 최신 정보 반영
-    // await userStore.fetchMe(token);
-  } catch (e) {
-    console.error(e);
-    alert("전화번호 변경 중 오류가 발생했습니다.");
+
+    // 실제 서버 값으로 확정 반영 (스토어 요약 + 상세 동시 갱신)
+    await Promise.all([
+      userStore.fetchMe(),            // 요약 정보 갱신(전화번호는 저장 X이지만 세션 최신화)
+      refreshDetailedUserInfo(),      // 상세 정보 갱신(화면에 바인딩되는 값)
+    ]);
+  } catch (e: any) {
+    if (e?.code === "SESSION_EXPIRED") {
+      userStore.clearUser();
+      router.push("/login");
+      return;
+    }
+    const msg =
+      e?.response?.data?.detail ||
+      e?.response?.data?.message ||
+      e?.message || "서버 오류";
+    alert("전화번호 변경 실패: " + msg);
   }
 };
-
-
 
 /* ====== 비밀번호 ====== */
 const showPasswordModal = ref(false);
@@ -459,7 +490,17 @@ const isPasswordValid = computed(() =>
 );
 const isPasswordConfirmValid = computed(() => confirmPassword.value === newPassword.value && confirmPassword.value.length > 0);
 
-const requestPasswordChange = () => {
+const requestPasswordChange = async () => {
+  // 사용자 정보가 로딩되지 않았으면 로딩
+  if (!detailedUserInfo.value) {
+    await loadDetailedUserInfo();
+  }
+  
+  if (!userInfo.value?.email) {
+    alert("이메일 정보를 불러오는데 실패했습니다.");
+    return;
+  }
+  
   verificationTarget.value = "password";
   emailSent.value = false;
   emailVerified.value = false;
@@ -555,6 +596,9 @@ const checkAuthenticationStatus = () => {
 onMounted(async () => {
   if (!checkAuthenticationStatus()) return;
 
+  // 사용자 상세 정보 로딩
+  await loadDetailedUserInfo();
+
   const cleanupTokens = () => {
     sessionStorage.removeItem('user-setting-one-time-auth');
     console.log('[UserSetting] 페이지 이탈 시 토큰 정리');
@@ -586,7 +630,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   width: 440px;
   height: 956px;
   position: relative;
-  background: #f3edea;
+  background: #F9F5EC;
   overflow: hidden;
   margin: 0 auto;
 }
@@ -697,7 +741,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 }
 
 .modal {
-  background: #f3eeea;
+  background: #F9F5EC;
   width: 90%;
   max-width: 360px;
   padding: 27px 24px 32px;

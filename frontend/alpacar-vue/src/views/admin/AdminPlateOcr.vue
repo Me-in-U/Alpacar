@@ -90,11 +90,11 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh; /* 화면 전체 높이 */
-	background-color: #f3eeea; /* 페이지 배경색 */
+	background-color: #F9F5EC; /* 페이지 배경색 */
 }
 
 .container {
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	min-height: calc(100vh - 64px); /* 네비게이션바 높이 감안 */
 	padding: 48px 64px;
 	box-sizing: border-box;

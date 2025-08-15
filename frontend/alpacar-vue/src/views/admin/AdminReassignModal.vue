@@ -56,7 +56,7 @@ function goAdminMain() {
   max-width: 448px;
   padding: 30px;
   box-sizing: border-box;
-  background-color: #f3eeea;
+  	background-color: #F9F5EC;
   border: 2px solid #000;
   box-shadow: 0 6px 4px rgba(0, 0, 0, 0.25);
 
@@ -93,7 +93,7 @@ function goAdminMain() {
   min-width: 80px;
   height: 40px;
   padding: 0 24px;          /* 세로 패딩 제거, 좌우 패딩만 유지 */
-  background-color: #776B5D;
+  	background-color: #4B3D34;
   color: #fff;
   border: none;
   font-size: 16px;

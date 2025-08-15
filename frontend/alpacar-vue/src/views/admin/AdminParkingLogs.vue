@@ -85,39 +85,50 @@ export default defineComponent({
 		const loading = ref(false);
 		let ws: WebSocket;
 
-		// 페이지 불러오기
+		// 항상 BACKEND_BASE_URL을 기준으로 page 파라미터만 추출 → /api 경로 유지하여 재조립
 		const normalizePageUrl = (url: string | null) => {
 			if (!url) return null;
+
+			let page = "1";
 			try {
-				const u = new URL(url, window.location.origin);
-				const page = u.searchParams.get("page") || "1";
-				return `${BACKEND_BASE_URL}/vehicle-events/?page=${page}`;
+				// 절대/상대 모두 파싱: 기준을 BACKEND_BASE_URL로 둔다
+				const parsed = new URL(url, BACKEND_BASE_URL);
+				page = parsed.searchParams.get("page") || "1";
 			} catch {
-				// 이미 상대경로거나 query만 온 케이스
-				return url;
+				const m = url.match(/[?&]page=(\d+)/);
+				if (m) page = m[1];
 			}
+
+			// BACKEND_BASE_URL = https://i13e102.p.ssafy.io/api  (뒤 슬래시 유무 모두 커버)
+			const apiBase = new URL(BACKEND_BASE_URL);
+			const apiBasePath = apiBase.pathname.replace(/\/$/, ""); // '/api'
+			return `${apiBase.origin}${apiBasePath}/vehicle-events/?page=${page}`;
 		};
-		const fetchPage = async (url = `${BACKEND_BASE_URL}/vehicle-events/?page=1`) => {
+
+		const fetchPage = async (url: string | null = `${BACKEND_BASE_URL}/vehicle-events/?page=1`) => {
+			url = normalizePageUrl(url); // ✅ 여기 중요
 			loading.value = true;
+
 			const token = SecureTokenManager.getSecureToken("access_token");
-			const res = await fetch(url, {
+			const res = await fetch(url!, {
 				method: "GET",
 				headers: {
 					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 				},
 			});
+
 			if (!res.ok) {
-				loading.value = false; // ✅ 실패 시에도 로딩 해제
+				loading.value = false;
 				console.log("이벤트 불러오기 실패", res.status, res.statusText);
 				alert("페이지 로딩 실패");
 				throw new Error("이벤트 불러오기 실패");
 			}
-			console.log("이벤트 불러오기 성공", res.status, res.statusText);
+
 			const data = await res.json();
 			logs.value = data.results;
-			nextPage.value = data.next;
-			prevPage.value = data.previous;
+			nextPage.value = normalizePageUrl(data.next); // ✅ 저장 시 정규화
+			prevPage.value = normalizePageUrl(data.previous); // ✅ 저장 시 정규화
 			loading.value = false;
 		};
 		const formatDate = (iso: string | null) => {
@@ -297,11 +308,11 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 }
 
 .container {
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	min-height: calc(100vh - 64px);
 	padding: 48px 64px;
 	box-sizing: border-box;

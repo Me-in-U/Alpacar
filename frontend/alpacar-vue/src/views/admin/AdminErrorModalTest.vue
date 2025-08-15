@@ -30,7 +30,7 @@ const showError     = ref(false)
 .open-btn {
   margin: 12px 0;
   padding: 10px 20px;
-  background: #776b5d;
+  	background: #4B3D34;
   color: #fff;
   border: none;
   border-radius: 6px;

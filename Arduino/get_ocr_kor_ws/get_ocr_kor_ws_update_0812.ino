@@ -1,11 +1,13 @@
-// 번호판 인식시 Django 서버로부터 받은 텍스트를 OLED에 표시하는 ESP8266 코드
-
+// ==============================
+// ESP8266 Plate Display (OLED)
+// 출입관리 차단바: ws/text/ 브로드캐스트 수신
+// ==============================
 #include <ESP8266WiFi.h>
 #include <WebSocketsClient.h>  // Markus Sattler WebSockets
 #include <Wire.h>
 #include <U8g2lib.h>
-#include <Servo.h>  // 서보 모터
-// #include <Adafruit_VL53L0X.h>  // VL53L0X 거리센서
+#include <Servo.h>             // 서보 모터
+#include <Adafruit_VL53L0X.h>  // VL53L0X 거리센서
 
 // === Wi‑Fi 설정 ===
 const char* SSID = "E102";
@@ -49,8 +51,8 @@ String lastShown = "";
 void drawMultilineUTF8(const String& raw) {
   const int SCREEN_W = 128;
   const int SCREEN_H = 64;
-  const int LEFT_PAD  = 0;
-  const int TOP_PAD   = 2;   // 상단 잘림 방지용
+  const int LEFT_PAD = 0;
+  const int TOP_PAD = 2;  // 상단 잘림 방지용
   const int RIGHT_PAD = 0;
 
   // 1) \r\n, \r → \n 정규화
@@ -62,9 +64,9 @@ void drawMultilineUTF8(const String& raw) {
   do {
     u8g2.setFont(u8g2_font_unifont_t_korean2);
     u8g2.setFontDirection(0);
-    u8g2.setFontPosTop(); // y 기준을 top으로
+    u8g2.setFontPosTop();  // y 기준을 top으로
     const int lineH = u8g2.getMaxCharHeight();
-    const int maxW  = SCREEN_W - LEFT_PAD - RIGHT_PAD;
+    const int maxW = SCREEN_W - LEFT_PAD - RIGHT_PAD;
 
     // 2) '\n' 기준 1차 분할
     //    각 물리 줄을 다시 폭 기준으로 감싸기
@@ -87,9 +89,7 @@ void drawMultilineUTF8(const String& raw) {
       String line = "";
       for (uint16_t i = 0; i < phys.length();) {
         uint8_t c = phys[i];
-        uint8_t step = (c < 0x80) ? 1
-                       : ((c & 0xE0) == 0xC0 ? 2
-                       : ((c & 0xF0) == 0xE0 ? 3 : 4));
+        uint8_t step = (c < 0x80) ? 1 : ((c & 0xE0) == 0xC0 ? 2 : ((c & 0xF0) == 0xE0 ? 3 : 4));
         String next = phys.substring(i, i + step);
         String test = line + next;
 
@@ -102,7 +102,7 @@ void drawMultilineUTF8(const String& raw) {
           u8g2.setCursor(LEFT_PAD, y);
           u8g2.print(line);
           y += lineH;
-          line = next; // 다음 줄 시작
+          line = next;  // 다음 줄 시작
           i += step;
         }
       }
@@ -112,8 +112,7 @@ void drawMultilineUTF8(const String& raw) {
         u8g2.print(line);
         y += lineH;
       }
-
-      if (y + lineH > SCREEN_H) break; // 화면 꽉 찼으면 종료
+      if (y + lineH > SCREEN_H) break;  // 화면 꽉 찼으면 종료
     }
   } while (u8g2.nextPage());
 }

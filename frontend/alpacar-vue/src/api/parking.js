@@ -1,13 +1,13 @@
 // src/api/parking.js
 import axios from 'axios'
-import { BACKEND_BASE_URL } from '@/utils/api'
+import { BACKEND_BASE_URL, tryRefreshToken } from '@/utils/api'
 import { SecureTokenManager } from '@/utils/security'
 
 // API 기본 URL 설정 - utils/api.ts의 설정 사용
 const API_BASE_URL = BACKEND_BASE_URL
 
 // axios 인스턴스 생성
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000, // 30초 타임아웃으로 증가 (배포 환경 고려)
   headers: {
@@ -15,6 +15,17 @@ const apiClient = axios.create({
   },
   withCredentials: false // CORS 문제 방지
 })
+
+// 동시 401 대응용
+let isRefreshing = false;
+let refreshQueue = [];
+
+// 새 토큰이 준비되면 대기중 요청 재개
+function resolveQueue(newAccess) {
+  refreshQueue.forEach((cb) => cb(newAccess));
+  refreshQueue = [];
+}
+
 
 // 요청 인터셉터 - 토큰 자동 추가 (SecureTokenManager 사용)
 apiClient.interceptors.request.use(
@@ -40,10 +51,43 @@ apiClient.interceptors.response.use(
     console.log('API Response:', response.config.url, response.status)
     return response
   },
-  error => {
+  async (error) => {
     console.error('Response Error:', error)
     console.error('API Base URL:', API_BASE_URL)
     
+    // 401 처리 (refresh 로직 추가)
+    if (error?.response?.status === 401 && !error.config._retry) {
+      const originalRequest = error.config;
+      originalRequest._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshQueue.push((newAccess) => {
+            if (newAccess) {
+              originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+              resolve(apiClient(originalRequest));
+            } else {
+              reject(error);
+            }
+          });
+        });
+      }
+
+      isRefreshing = true;
+      const newAccess = await tryRefreshToken().catch(() => null);
+      isRefreshing = false;
+      resolveQueue(newAccess);
+
+      if (newAccess) {
+        apiClient.defaults.headers.common.Authorization = `Bearer ${newAccess}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+        return apiClient(originalRequest);
+      } else {
+        error.message = "인증이 필요합니다. 다시 로그인해주세요.";
+        return Promise.reject(error);
+      }
+    }
+
     if (error.code === 'ECONNABORTED') {
       console.error('Request timeout')
       error.message = '요청 시간이 초과되었습니다. 다시 시도해주세요.'
@@ -104,5 +148,4 @@ export const parkingAPI = {
     return apiClient.post(`/parking/complete/${assignmentId}/`)
   }
 }
-
 export default parkingAPI

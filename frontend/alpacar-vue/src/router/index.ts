@@ -29,7 +29,7 @@ import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 import { SecureTokenManager } from "@/utils/security";
 import UserSetting from "@/views/user/UserSetting.vue";
-import MainTest from "@/views/user/MainTest.vue";
+
 
 // 보안 강화된 로그인 상태 확인 함수
 async function isAuthenticated(): Promise<boolean> {
@@ -391,7 +391,7 @@ router.beforeEach(async (to, from, next) => {
 				console.log(`[ROUTER GUARD] 비밀번호 인증이 필요한 페이지 접근: ${to.path}`);
 
 				const userStore = useUserStore();
-				const userEmail = userStore.me?.email;
+				// 이메일 정보는 비밀번호 인증에서 동적으로 로딩됨
 
 				// 소셜 로그인 유저 여부 확인
 				const isSocialUser = userStore.me?.is_social_user || false;

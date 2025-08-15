@@ -221,7 +221,7 @@ onMounted(async () => {
 	left: 0;
 	right: 0;
 	height: 60px;
-	background: #776b5d;
+	background: #4B3D34;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -282,7 +282,7 @@ onMounted(async () => {
 .modal-content {
 	width: 440px;
 	height: 500px;
-	background-color: #f3eeea;
+	background-color: #F9F5EC;
 	border-radius: 12px;
 	display: flex;
 	flex-direction: column;
@@ -357,7 +357,7 @@ onMounted(async () => {
 }
 
 .notification-item.unread {
-	border-left: 4px solid #776b5d;
+	border-left: 4px solid #4B3D34;
 	background: #f0ede8;
 }
 
@@ -367,7 +367,7 @@ onMounted(async () => {
 }
 
 .load-more-button {
-	background: #776b5d;
+	background: #4B3D34;
 	color: white;
 	border: none;
 	border-radius: 6px;
@@ -379,7 +379,7 @@ onMounted(async () => {
 }
 
 .load-more-button:hover:not(:disabled) {
-	background: #665a4d;
+	background: #594D44;
 }
 
 .load-more-button:disabled {
@@ -455,7 +455,7 @@ onMounted(async () => {
 .close-button {
 	width: 280px;
 	height: 50px;
-	background-color: #776b5d;
+	background-color: #4B3D34;
 	color: #ffffff;
 	border: none;
 	border-radius: 8px;
@@ -467,9 +467,9 @@ onMounted(async () => {
 }
 
 .close-button:hover {
-	background-color: #665a4d;
+	background-color: #594D44;
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(119, 107, 93, 0.3);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 
 /* Switch */

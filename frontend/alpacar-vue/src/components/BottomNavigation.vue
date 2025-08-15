@@ -186,7 +186,7 @@ const goToUserProfile = async () => {
 
 .nav-label {
   font-size: 10px;
-  color: #776b5d;
+  color: #4B3D34;
   margin-top: 4px;
   text-align: center;
   font-family: "Inter", sans-serif;
