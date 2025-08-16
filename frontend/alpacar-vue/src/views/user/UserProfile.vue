@@ -197,7 +197,8 @@
 				<div class="license-status" v-if="vehicleNumber">
 					<span v-if="plateStatus === 'checking'" class="status checking">확인 중...</span>
 					<span v-else-if="plateStatus === 'ok'" class="status ok">✔ 사용 가능</span>
-					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량</span>
+					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량번호입니다</span>
+					<span v-else-if="plateStatus === 'invalid'" class="status invalid">✗ 등록된 차량번호가 아닙니다</span>
 					<span v-else-if="plateStatus === 'error'" class="status error">검증 실패, 다시 시도</span>
 					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요 (예: 12가3456)</span>
 				</div>
@@ -374,8 +375,8 @@ const plateRegex = new RegExp(
 
 const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
 
-// 실시간 중복 상태: idle | checking | ok | duplicate | error
-const plateStatus = ref<"idle" | "checking" | "ok" | "duplicate" | "error">("idle");
+// 실시간 중복 상태: idle | checking | ok | duplicate | invalid | error
+const plateStatus = ref<"idle" | "checking" | "ok" | "duplicate" | "invalid" | "error">("idle");
 let plateTimer: ReturnType<typeof setTimeout> | null = null;
 
 const canAddVehicle = computed(() => isVehicleNumberValid.value && plateStatus.value === "ok");
@@ -411,11 +412,35 @@ watch(vehicleNumber, () => {
 	plateStatus.value = "checking";
 	plateTimer = setTimeout(async () => {
 		try {
-			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`);
-			if (!res.ok) throw new Error();
+			const url = `${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`;
+			console.log('[차량번호 검증] 요청 URL:', url);
+			console.log('[차량번호 검증] 원본 번호:', vehicleNumber.value);
+			console.log('[차량번호 검증] 인코딩된 번호:', encodeURIComponent(vehicleNumber.value));
+			
+			const res = await fetch(url);
+			console.log('[차량번호 검증] 응답 상태:', res.status, res.statusText);
+			
+			if (!res.ok) {
+				console.error('[차량번호 검증] HTTP 오류:', res.status, res.statusText);
+				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+			}
+			
 			const data = await res.json();
-			plateStatus.value = data.exists ? "duplicate" : "ok";
-		} catch {
+			console.log('[차량번호 검증] 응답 데이터:', data);
+			
+			// 새로운 API 응답 형식 처리
+			if (data.status === "valid") {
+				plateStatus.value = "ok";
+			} else if (data.status === "duplicate") {
+				plateStatus.value = "duplicate";
+			} else if (data.status === "invalid") {
+				plateStatus.value = "invalid";
+			} else {
+				console.warn('[차량번호 검증] 예상치 못한 status:', data.status);
+				plateStatus.value = "error";
+			}
+		} catch (error) {
+			console.error('[차량번호 검증] 에러:', error);
 			plateStatus.value = "error";
 		}
 	}, 400);
@@ -1309,6 +1334,9 @@ onMounted(async () => {
 }
 .status.duplicate {
 	color: #f44336;
+}
+.status.invalid {
+	color: #e91e63;
 }
 .status.error {
 	color: #ff9800;
