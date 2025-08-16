@@ -187,6 +187,11 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
 
             used_label = slot_label or assigned_label or occupied_label
 
+            # ✅ 2.5) 유저 테이블 점수 갱신 (활성 이벤트의 차량 소유자 기준)
+            ok_user, msg_user, user_id = await self._update_user_score_for_plate(
+                plate, score
+            )
+
             # 3) ACK
             await self.send(
                 text_data=json.dumps(
@@ -200,6 +205,8 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                         "mismatch": mismatch,
                         "expected": assigned_label,
                         "received": slot_label or None,
+                        "user_score_update": "ok" if ok_user else "skip",
+                        "user_id": user_id,
                     },
                     ensure_ascii=False,
                 )
@@ -468,6 +475,70 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
         if not num_str.isdigit():
             return None
         return z, int(num_str)
+
+    @database_sync_to_async
+    def _update_user_score_for_plate(
+        self, plate: str, score: int
+    ) -> tuple[bool, str, int | None]:
+        """
+        현재 활성 VehicleEvent(plate, exit_time is null)를 통해 연관 유저를 찾아
+        accounts_user.score 를 최신 score 로 갱신한다.
+        - vehicle.owner / vehicle.user / vehicle.account / event.user / event.owner 순으로 탐색
+        """
+        try:
+            ev = (
+                VehicleEvent.objects.select_related("vehicle")
+                .filter(vehicle__license_plate=plate, exit_time__isnull=True)
+                .order_by("-id")
+                .first()
+            )
+            if not ev:
+                return False, "active event not found", None
+
+            # 유저 추정 경로 탐색
+            user = None
+            veh = getattr(ev, "vehicle", None)
+            candidates = []
+            if veh:
+                candidates += [
+                    getattr(veh, a, None)
+                    for a in ("owner", "user", "account", "driver", "member")
+                ]
+            candidates += [getattr(ev, a, None) for a in ("user", "owner", "account")]
+            for u in candidates:
+                if u is not None:
+                    user = u
+                    break
+
+            if not user:
+                return False, "user not linked to vehicle/event", None
+
+            # score 필드가 있을 때만 갱신
+            if not hasattr(user, "score"):
+                return False, "user has no 'score' field", getattr(user, "id", None)
+
+            # 0~100 범위로 클램핑(원하지 않으면 제거)
+            try:
+                s = int(score)
+            except Exception:
+                s = 0
+            s = max(0, min(100, s))
+
+            user.score = s
+            # updated_at 이 있으면 함께 갱신
+            if hasattr(user, "updated_at"):
+                from django.utils import timezone
+
+                user.updated_at = timezone.now()
+
+            update_fields = ["score"]
+            if hasattr(user, "updated_at"):
+                update_fields.append("updated_at")
+            user.save(update_fields=update_fields)
+
+            return True, "user score updated", getattr(user, "id", None)
+        except Exception as e:
+            return False, f"error: {e}", None
 
 
 # =========================
