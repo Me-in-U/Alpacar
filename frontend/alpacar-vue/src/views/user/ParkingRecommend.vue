@@ -44,15 +44,7 @@
 					</div>
 
 					<!-- 🔻 강제 표시 중 알림 & 되돌리기 -->
-					<div v-if="forceShowMap" class="force-hint">
-						카메라 인식 없이 지도를 표시 중입니다.
-						<button class="skip-btn ghost sm" @click="forceShowMap = false">라이브로 전환</button>
-					</div>
-					<!-- 🔻 새 토글 버튼 -->
-					<div class="view-toggle">
-						<button :class="['toggle-btn', { active: !showOnlyMine }]" @click="showOnlyMine = false">다른 차도 보기</button>
-						<button :class="['toggle-btn', { active: showOnlyMine }]" @click="showOnlyMine = true">내 차만 보기</button>
-					</div>
+					<div v-if="forceShowMap" class="force-hint">인식된 차량 없이 지도를 표시 중입니다.</div>
 				</section>
 
 				<div class="map-section">
@@ -91,27 +83,29 @@
 							<div class="gate-box"></div>
 						</div>
 						<!-- 차량 오버레이 (내 차량 하이라이트) -->
-						<!-- 차량 오버레이 (내 차량 하이라이트) -->
 						<svg class="overlay" viewBox="0 0 900 550" preserveAspectRatio="none">
-							<!-- 🔻 화살표 머리 -->
+							<!-- 화살표 머리 -->
 							<defs>
 								<marker id="arrowhead" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
 									<path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4dd2" />
 								</marker>
 							</defs>
 
-							<!-- 🔻 안내 라인 -->
+							<!-- 안내 라인 -->
 							<path v-if="arrowD" :d="arrowD" class="guide-path" marker-end="url(#arrowhead)" />
+							<!-- 내 차 사진 -->
+							<image v-if="myCarTransform" :href="myCarPng" width="1" height="1" preserveAspectRatio="none" :transform="myCarTransform" opacity="0.95" />
 
-							<!-- 기존 차량 폴리곤/라벨 -->
-							<!-- 기존 차량 폴리곤/라벨 (필터 적용) -->
+							<!-- 미주차 차량만 SVG로 그림(회전 포함) -->
 							<g v-for="obj in filteredVehicles" :key="obj.track_id">
-								<template v-if="!isVehicleParked(obj.track_id) || myPlatesSet.has(obj.track_id)">
-									<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" :stroke="myPlatesSet.has(obj.track_id) ? '#00e5ff' : '#ff0'" stroke-width="3" />
+								<template v-if="!isVehicleParked(obj.track_id)">
 									<template v-if="myPlatesSet.has(obj.track_id)">
-										<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="14" fill="#00e5ff" text-anchor="middle">
+										<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY + 50" font-size="30" fill="#00FF66" text-anchor="middle">
 											{{ obj.track_id }}
 										</text>
+									</template>
+									<template v-else>
+										<image :href="navi_topview_car_1" width="1" height="1" preserveAspectRatio="none" :transform="matrixFromCorners(obj.corners)" opacity="0.95" />
 									</template>
 								</template>
 							</g>
@@ -129,19 +123,11 @@
 										:data-spot-id="spot"
 										:style="{
 											...(idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}),
-											...(statusMap[spot] === 'occupied'
-												? {
-														backgroundImage: `url(${OCCUPIED_IMG_URL})`,
-														backgroundSize: 'cover',
-														backgroundPosition: 'center',
-														backgroundRepeat: 'no-repeat',
-														borderColor: '#fff',
-												  }
-												: {}),
 										}"
 										:class="spotClasses(spot)"
 									>
-										{{ spot }}
+										<span class="slot-label">{{ spot }}</span>
+										<img v-if="statusMap[spot] === 'occupied'" :src="OCCUPIED_IMG_URL" alt="" class="slot-car" :style="{ transform: `rotate(${idx === 0 ? 90 : -90}deg)`, scale: 1.8 }" />
 									</div>
 								</template>
 
@@ -157,19 +143,11 @@
 										:data-spot-id="spot"
 										:style="{
 											...(idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}),
-											...(statusMap[spot] === 'occupied'
-												? {
-														backgroundImage: `url(${navi_topview_car_1})`,
-														backgroundSize: 'cover',
-														backgroundPosition: 'center',
-														backgroundRepeat: 'no-repeat',
-														borderColor: '#fff',
-												  }
-												: {}),
 										}"
 										:class="spotClasses(spot)"
 									>
-										{{ spot }}
+										<span class="slot-label">{{ spot }}</span>
+										<img v-if="statusMap[spot] === 'occupied'" :src="OCCUPIED_IMG_URL" alt="" class="slot-car" :style="{ transform: `rotate(${idx === 0 ? 90 : -90}deg)`, scale: 1.8 }" />
 									</div>
 								</template>
 							</div>
@@ -181,7 +159,6 @@
 						<!-- 추천 핀 -->
 						<img class="pin" src="@/assets/pin.png" alt="pin" v-if="pinStyle.top" :style="pinStyle" />
 						<!-- 내 차 아이콘(연출용) -->
-						<img class="car" src="@/assets/my-car.png" alt="car" />
 					</div>
 
 					<div class="legend">
@@ -191,7 +168,7 @@
 						</div>
 						<div class="legend-item">
 							<div class="box occupied"></div>
-							<span>사용 중</span>
+							<span>사용 중(차량 표시)</span>
 						</div>
 						<div class="legend-item">
 							<div class="box empty"></div>
@@ -224,10 +201,18 @@ import { useRouter } from "vue-router";
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
 import { useUserStore } from "@/stores/user";
+import myCarPng from "@/assets/my-car.png";
 import navi_topview_car_1 from "@/assets/navi_topview_car_1.png";
 /** 점유 슬롯 표시용 이미지 URL (실 URL로 교체 필요) */
 const OCCUPIED_IMG_URL = navi_topview_car_1;
-
+/* 차량 텔레메트리 */
+type TelemetryCar = {
+	track_id: string;
+	center: [number, number];
+	corners: number[];
+	state?: string;
+	suggested?: string;
+};
 /* ==== 지도 강제 표시 토글 ==== */
 const forceShowMap = ref(false);
 
@@ -245,6 +230,22 @@ let lostTimer: number | null = null;
 // 현재 프레임에서 "내 차"가 있는지 마지막 판단 캐시
 let lastFrameHasMine = false;
 
+/** corners(+offset) -> SVG matrix (스케일 없이 OBB에 정확히 맞춤) */
+function matrixFromCorners(corners: number[] | number[][]): string {
+	const quadRaw = toQuad(corners, layout.carOffsetX, layout.carOffsetY);
+	if (!quadRaw) return "";
+	const [p0, p1, , p3] = normalizeQuad(quadRaw);
+
+	// u: 폭 벡터, v: 높이 벡터
+	const ux = p1.x - p0.x,
+		uy = p1.y - p0.y;
+	const vx = p3.x - p0.x,
+		vy = p3.y - p0.y;
+
+	// unit 1x1 이미지를 p0 원점에서 u,v로 매핑
+	return `matrix(${ux} ${uy} ${vx} ${vy} ${p0.x} ${p0.y})`;
+}
+
 // 안전하게 상태 전환하는 헬퍼
 function setRecognizedStable(next: boolean) {
 	if (next === isCarRecognized.value) return;
@@ -257,6 +258,55 @@ function setRecognizedStable(next: boolean) {
 		// resetPin();                // 핀 초기화도 원치 않으면 주석
 	}
 }
+
+function toQuad(c: number[] | number[][], offsetX = 0, offsetY = 0) {
+	const first = (c as any)[0];
+	const flat: number[] = Array.isArray(first) ? (c as number[][]).flat() : (c as number[]);
+	if (!flat || flat.length < 8) return null;
+	const pts = [
+		{ x: flat[0] + offsetX, y: flat[1] + offsetY },
+		{ x: flat[2] + offsetX, y: flat[3] + offsetY },
+		{ x: flat[4] + offsetX, y: flat[5] + offsetY },
+		{ x: flat[6] + offsetX, y: flat[7] + offsetY },
+	];
+	return pts;
+}
+
+// 내 차 탐색(우선 currentPlate → 없으면 내 차량 목록)
+function getMyCar(): TelemetryCar | null {
+	if (currentPlate.value) {
+		return vehicles.value.find((v) => String(v.track_id) === currentPlate.value) || null;
+	}
+	for (const v of vehicles.value) {
+		if (myPlatesSet.has(String(v.track_id))) return v;
+	}
+	return null;
+}
+// 코너 순서가 가끔 뒤죽박죽이면 TL,TR,BR,BL로 정규화
+function normalizeQuad(pts: { x: number; y: number }[]) {
+	if (pts.length !== 4) return pts;
+	const cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
+	const cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
+
+	// 중심 기준 각도로 반시계 정렬
+	const sorted = [...pts].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+
+	// (x+y)가 가장 작은 점을 TL로 선택
+	const idxTL = sorted.reduce((bestIdx, _, idx) => {
+		const best = sorted[bestIdx],
+			cur = sorted[idx];
+		return cur.x + cur.y < best.x + best.y ? idx : bestIdx;
+	}, 0);
+
+	return [...sorted.slice(idxTL), ...sorted.slice(0, idxTL)];
+}
+
+const myCarTransform = computed<string>(() => {
+	const _mineCount = (myPlatesSet as Set<string>).size; // 반응성 유지
+	const car = getMyCar();
+	if (!car) return "";
+	return matrixFromCorners(car.corners);
+});
 
 /* ===== WS 엔드포인트 (관리자와 동일) ===== */
 const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
@@ -296,7 +346,6 @@ const layout = reactive({
 });
 
 /* 슬롯 상태/매핑 */
-/* 슬롯 상태/매핑 */
 type SlotStatus = "free" | "occupied" | "reserved";
 const statusMap = reactive<Record<string, SlotStatus>>({});
 const spaceVehicleMap = reactive<Record<string, { plate: string | null }>>({});
@@ -325,14 +374,6 @@ function initStatusMap() {
 }
 initStatusMap();
 
-/* 차량 텔레메트리 */
-type TelemetryCar = {
-	track_id: string;
-	center: [number, number];
-	corners: number[];
-	state?: string;
-	suggested?: string;
-};
 const vehicles = ref<TelemetryCar[]>([]);
 
 /* ==== 필터링된 차량 목록 getter ==== */
@@ -781,7 +822,7 @@ onBeforeUnmount(() => {
 	border-top: 3px dashed #fff;
 	margin: var(--divider-m) 0; /* 절대포지션 → 변수 마진 */
 }
-/* 슬롯은 전부 변수 기반 크기 */
+/* 슬롯 */
 .slot {
 	position: relative;
 	width: var(--slot-w);
@@ -816,6 +857,22 @@ onBeforeUnmount(() => {
 	border: 0;
 	background: transparent;
 }
+/* 슬롯 라벨 & 이미지 */
+.slot-label {
+	position: relative;
+	z-index: 1;
+}
+.slot-car {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: contain; /* ← cover → fill 로 변경 (회전 후에도 꽉 차게) */
+	transform-origin: center center;
+	z-index: 0;
+	pointer-events: none;
+	opacity: 0.95;
+}
 
 /* SVG 오버레이 */
 .overlay {
@@ -830,13 +887,6 @@ onBeforeUnmount(() => {
 	position: absolute;
 	width: 24px;
 	height: 24px;
-}
-.car {
-	position: absolute;
-	top: calc(50% + 12.5px);
-	left: 10px;
-	width: 50px;
-	height: 25px;
 }
 
 /* 범례 */
