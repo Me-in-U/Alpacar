@@ -179,6 +179,14 @@
 		<!-- 차량 추가 모달 -->
 		<div v-if="showVehicleModal" class="modal-overlay" @click="showVehicleModal = false">
 			<div class="modal modal--vehicle" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showVehicleModal = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">차량 번호를 입력하세요</h3>
 
 				<div class="modal__input-field">
@@ -191,7 +199,7 @@
 					<span v-else-if="plateStatus === 'ok'" class="status ok">✔ 사용 가능</span>
 					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량</span>
 					<span v-else-if="plateStatus === 'error'" class="status error">검증 실패, 다시 시도</span>
-					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요</span>
+					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요 (예: 12가3456)</span>
 				</div>
 
 				<button class="modal__button" @click="addVehicle" :disabled="!canAddVehicle">등록완료</button>
@@ -201,6 +209,14 @@
 		<!-- 차량 1대 경고 모달 -->
 		<div v-if="showSingleVehicleWarning" class="modal-overlay" @click="showSingleVehicleWarning = false">
 			<div class="modal modal--warning" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showSingleVehicleWarning = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">차량이 1대밖에 없어 삭제할 수 없습니다.</h3>
 				<button class="modal__button" @click="showSingleVehicleWarning = false">확인</button>
 			</div>
@@ -216,6 +232,14 @@
 				class="modal modal--nickname"
 				@click.stop
 			>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showNicknameModal = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">
 					수정할 닉네임을 입력하세요
 				</h3>
@@ -256,6 +280,14 @@
 		<!-- 설정 진입 전 비밀번호 인증 모달 -->
 		<div v-if="showSettingsAuthModal" class="modal-overlay" @click="closeSettingsAuthModal">
 			<div class="modal modal--password-auth" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="closeSettingsAuthModal" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">비밀번호 확인</h3>
 
 				<div class="modal__input-field">
@@ -331,7 +363,15 @@ const isInfoExpanded = ref(false);
 
 /* 차량 추가/삭제 */
 const vehicleNumber = ref("");
-const plateRegex = /^(?:0[1-9]|[1-9]\d|[1-9]\d{2})[가-힣][1-9]\d{3}$/;
+
+// 한국 번호판 정규식 패턴 (더 정확한 한글 문자 제한)
+const KOREAN_PLATE_CHARS = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배";
+const plateRegex = new RegExp(
+  `^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` +  // 01-99 또는 100-999
+  `[${KOREAN_PLATE_CHARS}]` +              // 한글 1자 (지정된 문자만)
+  `[1-9]\\d{3}$`                          // 1000-9999
+);
+
 const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
 
 // 실시간 중복 상태: idle | checking | ok | duplicate | error
@@ -1155,6 +1195,7 @@ onMounted(async () => {
 	max-width: 320px;
 	padding: 27px 24px 50px;
 	border-radius: 0;
+	position: relative;
 }
 .modal__title {
 	font-size: 18px;
@@ -1350,6 +1391,35 @@ onMounted(async () => {
   max-width: 360px;
   border-radius: 10px;
   padding: 27px 24px 32px;
+}
+
+/* Modal Close Button */
+.modal-close-btn {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	width: 32px;
+	height: 32px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: #666;
+	transition: all 0.2s ease;
+	z-index: 10;
+}
+
+.modal-close-btn:hover {
+	background-color: rgba(0, 0, 0, 0.1);
+	color: #333;
+}
+
+.modal-close-btn svg {
+	width: 20px;
+	height: 20px;
 }
 
 /* ── 알림 카드 ── */

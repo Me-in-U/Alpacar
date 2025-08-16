@@ -287,6 +287,7 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	position: relative;
 }
 
 .modal-header {
@@ -360,6 +361,7 @@ onMounted(async () => {
 	border-left: 4px solid #4B3D34;
 	background: #f0ede8;
 }
+
 
 .load-more {
 	text-align: center;
