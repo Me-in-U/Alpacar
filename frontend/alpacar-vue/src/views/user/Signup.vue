@@ -77,7 +77,7 @@
 					<label class="field-label">전화번호 *</label>
 
 					<input v-model="formData.phoneDisplay" @input="onPhoneInput" @keypress="preventInvalidPhoneChars" :class="['input-field', { error: formData.phone && !phoneValid }]" placeholder="ex) 010-1234-1234" maxlength="13" />
-					<p v-if="formData.phone && !phoneValid" class="field-help error-text">숫자만, 최대 11자</p>
+					<p v-if="formData.phone && !phoneValid" class="field-help error-text">010, 011, 016, 017, 018, 019로 시작하는 10~11자리 번호만 입력 가능</p>
 				</div>
 
 				<!-- Nickname + 중복확인 -->
@@ -179,8 +179,13 @@ export default defineComponent({
 		// 4) 비밀번호 확인
 		const passwordConfirmValid = computed(() => formData.passwordConfirm === formData.password && formData.passwordConfirm.length > 0);
 
-		// 5) 전화번호 - 숫자만 허용
-		const phoneValid = computed(() => /^[0-9]{1,11}$/.test(formData.phone));
+		// 5) 전화번호 - 한국 모바일 번호 형식 검증 (010, 011, 016, 017, 018, 019)
+		const phoneValid = computed(() => {
+			if (!formData.phone || formData.phone.length < 10 || formData.phone.length > 11) {
+				return false;
+			}
+			return /^(010|011|016|017|018|019)[0-9]{7,8}$/.test(formData.phone);
+		});
 		const onPhoneInput = (e: Event) => {
 			// 입력값에서 숫자만 추출
 			let digits = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, "");
