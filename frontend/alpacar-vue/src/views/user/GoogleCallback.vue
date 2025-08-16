@@ -19,9 +19,10 @@ export default defineComponent({
 			const access = route.query.access as string;
 			const refresh = route.query.refresh as string;
 			if (access && refresh) {
-				// 1) 토큰 저장
-				localStorage.setItem("access_token", access);
-				localStorage.setItem("refresh_token", refresh);
+				// 1) 보안 토큰 저장 (SecureTokenManager 사용)
+				const { SecureTokenManager } = await import("@/utils/security");
+				SecureTokenManager.setSecureToken("access_token", access, true); // 세션 저장
+				SecureTokenManager.setSecureToken("refresh_token", refresh, true);
 
 				// 2) Pinia에서 프로필 조회 및 저장
 				try {
