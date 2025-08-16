@@ -57,10 +57,6 @@
 						<span class="button-text">구글 로그인</span>
 					</button>
 
-					<!-- Kakao Login -->
-					<button class="kakao-login-button" @click="handleKakaoLogin">
-						<span class="button-text">카카오 로그인</span>
-					</button>
 				</div>
 
 				<!-- Links -->
@@ -125,11 +121,6 @@ export default defineComponent({
 			}
 		};
 
-		const handleKakaoLogin = () => {
-			console.log("카카오 로그인 시도");
-			router.push("/social-login-info");
-		};
-
 		return {
 			email,
 			password,
@@ -137,7 +128,6 @@ export default defineComponent({
 			isLoading,
 			handleLogin,
 			handleGoogleLogin,
-			handleKakaoLogin,
 		};
 	},
 });
@@ -362,25 +352,6 @@ export default defineComponent({
 	flex-shrink: 0;
 }
 
-.kakao-login-button {
-	width: 100%;
-	height: 50px;
-	background-color: #f9e000;
-	border: none;
-	border-radius: 8px;
-	cursor: pointer;
-	transition: all 0.3s ease;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.kakao-login-button:hover {
-	background-color: #f0d800;
-	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(249, 224, 0, 0.3);
-}
-
 .button-text {
 	font-family: "Inter", sans-serif;
 	font-weight: 600;
@@ -394,7 +365,7 @@ export default defineComponent({
 }
 
 .google-login-button .button-text,
-.kakao-login-button .button-text {
+.button-text {
 	color: #333333;
 }
 

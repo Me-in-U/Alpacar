@@ -146,7 +146,6 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     # 소셜 프로바이더
     "allauth.socialaccount.providers.google",
-    # "allauth.socialaccount.providers.kakao",
     # DRF + JWT
     "rest_framework",
     "rest_framework.authtoken",
