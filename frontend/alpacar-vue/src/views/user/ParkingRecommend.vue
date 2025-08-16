@@ -104,12 +104,15 @@
 							<path v-if="arrowD" :d="arrowD" class="guide-path" marker-end="url(#arrowhead)" />
 
 							<!-- 기존 차량 폴리곤/라벨 -->
+							<!-- 기존 차량 폴리곤/라벨 (필터 적용) -->
 							<g v-for="obj in filteredVehicles" :key="obj.track_id">
-								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" :stroke="myPlatesSet.has(obj.track_id) ? '#00e5ff' : '#ff0'" stroke-width="3" />
-								<template v-if="myPlatesSet.has(obj.track_id)">
-									<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="14" fill="#00e5ff" text-anchor="middle">
-										{{ obj.track_id }}
-									</text>
+								<template v-if="!isVehicleParked(obj.track_id) || myPlatesSet.has(obj.track_id)">
+									<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" :stroke="myPlatesSet.has(obj.track_id) ? '#00e5ff' : '#ff0'" stroke-width="3" />
+									<template v-if="myPlatesSet.has(obj.track_id)">
+										<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="14" fill="#00e5ff" text-anchor="middle">
+											{{ obj.track_id }}
+										</text>
+									</template>
 								</template>
 							</g>
 						</svg>
@@ -118,10 +121,27 @@
 						<template v-for="(row, idx) in layout.rows" :key="'row-' + idx">
 							<div class="row" :style="{ marginLeft: (idx === 0 ? layout.offsetTopX : layout.offsetBottomX) + 'px' }">
 								<!-- 왼쪽 -->
-								<template v-for="slot in row.left" :key="'L-' + slot">
-									<div v-if="slot === 'x'" class="slot slot-placeholder" aria-hidden="true"></div>
-									<div v-else class="slot" :data-spot-id="slot" :class="spotClasses(slot)">
-										{{ slot }}
+								<template v-for="spot in row.left" :key="'L-' + spot">
+									<div v-if="spot === 'x'" class="slot slot-placeholder" aria-hidden="true"></div>
+									<div
+										v-else
+										class="slot"
+										:data-spot-id="spot"
+										:style="{
+											...(idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}),
+											...(statusMap[spot] === 'occupied'
+												? {
+														backgroundImage: `url(${OCCUPIED_IMG_URL})`,
+														backgroundSize: 'cover',
+														backgroundPosition: 'center',
+														backgroundRepeat: 'no-repeat',
+														borderColor: '#fff',
+												  }
+												: {}),
+										}"
+										:class="spotClasses(spot)"
+									>
+										{{ spot }}
 									</div>
 								</template>
 
@@ -131,7 +151,24 @@
 								<!-- 오른쪽 -->
 								<template v-for="spot in row.right" :key="'R-' + spot">
 									<div v-if="spot === 'x'" class="slot slot-placeholder" aria-hidden="true"></div>
-									<div v-else class="slot" :data-spot-id="spot" :style="idx === 0 ? { height: layout.topRightSlotH + 'px' } : undefined" :class="spotClasses(spot)">
+									<div
+										v-else
+										class="slot"
+										:data-spot-id="spot"
+										:style="{
+											...(idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}),
+											...(statusMap[spot] === 'occupied'
+												? {
+														backgroundImage: `url(${navi_topview_car_1})`,
+														backgroundSize: 'cover',
+														backgroundPosition: 'center',
+														backgroundRepeat: 'no-repeat',
+														borderColor: '#fff',
+												  }
+												: {}),
+										}"
+										:class="spotClasses(spot)"
+									>
 										{{ spot }}
 									</div>
 								</template>
@@ -187,6 +224,9 @@ import { useRouter } from "vue-router";
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
 import { useUserStore } from "@/stores/user";
+import navi_topview_car_1 from "@/assets/navi_topview_car_1.png";
+/** 점유 슬롯 표시용 이미지 URL (실 URL로 교체 필요) */
+const OCCUPIED_IMG_URL = navi_topview_car_1;
 
 /* ==== 지도 강제 표시 토글 ==== */
 const forceShowMap = ref(false);
@@ -256,9 +296,26 @@ const layout = reactive({
 });
 
 /* 슬롯 상태/매핑 */
+/* 슬롯 상태/매핑 */
 type SlotStatus = "free" | "occupied" | "reserved";
 const statusMap = reactive<Record<string, SlotStatus>>({});
 const spaceVehicleMap = reactive<Record<string, { plate: string | null }>>({});
+
+/** 점유 상태인 슬롯 중 해당 번호판이 점유한 슬롯을 반환 */
+function plateOccupiedSlot(plate: string): string | null {
+	for (const [slot, info] of Object.entries(spaceVehicleMap)) {
+		if (info?.plate === plate && statusMap[slot] === "occupied") {
+			return slot;
+		}
+	}
+	return null;
+}
+
+/** 차량이 이미 주차 완료 상태인지 */
+function isVehicleParked(plate: string): boolean {
+	return !!plate && !!plateOccupiedSlot(plate);
+}
+
 function initStatusMap() {
 	layout.rows.forEach((r) => {
 		[...r.left, ...r.right].forEach((s) => {
@@ -565,7 +622,7 @@ onBeforeUnmount(() => {
 	max-width: 440px;
 	min-height: 100vh;
 	position: relative;
-	background: #F9F5EC;
+	background: #f9f5ec;
 	margin: 0 auto;
 	overflow: hidden;
 	display: flex;
@@ -746,7 +803,7 @@ onBeforeUnmount(() => {
 	background: #8fcd2b;
 }
 .slot.occupied {
-	background: #fe5454;
+	background: transparent;
 }
 .slot.empty {
 	background: #9c9c9c;
