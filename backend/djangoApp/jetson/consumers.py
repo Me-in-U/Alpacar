@@ -195,31 +195,45 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                 )
                 return
 
-            # 1) 점수 저장
-            ok_score, msg_score = await database_sync_to_async(add_score_from_jetson)(
-                plate, score
+            # ✅ “내 차만” 반영은 유지하되, 다른 칸에 주차해도 수락하여 방영/완료 처리
+            #    - mismatch 여부만 기록하고 계속 진행
+            slot_label = (data.get("zone_id") or "").strip().upper()
+            assigned_label = await self._get_assigned_label_for_plate(
+                plate
+            )  # e.g., "B3"
+            mismatch = bool(
+                slot_label and assigned_label and slot_label != assigned_label
             )
 
-            # 2) ✅ 점수 수신을 '주차 완료'로 간주하여 상태 전환 (VehicleEvent→Parking, ParkingSpace→occupied)
+            # 1) 점수 저장
+            ok_score, msg_score = await database_sync_to_async(add_score_from_jetson)(
+                plate, int(score)
+            )
+
+            # 2) 점수 수신을 '주차 완료'로 간주하여 상태 전환
+            #    - slot_label이 오면 그 칸으로 완료 처리 (불일치여도 수락)
             ok_park, msg_park, occupied_label = await database_sync_to_async(
                 mark_parking_complete_from_ai
             )(plate, slot_label or None)
 
             # 3) ACK 응답 (둘 다 성공해야 success)
+            used_label = slot_label or assigned_label or occupied_label
             await self.send(
                 text_data=json.dumps(
                     {
                         "message_type": "score_ack",
                         "license_plate": plate,
-                        "score": score,
-                        "zone_id": slot_label or assigned_label or occupied_label,
+                        "score": int(score),
+                        "zone_id": used_label,
                         "status": "success" if (ok_score and ok_park) else "error",
                         "detail": f"{msg_score}; {msg_park}",
+                        "mismatch": mismatch,  # ← 불일치 여부 (true/false)
+                        "expected": assigned_label,  # ← 원래 배정칸 (예: "B3")
+                        "received": slot_label,  # ← 젯슨이 전송한 실제칸 (예: "B2")
                     },
                     ensure_ascii=False,
                 )
             )
-            # 방송은 signals가 처리 (VehicleEvent/Space 저장 시 자동 브로드캐스트)
             return
 
         if msg_type == "re-assignment":

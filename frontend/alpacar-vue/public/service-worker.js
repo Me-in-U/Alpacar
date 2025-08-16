@@ -2,7 +2,7 @@
 // ✅ Workbox 프리캐시 주입 지점 (빌드 시 자동으로 매니페스트 주입됨)
 const precacheManifest = self.__WB_MANIFEST || [];
 
-const SW_VERSION = "v3.5";
+const SW_VERSION = "v3.6";
 const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
 
@@ -68,12 +68,45 @@ self.addEventListener("fetch", (event) => {
 	// 	event.respondWith(fetch(req).catch(() => new Response("오프라인입니다.", { status: 503 })));
 	// 	return;
 	// }
+
+	// v3.5
 	// ✅ 1.0) OAuth 콜백은 '완전 우회'(가로채지 않음) — 브라우저 기본 리다이렉트/네비 처리
-	//    * 백엔드 콜백(토큰 발급/302): /api/auth/social/google/callback/
-	//    * 프론트 콜백(쿼리 파싱):     /auth/social/google/callback
-	const BYPASS_PATHS = ["/api/auth/social/google/callback/", "/auth/social/google/callback"];
-	if (BYPASS_PATHS.some((p) => url.pathname.startsWith(p))) {
-		return; // event.respondWith 호출 금지 => 브라우저가 직접 처리
+	// //    * 백엔드 콜백(토큰 발급/302): /api/auth/social/google/callback/
+	// //    * 프론트 콜백(쿼리 파싱):     /auth/social/google/callback
+	// // ✅ API 콜백만 '완전 우회' (302 처리 보장)
+	// const API_CALLBACK = "/api/auth/social/google/callback/";
+	// if (url.pathname.startsWith(API_CALLBACK)) {
+	// 	return; // event.respondWith 호출 금지
+	// }
+
+	// // ✅ 프론트 콜백은 index.html을 확실히 공급(서버 리라이트 없어도 동작)
+	// const FRONT_CALLBACK = "/auth/social/google/callback";
+	// if (url.pathname.startsWith(FRONT_CALLBACK)) {
+	// 	event.respondWith(
+	// 		(async () => {
+	// 			// 캐시된 index.html 우선, 없으면 네트워크에서 가져옴
+	// 			return (await caches.match("/index.html")) || (await fetch("/index.html", { cache: "no-store" }));
+	// 		})()
+	// 	);
+	// 	return;
+	// }
+
+	// var3.6
+	// ✅ API 콜백만 '완전 우회' (302는 브라우저가 그대로 따라가게)
+	const API_CALLBACK = "/api/auth/social/google/callback/";
+	if (url.pathname.startsWith(API_CALLBACK)) {
+		return; // event.respondWith 금지
+	}
+
+	// ✅ 프론트 콜백은 SPA 라우터가 실행되도록 index.html을 확실히 공급
+	const FRONT_CALLBACK = "/auth/social/google/callback";
+	if (url.pathname.startsWith(FRONT_CALLBACK)) {
+		event.respondWith(
+			(async () => {
+				return (await caches.match("/index.html")) || (await fetch("/index.html", { cache: "no-store" }));
+			})()
+		);
+		return;
 	}
 
 	// (선택) state/code 등 OAuth 쿼리가 있으면 우회

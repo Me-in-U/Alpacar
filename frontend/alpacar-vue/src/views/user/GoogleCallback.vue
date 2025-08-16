@@ -24,6 +24,9 @@ export default defineComponent({
 				SecureTokenManager.setSecureToken("access_token", access, true); // 세션 저장
 				SecureTokenManager.setSecureToken("refresh_token", refresh, true);
 
+				// ✅ 토큰이 URL에 남지 않게 먼저 쿼리 제거(리퍼러 안전)
+				window.history.replaceState(null, "", "/auth/social/google/callback");
+
 				// 2) Pinia에서 프로필 조회 및 저장
 				try {
 					await userStore.fetchMe(access);
