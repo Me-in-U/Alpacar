@@ -40,7 +40,6 @@ import { defineComponent, ref } from "vue";
 import { useRouter } from "vue-router";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import { useUserStore } from "@/stores/user";
-import { alertWarning, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "AdminLogin",
@@ -57,7 +56,7 @@ export default defineComponent({
 		const handleLogin = async () => {
 			if (isLoading.value) return;
 			if (!adminId.value || !adminPassword.value) {
-				return await alertWarning("이메일과 비밀번호를 모두 입력해주세요.");
+				return alert("이메일과 비밀번호를 모두 입력해주세요.");
 			}
 			
 			isLoading.value = true;
@@ -75,7 +74,7 @@ export default defineComponent({
 				router.push("/admin-main");
 			} catch (err: any) {
 				console.error("관리자 로그인 실패:", err);
-				await alertError("관리자 로그인 실패: " + (err.message || "알 수 없는 오류"));
+				alert("관리자 로그인 실패: " + (err.message || "알 수 없는 오류"));
 			} finally {
 				isLoading.value = false;
 			}

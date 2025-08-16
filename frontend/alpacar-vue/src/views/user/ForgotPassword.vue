@@ -53,7 +53,6 @@
 import { defineComponent, reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "ForgotPassword",
@@ -85,13 +84,13 @@ export default defineComponent({
 				});
 				const json = await res.json();
 				if (res.ok) {
-					await alertSuccess("인증번호를 이메일로 전송했습니다.");
+					alert("인증번호를 이메일로 전송했습니다.");
 					step.value = "verify";
 				} else {
-					await alertError(json.detail || "인증번호 발송 실패");
+					alert(json.detail || "인증번호 발송 실패");
 				}
 			} catch {
-				await alertError("네트워크 오류");
+				alert("네트워크 오류");
 			}
 		};
 
@@ -105,13 +104,13 @@ export default defineComponent({
 				});
 				const json = await res.json();
 				if (res.ok) {
-					await alertSuccess("인증번호 확인 완료");
+					alert("인증번호 확인 완료");
 					step.value = "reset";
 				} else {
-					await alertError(json.detail || "인증번호 불일치");
+					alert(json.detail || "인증번호 불일치");
 				}
 			} catch {
-				await alertError("네트워크 오류");
+				alert("네트워크 오류");
 			}
 		};
 
@@ -130,13 +129,13 @@ export default defineComponent({
 				});
 				const json = await res.json();
 				if (res.ok) {
-					await alertSuccess("비밀번호 변경 완료");
+					alert("비밀번호 변경 완료");
 					router.push("/login");
 				} else {
-					await alertError(json.detail || "변경 실패");
+					alert(json.detail || "변경 실패");
 				}
 			} catch {
-				await alertError("네트워크 오류");
+				alert("네트워크 오류");
 			}
 		};
 

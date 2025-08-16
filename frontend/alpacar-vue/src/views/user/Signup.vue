@@ -103,7 +103,6 @@ import { defineComponent, reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "Signup",
@@ -234,7 +233,7 @@ export default defineComponent({
 				// 중복체크
 				const dup = await fetch(`${BACKEND_BASE_URL}/auth/check-email/?email=${encodeURIComponent(formData.email)}`);
 				const { exists } = await dup.json();
-				if (exists) return await alertError("이미 사용 중인 이메일입니다.");
+				if (exists) return alert("이미 사용 중인 이메일입니다.");
 				// 발송
 				await fetch(`${BACKEND_BASE_URL}/auth/email-verify/request/`, {
 					method: "POST",
@@ -242,9 +241,9 @@ export default defineComponent({
 					body: JSON.stringify({ email: formData.email }),
 				});
 				emailSent.value = true;
-				await alertSuccess("인증번호를 발송했습니다.");
+				alert("인증번호를 발송했습니다.");
 			} catch {
-				await alertError("인증번호 발송 실패");
+				alert("인증번호 발송 실패");
 			}
 		};
 
@@ -258,9 +257,9 @@ export default defineComponent({
 				});
 				if (!res.ok) throw await res.json();
 				emailVerified.value = true;
-				await alertSuccess("이메일 인증이 완료되었습니다.");
+				alert("이메일 인증이 완료되었습니다.");
 			} catch (err: any) {
-				await alertError(err.detail || "인증 실패");
+				alert(err.detail || "인증 실패");
 			}
 		};
 
@@ -269,10 +268,10 @@ export default defineComponent({
 			try {
 				const res = await fetch(`${BACKEND_BASE_URL}/auth/check-nickname/?nickname=${encodeURIComponent(formData.nickname)}`);
 				const { exists } = await res.json();
-				if (exists) return await alertError("이미 사용 중인 닉네임입니다.");
+				if (exists) return alert("이미 사용 중인 닉네임입니다.");
 				nickOK.value = true;
 			} catch {
-				await alertError("중복확인 실패");
+				alert("중복확인 실패");
 			}
 		};
 		// 자동 로그인 처리 함수 (보안 개선)
@@ -285,7 +284,7 @@ export default defineComponent({
 				router.push("/social-login-info");
 			} catch (error) {
 				console.error("자동 로그인 중 오류:", error);
-				await alertError("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
+				alert("회원가입은 완료되었지만 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.");
 				router.push("/login");
 			}
 		};
@@ -308,22 +307,22 @@ export default defineComponent({
 				if (res.ok) {
 					// 성공 시 backend의 message 또는 detail 중 있는 걸 쓰고
 					const msg = data.message || data.detail || "회원가입 성공!";
-					await alertError(msg);
+					alert(msg);
 
 					// 회원가입 성공 후 자동 로그인 처리
 					await performAutoLogin();
 				} else {
 					// 에러 키들을 합쳐서 보여주기
 					if (data.detail) {
-						await alertError("회원가입 실패: " + data.detail);
+						alert("회원가입 실패: " + data.detail);
 					} else {
 						// field별 에러 메시지를 모두 문자열로 합치기
 						const msgs = Object.values(data).flat().join("\n");
-						await alertError("회원가입 실패:\n" + msgs);
+						alert("회원가입 실패:\n" + msgs);
 					}
 				}
 			} catch {
-				await alertError("회원가입 요청 중 네트워크 오류가 발생했습니다.");
+				alert("회원가입 요청 중 네트워크 오류가 발생했습니다.");
 			}
 		};
 

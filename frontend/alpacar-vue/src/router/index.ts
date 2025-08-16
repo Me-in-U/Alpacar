@@ -25,7 +25,6 @@ import ModalTest from "@/views/user/ModalTest.vue";
 import AdminErrorModalTest from "@/views/admin/AdminErrorModalTest.vue";
 import GoogleCallback from "@/views/user/GoogleCallback.vue";
 import MainWithHolo from "@/views/user/MainWithHolo.vue";
-import AlertTest from "@/views/test/AlertTest.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 import { SecureTokenManager } from "@/utils/security";
@@ -286,11 +285,6 @@ const router = createRouter({
 			path: "/holo",
 			name: "holo",
 			component: MainWithHolo,
-		},
-		{
-			path: "/alert-test",
-			name: "alert-test",
-			component: AlertTest,
 		},
 		{
 			path: "/user-setting",

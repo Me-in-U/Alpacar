@@ -315,7 +315,6 @@ import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { apiClient } from "@/api/parking";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 /* ====== 스토어 ====== */
 const router = useRouter();
@@ -339,7 +338,7 @@ const loadDetailedUserInfo = async () => {
     console.log('[UserSetting] 사용자 상세 정보 로딩 완료');
   } catch (error) {
     console.error('[UserSetting] 사용자 정보 로딩 실패:', error);
-    await alertError('사용자 정보를 불러오는데 실패했습니다.');
+    alert('사용자 정보를 불러오는데 실패했습니다.');
   } finally {
     isLoadingUserInfo.value = false;
   }
@@ -418,7 +417,7 @@ const verificationTarget = ref<'phone' | 'password'>('phone');
 
 const requestPhoneChange = async () => {
   if (!newPhoneNumber.value.trim()) {
-    await alertWarning("새 전화번호를 입력해주세요.");
+    alert("새 전화번호를 입력해주세요.");
     return;
   }
   
@@ -428,7 +427,7 @@ const requestPhoneChange = async () => {
   }
   
   if (!userInfo.value?.email) {
-    await alertError("이메일 정보를 불러오는데 실패했습니다.");
+    alert("이메일 정보를 불러오는데 실패했습니다.");
     return;
   }
   
@@ -451,8 +450,8 @@ const refreshDetailedUserInfo = async () => {
 };
 
 const executePhoneChange = async () => {
-  if (!emailVerified.value) { await alertWarning("이메일 인증을 먼저 완료해주세요."); return; }
-  if (!newPhoneNumber.value || !isPhoneValid.value) { await alertWarning("올바른 전화번호를 입력해주세요."); return; }
+  if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
+  if (!newPhoneNumber.value || !isPhoneValid.value) { alert("올바른 전화번호를 입력해주세요."); return; }
 
   const payload = {
     phone: newPhoneNumber.value,
@@ -468,7 +467,7 @@ const executePhoneChange = async () => {
       phone: newPhoneNumber.value,
     };
 
-    await alertSuccess("전화번호가 성공적으로 변경되었습니다.");
+    alert("전화번호가 성공적으로 변경되었습니다.");
     showEmailVerificationModal.value = false;
     showPhoneModal.value = false;
     newPhoneNumber.value = "";
@@ -492,7 +491,7 @@ const executePhoneChange = async () => {
       e?.response?.data?.detail ||
       e?.response?.data?.message ||
       e?.message || "서버 오류";
-    await alertError("전화번호 변경 실패: " + msg);
+    alert("전화번호 변경 실패: " + msg);
   }
 };
 
@@ -528,7 +527,7 @@ const requestPasswordChange = async () => {
   }
   
   if (!userInfo.value?.email) {
-    await alertError("이메일 정보를 불러오는데 실패했습니다.");
+    alert("이메일 정보를 불러오는데 실패했습니다.");
     return;
   }
   
@@ -540,22 +539,22 @@ const requestPasswordChange = async () => {
 };
 
 const confirmPasswordChange = async () => {
-  if (!emailVerified.value) { await alertWarning("이메일 인증을 먼저 완료해주세요."); return; }
+  if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
   if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
-    return await alertWarning("모든 비밀번호 필드를 입력해주세요.");
+    return alert("모든 비밀번호 필드를 입력해주세요.");
   }
   if (newPassword.value !== confirmPassword.value) {
-    return await alertWarning("새 비밀번호가 일치하지 않습니다.");
+    return alert("새 비밀번호가 일치하지 않습니다.");
   }
 
   try {
     await userStore.changePassword(currentPassword.value, newPassword.value); // 서버 의존(테스트 시 주석 가능)
-    await alertSuccess("비밀번호가 성공적으로 변경되었습니다.");
+    alert("비밀번호가 성공적으로 변경되었습니다.");
     showEmailVerificationModal.value = false;
     showPasswordModal.value = false;
   } catch (e: any) {
     console.error(e);
-    await alertError("변경 실패: " + e.message);
+    alert("변경 실패: " + e.message);
   } finally {
     currentPassword.value = "";
     newPassword.value = "";
@@ -576,12 +575,12 @@ const sendEmailVerification = async () => {
     });
     if (response.ok) {
       emailSent.value = true;
-      await alertSuccess("인증번호를 발송했습니다.");
+      alert("인증번호를 발송했습니다.");
     } else {
-      await alertError("인증번호 발송 실패");
+      alert("인증번호 발송 실패");
     }
   } catch {
-    await alertError("인증번호 발송 실패");
+    alert("인증번호 발송 실패");
   }
 };
 
@@ -594,21 +593,21 @@ const verifyEmailCode = async () => {
     });
     if (response.ok) {
       emailVerified.value = true;
-      await alertSuccess("이메일 인증이 완료되었습니다.");
+      alert("이메일 인증이 완료되었습니다.");
     } else {
       const error = await response.json();
-      await alertError(error.detail || "인증 실패");
+      alert(error.detail || "인증 실패");
     }
   } catch {
-    await alertError("인증 실패");
+    alert("인증 실패");
   }
 };
 
 /* ====== 보안 검증 ====== */
-const checkAuthenticationStatus = async () => {
+const checkAuthenticationStatus = () => {
   // 1. 소셜 로그인 유저인 경우 접근 차단
   if (isSocialUser.value) {
-    await alertWarning('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
+    alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
     router.push('/user-profile');
     return false;
   }
@@ -625,7 +624,7 @@ const checkAuthenticationStatus = async () => {
 
 /* ====== 마운트(테스트용) ====== */
 onMounted(async () => {
-  if (!(await checkAuthenticationStatus())) return;
+  if (!checkAuthenticationStatus()) return;
 
   // 사용자 상세 정보 로딩
   await loadDetailedUserInfo();

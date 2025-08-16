@@ -170,7 +170,6 @@ import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { SecureTokenManager } from "@/utils/security";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
 // const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
@@ -256,7 +255,7 @@ export default defineComponent({
 			if (!canAssign.value) return;
 			if (jetsonLive.value) {
 				// 추가 방어
-				await alertWarning("실시간 수신 중에는 수동 배정이 비활성화됩니다.");
+				alert("실시간 수신 중에는 수동 배정이 비활성화됩니다.");
 				return;
 			}
 			const token = SecureTokenManager.getSecureToken("access_token");
@@ -276,12 +275,12 @@ export default defineComponent({
 				if (v) {
 					v.assigned_space = { id: 0, zone, slot_number, label: slotLabel, status: "reserved" };
 				}
-				await alertSuccess(`배정 완료: ${plate} → ${slotLabel}`);
+				alert(`배정 완료: ${plate} → ${slotLabel}`);
 				selectedSpot.value = null;
 				selectedVehicle.value = null;
 			} catch (e) {
 				console.error(e);
-				await alertError("배정 중 오류가 발생했습니다.");
+				alert("배정 중 오류가 발생했습니다.");
 			}
 		}
 
@@ -513,7 +512,7 @@ export default defineComponent({
 			} catch (e) {
 				console.error("[setSlot] error:", e);
 				statusMap[spot] = prev;
-				await alertError("상태 변경 실패");
+				alert("상태 변경 실패");
 			}
 		}
 		const formatDate = (iso: string | null) =>
