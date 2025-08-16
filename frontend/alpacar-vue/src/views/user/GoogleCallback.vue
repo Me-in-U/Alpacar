@@ -6,6 +6,7 @@
 import { defineComponent, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 export default defineComponent({
 	name: "GoogleCallback",
 	setup() {
@@ -18,9 +19,10 @@ export default defineComponent({
 			const access = route.query.access as string;
 			const refresh = route.query.refresh as string;
 			if (access && refresh) {
-				// 1) 토큰 저장
-				localStorage.setItem("access_token", access);
-				localStorage.setItem("refresh_token", refresh);
+				// 1) 보안 토큰 저장 (SecureTokenManager 사용)
+				const { SecureTokenManager } = await import("@/utils/security");
+				SecureTokenManager.setSecureToken("access_token", access, true); // 세션 저장
+				SecureTokenManager.setSecureToken("refresh_token", refresh, true);
 
 				// 2) Pinia에서 프로필 조회 및 저장
 				try {
@@ -28,11 +30,11 @@ export default defineComponent({
 					router.replace("/main");
 				} catch (e) {
 					console.error(e);
-					alert("프로필 조회 중 오류가 발생했습니다.");
+					await alertError("프로필 조회 중 오류가 발생했습니다.");
 					router.replace("/");
 				}
 			} else {
-				alert("구글 로그인에 실패했습니다.");
+				await alertError("구글 로그인에 실패했습니다.");
 				router.replace("/");
 			}
 		});

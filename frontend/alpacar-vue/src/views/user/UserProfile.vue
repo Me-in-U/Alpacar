@@ -320,6 +320,7 @@ import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { subscribeToPushNotifications, unsubscribeFromPushNotifications, getSubscriptionStatus, showLocalNotification } from "@/utils/pwa";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -449,12 +450,12 @@ watch(vehicleNumber, () => {
 // 차량 등록 (중복이면 서버 에러 메시지 사용)
 const addVehicle = async () => {
 	if (!canAddVehicle.value) {
-		alert("차량번호를 확인해주세요.");
+		await alertWarning("차량번호를 확인해주세요.");
 		return;
 	}
 	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
 	if (!token) {
-		alert("로그인이 필요합니다.");
+		await alertWarning("로그인이 필요합니다.");
 		router.push("/login");
 		return;
 	}
@@ -471,7 +472,7 @@ const addVehicle = async () => {
 		});
 
 		if (response.ok) {
-			alert("차량이 성공적으로 등록되었습니다!");
+			await alertSuccess("차량이 성공적으로 등록되었습니다!");
 			showVehicleModal.value = false;
 			vehicleNumber.value = "";
 			plateStatus.value = "idle";
@@ -482,24 +483,24 @@ const addVehicle = async () => {
 			const contentType = response.headers.get("content-type");
 			if (contentType && contentType.includes("application/json")) {
 				const err = await response.json();
-				alert("차량 등록 실패: " + (err.detail || err.message || "서버 오류"));
+				await alertError("차량 등록 실패: " + (err.detail || err.message || "서버 오류"));
 				if ((err.detail || "").includes("이미") || response.status === 400) {
 					plateStatus.value = "duplicate";
 				}
 			} else {
 				if (response.status === 401) {
-					alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+					await alertError("인증이 만료되었습니다. 다시 로그인해주세요.");
 					router.push("/login");
 				} else if (response.status === 404) {
-					alert("API 엔드포인트를 찾을 수 없습니다.");
+					await alertError("API 엔드포인트를 찾을 수 없습니다.");
 				} else {
-					alert("차량 등록 실패 (코드: " + response.status + ")");
+					await alertError("차량 등록 실패 (코드: " + response.status + ")");
 				}
 			}
 		}
 	} catch (e) {
 		console.error(e);
-		alert("차량 등록 중 오류가 발생했습니다.");
+		await alertError("차량 등록 중 오류가 발생했습니다.");
 		plateStatus.value = "error";
 	}
 };
@@ -512,10 +513,10 @@ const removeVehicle = async (id: number) => {
 	if (!confirm("차량을 정말 삭제하시겠습니까?")) return;
 	try {
 		await userStore.removeVehicle(id); // 서버 의존. 필요시 주석
-		alert("차량이 삭제되었습니다. (테스트)");
+		await alertSuccess("차량이 삭제되었습니다. (테스트)");
 	} catch (e) {
 		console.error(e);
-		alert("차량 삭제 중 오류가 발생했습니다. (테스트 모드)");
+		await alertError("차량 삭제 중 오류가 발생했습니다. (테스트 모드)");
 	}
 };
 
@@ -628,15 +629,15 @@ const preventInvalidNicknameChars = (e: KeyboardEvent) => {
 
 const updateNickname = async () => {
 	const nick = newNickname.value.trim();
-	if (!nick) return alert("닉네임을 입력해주세요.");
+	if (!nick) return await alertWarning("닉네임을 입력해주세요.");
 	try {
 		await userStore.updateProfile({ nickname: nick }); // 서버 의존(테스트 시 주석 가능)
-		alert("닉네임이 변경되었습니다.");
+		await alertSuccess("닉네임이 변경되었습니다.");
 		showNicknameModal.value = false;
 		newNickname.value = "";
 	} catch (err: any) {
 		console.error(err);
-		alert("변경 실패: " + err.message);
+		await alertError("변경 실패: " + err.message);
 	}
 };
 
@@ -739,16 +740,16 @@ const toggleNotifications = async () => {
     
     // 성공 메시지 표시
     if (isNotificationEnabled.value) {
-      alert("푸시 알림이 활성화되었습니다.");
+      await alertSuccess("푸시 알림이 활성화되었습니다.");
       setTimeout(() => {
         showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
       }, 1000);
     } else {
-      alert("푸시 알림이 해제되었습니다.");
+      await alertSuccess("푸시 알림이 해제되었습니다.");
     }
   } catch (e) {
     console.error("[UserProfile] 알림 설정 변경 중 오류:", e);
-    alert(`알림 설정 변경 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+    await alertError(`알림 설정 변경 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
   }
 };
 
@@ -761,15 +762,15 @@ const installPWA = async () => {
       deferredPrompt = null;
     } catch (e) {
       console.error(e);
-      alert("PWA 설치 중 오류가 발생했습니다.");
+      await alertError("PWA 설치 중 오류가 발생했습니다.");
     }
   } else if (window.matchMedia("(display-mode: standalone)").matches) {
-    alert("이미 PWA로 설치되어 실행 중입니다.");
+    await alert("이미 PWA로 설치되어 실행 중입니다.");
   } else {
     const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("android")) alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
-    else if (ua.includes("iphone") || ua.includes("ipad")) alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
-    else alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
+    if (ua.includes("android")) await alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
+    else if (ua.includes("iphone") || ua.includes("ipad")) await alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
+    else await alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
   }
 };
 

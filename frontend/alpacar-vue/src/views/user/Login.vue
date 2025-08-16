@@ -49,6 +49,7 @@
 					<span class="button-text loading" v-else>로그인 중...</span>
 				</button>
 
+
 				<!-- Social Login Buttons -->
 				<div class="social-login">
 					<!-- Google Login -->
@@ -75,6 +76,7 @@ import { defineComponent, ref } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
+import { alert, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "Login",
@@ -88,7 +90,8 @@ export default defineComponent({
 		const handleLogin = async () => {
 			if (isLoading.value) return;
 			if (!email.value || !password.value) {
-				return alert("이메일과 비밀번호를 모두 입력해주세요.");
+				await alert("이메일과 비밀번호를 모두 입력해주세요.");
+				return;
 			}
 
 			isLoading.value = true;
@@ -99,7 +102,7 @@ export default defineComponent({
 				router.push("/main");
 			} catch (err: any) {
 				console.error("로그인 실패:", err);
-				alert("로그인 실패: " + err.message);
+				await alertError("로그인 실패: " + err.message);
 			} finally {
 				isLoading.value = false;
 			}
@@ -117,9 +120,10 @@ export default defineComponent({
 			} catch (error) {
 				console.error("❌ 리다이렉트 실패:", error);
 				const errorMessage = error instanceof Error ? error.message : String(error);
-				alert(`구글 로그인 중 오류가 발생했습니다: ${errorMessage}`);
+				alertError(`구글 로그인 중 오류가 발생했습니다: ${errorMessage}`);
 			}
 		};
+
 
 		return {
 			email,
