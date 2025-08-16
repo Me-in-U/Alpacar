@@ -15,7 +15,7 @@
 				</div>
 
 				<!-- 🔻 새 버튼: 인식 건너뛰기 -->
-				<button class="skip-btn" @click="forceShowMap = true">인식 건너뛰기</button>
+				<button class="skip-btn" @click="forceShowMap = true">주차장 지도 바로보기</button>
 			</div>
 
 			<!-- 2) 추천 계산 중 (강제 표시 중이면 건너뛰고 지도 표시) -->
