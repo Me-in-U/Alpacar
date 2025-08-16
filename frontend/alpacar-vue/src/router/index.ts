@@ -319,7 +319,6 @@ router.beforeEach(async (to, from, next) => {
 	// **최우선 순위: 로그인된 사용자가 관리자인 경우 접근 제어**
 	if (isLoggedIn) {
 		const userStore = useUserStore();
-		console.log(`[ROUTER GUARD] 사용자 스토어 상태:`, userStore.me);
 
 		// 사용자 정보가 없으면 보안 저장소에서 복원 시도
 		if (!userStore.me) {
