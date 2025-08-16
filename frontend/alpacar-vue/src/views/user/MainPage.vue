@@ -142,8 +142,7 @@ const userStore = useUserStore()
 
 const carWithAlpacaImage = new URL('@/assets/car-with-alpaca.png', import.meta.url).href
 
-// const userScore = computed(() => userStore.me?.score || 0)
-const userScore = ref(90)
+const userScore = computed(() => userStore.me?.score || 0)
 const userName = computed(() => userStore.me?.nickname || 'User')
 const userVehicleNumber = computed(() => {
   return userStore.vehicles.length > 0 ? userStore.vehicles[0].license_plate : '111 가 1111'
