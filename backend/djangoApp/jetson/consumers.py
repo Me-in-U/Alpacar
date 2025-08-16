@@ -20,6 +20,18 @@ import json
 JETSON_CONTROL_GROUP = "jetson-control"
 PARKING_STATUS_GROUP = "parking-status"
 
+# hello 요청에 응답할 초기 차량 목록(8대, 모두 midsize)
+VEHICLES = [
+    {"license_plate": "466우5726", "size_class": "midsize"},
+    {"license_plate": "770오4703", "size_class": "midsize"},
+    {"license_plate": "411수5748", "size_class": "midsize"},
+    {"license_plate": "820마2378", "size_class": "midsize"},
+    {"license_plate": "932배1741", "size_class": "midsize"},
+    {"license_plate": "136수5621", "size_class": "midsize"},
+    {"license_plate": "43머8208", "size_class": "midsize"},
+    {"license_plate": "13다8208", "size_class": "midsize"},
+]
+
 
 class JetsonIngestConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -39,6 +51,18 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
             return
 
         msg_type = data.get("message_type")
+
+        if msg_type == "hello":
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "message_type": "assignment_request",
+                        "vehicles": VEHICLES,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return
 
         if msg_type == "car_position":
             slot_map: Dict[str, str] = data.get("slot") or {}
