@@ -581,7 +581,7 @@ function myAssignedSlot(): string | null {
 function checkAutoComplete() {
 	const slot = myAssignedSlot();
 	if (!slot) return;
-	if (statusMap[slot] === "occupied") router.push("/parking-complete");
+	if (statusMap[slot] === "occupied") router.push("/parking-history");
 }
 
 /* 수동 완료 */
