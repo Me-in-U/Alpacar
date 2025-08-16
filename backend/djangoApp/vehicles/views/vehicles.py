@@ -155,7 +155,7 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 @swagger_auto_schema(
     method="get",
-    operation_description="특정 번호판이 이미 등록되어 있는지 확인합니다.",
+    operation_description="차량번호 검증 - 매핑 테이블 존재여부와 중복여부를 확인합니다.",
     manual_parameters=[
         openapi.Parameter(
             "license",
@@ -167,14 +167,18 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     ],
     responses={
         200: openapi.Response(
-            description="번호판 존재 여부",
+            description="차량번호 검증 결과",
             schema=openapi.Schema(
                 type=openapi.TYPE_OBJECT,
-                properties={"exists": openapi.Schema(type=openapi.TYPE_BOOLEAN)},
+                properties={
+                    "exists": openapi.Schema(type=openapi.TYPE_BOOLEAN, description="vehicle 테이블에 이미 등록된 차량번호인지 여부"),
+                    "valid": openapi.Schema(type=openapi.TYPE_BOOLEAN, description="vehicle_license_plate_model_mapping 테이블에 존재하는 유효한 차량번호인지 여부"),
+                    "status": openapi.Schema(type=openapi.TYPE_STRING, description="검증 상태: valid(등록가능), duplicate(중복), invalid(유효하지않음)"),
+                    "message": openapi.Schema(type=openapi.TYPE_STRING, description="결과 메시지")
+                },
             ),
         ),
         400: "license 파라미터가 없음",
-        401: "인증되지 않은 사용자",
     },
 )
 @api_view(["GET"])
@@ -182,7 +186,12 @@ class VehicleDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 def check_license(request):
     """
     GET /api/vehicles/check-license/?license=12가3456
-    -> { "exists": true } or { "exists": false }
+    -> { 
+        "exists": false, 
+        "valid": true, 
+        "status": "valid", 
+        "message": "등록 가능한 차량번호입니다." 
+    }
     """
     # 파라미터 키 혼동 방지: license 또는 license_plate 모두 허용
     lp = request.query_params.get("license") or request.query_params.get(
@@ -193,8 +202,38 @@ def check_license(request):
             {"detail": "license 파라미터가 필요합니다."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    exists = Vehicle.objects.filter(license_plate=lp).exists()
-    return Response({"exists": exists})
+    
+    # 1. vehicle_license_plate_model_mapping 테이블에서 차량번호 존재 여부 확인
+    mapping_exists = VehicleLicensePlateModelMapping.objects.filter(license_plate=lp).exists()
+    
+    # 2. vehicle 테이블에서 이미 등록된 차량번호인지 확인
+    vehicle_exists = Vehicle.objects.filter(license_plate=lp).exists()
+    
+    # 3. 검증 결과 결정
+    if not mapping_exists:
+        # 매핑 테이블에 없는 차량번호
+        return Response({
+            "exists": vehicle_exists,
+            "valid": False,
+            "status": "invalid",
+            "message": "등록되지 않은 차량번호입니다."
+        })
+    elif vehicle_exists:
+        # 이미 등록된 차량번호
+        return Response({
+            "exists": True,
+            "valid": True,
+            "status": "duplicate",
+            "message": "이미 등록된 차량번호입니다."
+        })
+    else:
+        # 등록 가능한 차량번호
+        return Response({
+            "exists": False,
+            "valid": True,
+            "status": "valid",
+            "message": "등록 가능한 차량번호입니다."
+        })
 
 
 @swagger_auto_schema(
