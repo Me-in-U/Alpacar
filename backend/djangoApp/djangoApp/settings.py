@@ -67,9 +67,9 @@ DEFAULT_FROM_EMAIL = config("SMTP_DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
 
 
 # 192.168.0.0/16 대역을 모두 추가
-network = ipaddress.ip_network("192.168.0.0/16")
+# network = ipaddress.ip_network("192.168.0.0/16")
 # hosts() 대신 network itself를 허용하면 네트워크 주소도 함께 허용합니다.
-ALLOWED_HOSTS += [str(ip) for ip in network.hosts()]
+# ALLOWED_HOSTS += [str(ip) for ip in network.hosts()]
 
 LOGGING = {
     "version": 1,
@@ -146,7 +146,6 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     # 소셜 프로바이더
     "allauth.socialaccount.providers.google",
-    # "allauth.socialaccount.providers.kakao",
     # DRF + JWT
     "rest_framework",
     "rest_framework.authtoken",
@@ -325,7 +324,7 @@ TIME_ZONE = "Asia/Seoul"
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)

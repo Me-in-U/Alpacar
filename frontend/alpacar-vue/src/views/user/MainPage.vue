@@ -80,7 +80,8 @@
                 </div>
                 <div class="grade-tips">
                   💡Tip! 점수를 올리고 싶다면?<br>
-                  (주차 점수를 올리는 팁 두 줄)
+                  • 주차선을 밟지 않고 칸에 맞춰 주차해보세요.<br>
+                  • 차체 방향을 주차선과 평행하게 맞춰보세요.
                 </div>
               </div>
             </div>
@@ -141,8 +142,8 @@ const userStore = useUserStore()
 
 const carWithAlpacaImage = new URL('@/assets/car-with-alpaca.png', import.meta.url).href
 
-// const userScore = computed(() => userStore.me?.score || 0)
-const userScore = ref(90)
+const userScore = computed(() => userStore.me?.score || 0)
+
 const userName = computed(() => userStore.me?.nickname || 'User')
 const userVehicleNumber = computed(() => {
   return userStore.vehicles.length > 0 ? userStore.vehicles[0].license_plate : '111 가 1111'
@@ -1036,7 +1037,7 @@ onMounted(async () => {
   background-color: #f9f9f9; 
   border-radius: 6px;        
   border: 1px solid #c1b49e; /* #e0e0e0 → 팔레트 light beige-gray */
-  font-size: 12px;           
+  font-size: 11px;           
   line-height: 1.4;          
   color: #565656;            /* #555 → 팔레트 mid-gray */
   text-align: left;         

@@ -86,6 +86,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { useNotificationStore, type Notification } from "@/stores/notification";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
 const showNotificationModal = ref(false);
@@ -157,7 +158,7 @@ const deleteNotification = async (id: number) => {
 		await notificationStore.deleteNotification(id);
 	} catch (error) {
 		console.error("알림 삭제 실패:", error);
-		alert("알림 삭제에 실패했습니다.");
+		await alertError("알림 삭제에 실패했습니다.");
 	}
 };
 
@@ -168,10 +169,10 @@ const deleteAllNotifications = async () => {
 
 	try {
 		const deletedCount = await notificationStore.deleteAllNotifications();
-		alert(`${deletedCount}개의 알림이 삭제되었습니다.`);
+		await alertSuccess(`${deletedCount}개의 알림이 삭제되었습니다.`);
 	} catch (error) {
 		console.error("전체 알림 삭제 실패:", error);
-		alert("알림 삭제에 실패했습니다.");
+		await alertError("알림 삭제에 실패했습니다.");
 	}
 };
 
@@ -287,6 +288,7 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	position: relative;
 }
 
 .modal-header {
@@ -360,6 +362,7 @@ onMounted(async () => {
 	border-left: 4px solid #4B3D34;
 	background: #f0ede8;
 }
+
 
 .load-more {
 	text-align: center;

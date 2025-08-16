@@ -179,6 +179,14 @@
 		<!-- 차량 추가 모달 -->
 		<div v-if="showVehicleModal" class="modal-overlay" @click="showVehicleModal = false">
 			<div class="modal modal--vehicle" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showVehicleModal = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">차량 번호를 입력하세요</h3>
 
 				<div class="modal__input-field">
@@ -189,9 +197,10 @@
 				<div class="license-status" v-if="vehicleNumber">
 					<span v-if="plateStatus === 'checking'" class="status checking">확인 중...</span>
 					<span v-else-if="plateStatus === 'ok'" class="status ok">✔ 사용 가능</span>
-					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량</span>
+					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량번호입니다</span>
+					<span v-else-if="plateStatus === 'invalid'" class="status invalid">✗ 등록된 차량번호가 아닙니다</span>
 					<span v-else-if="plateStatus === 'error'" class="status error">검증 실패, 다시 시도</span>
-					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요</span>
+					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요 (예: 12가3456)</span>
 				</div>
 
 				<button class="modal__button" @click="addVehicle" :disabled="!canAddVehicle">등록완료</button>
@@ -201,6 +210,14 @@
 		<!-- 차량 1대 경고 모달 -->
 		<div v-if="showSingleVehicleWarning" class="modal-overlay" @click="showSingleVehicleWarning = false">
 			<div class="modal modal--warning" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showSingleVehicleWarning = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">차량이 1대밖에 없어 삭제할 수 없습니다.</h3>
 				<button class="modal__button" @click="showSingleVehicleWarning = false">확인</button>
 			</div>
@@ -216,6 +233,14 @@
 				class="modal modal--nickname"
 				@click.stop
 			>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showNicknameModal = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">
 					수정할 닉네임을 입력하세요
 				</h3>
@@ -256,6 +281,14 @@
 		<!-- 설정 진입 전 비밀번호 인증 모달 -->
 		<div v-if="showSettingsAuthModal" class="modal-overlay" @click="closeSettingsAuthModal">
 			<div class="modal modal--password-auth" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="closeSettingsAuthModal" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<h3 class="modal__title">비밀번호 확인</h3>
 
 				<div class="modal__input-field">
@@ -287,6 +320,7 @@ import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { subscribeToPushNotifications, unsubscribeFromPushNotifications, getSubscriptionStatus, showLocalNotification } from "@/utils/pwa";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -331,11 +365,19 @@ const isInfoExpanded = ref(false);
 
 /* 차량 추가/삭제 */
 const vehicleNumber = ref("");
-const plateRegex = /^(?:0[1-9]|[1-9]\d|[1-9]\d{2})[가-힣][1-9]\d{3}$/;
+
+// 한국 번호판 정규식 패턴 (더 정확한 한글 문자 제한)
+const KOREAN_PLATE_CHARS = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배";
+const plateRegex = new RegExp(
+  `^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` +  // 01-99 또는 100-999
+  `[${KOREAN_PLATE_CHARS}]` +              // 한글 1자 (지정된 문자만)
+  `[1-9]\\d{3}$`                          // 1000-9999
+);
+
 const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
 
-// 실시간 중복 상태: idle | checking | ok | duplicate | error
-const plateStatus = ref<"idle" | "checking" | "ok" | "duplicate" | "error">("idle");
+// 실시간 중복 상태: idle | checking | ok | duplicate | invalid | error
+const plateStatus = ref<"idle" | "checking" | "ok" | "duplicate" | "invalid" | "error">("idle");
 let plateTimer: ReturnType<typeof setTimeout> | null = null;
 
 const canAddVehicle = computed(() => isVehicleNumberValid.value && plateStatus.value === "ok");
@@ -371,11 +413,35 @@ watch(vehicleNumber, () => {
 	plateStatus.value = "checking";
 	plateTimer = setTimeout(async () => {
 		try {
-			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`);
-			if (!res.ok) throw new Error();
+			const url = `${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`;
+			console.log('[차량번호 검증] 요청 URL:', url);
+			console.log('[차량번호 검증] 원본 번호:', vehicleNumber.value);
+			console.log('[차량번호 검증] 인코딩된 번호:', encodeURIComponent(vehicleNumber.value));
+			
+			const res = await fetch(url);
+			console.log('[차량번호 검증] 응답 상태:', res.status, res.statusText);
+			
+			if (!res.ok) {
+				console.error('[차량번호 검증] HTTP 오류:', res.status, res.statusText);
+				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+			}
+			
 			const data = await res.json();
-			plateStatus.value = data.exists ? "duplicate" : "ok";
-		} catch {
+			console.log('[차량번호 검증] 응답 데이터:', data);
+			
+			// 새로운 API 응답 형식 처리
+			if (data.status === "valid") {
+				plateStatus.value = "ok";
+			} else if (data.status === "duplicate") {
+				plateStatus.value = "duplicate";
+			} else if (data.status === "invalid") {
+				plateStatus.value = "invalid";
+			} else {
+				console.warn('[차량번호 검증] 예상치 못한 status:', data.status);
+				plateStatus.value = "error";
+			}
+		} catch (error) {
+			console.error('[차량번호 검증] 에러:', error);
 			plateStatus.value = "error";
 		}
 	}, 400);
@@ -384,12 +450,12 @@ watch(vehicleNumber, () => {
 // 차량 등록 (중복이면 서버 에러 메시지 사용)
 const addVehicle = async () => {
 	if (!canAddVehicle.value) {
-		alert("차량번호를 확인해주세요.");
+		await alertWarning("차량번호를 확인해주세요.");
 		return;
 	}
 	const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
 	if (!token) {
-		alert("로그인이 필요합니다.");
+		await alertWarning("로그인이 필요합니다.");
 		router.push("/login");
 		return;
 	}
@@ -406,7 +472,7 @@ const addVehicle = async () => {
 		});
 
 		if (response.ok) {
-			alert("차량이 성공적으로 등록되었습니다!");
+			await alertSuccess("차량이 성공적으로 등록되었습니다!");
 			showVehicleModal.value = false;
 			vehicleNumber.value = "";
 			plateStatus.value = "idle";
@@ -417,24 +483,24 @@ const addVehicle = async () => {
 			const contentType = response.headers.get("content-type");
 			if (contentType && contentType.includes("application/json")) {
 				const err = await response.json();
-				alert("차량 등록 실패: " + (err.detail || err.message || "서버 오류"));
+				await alertError("차량 등록 실패: " + (err.detail || err.message || "서버 오류"));
 				if ((err.detail || "").includes("이미") || response.status === 400) {
 					plateStatus.value = "duplicate";
 				}
 			} else {
 				if (response.status === 401) {
-					alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+					await alertError("인증이 만료되었습니다. 다시 로그인해주세요.");
 					router.push("/login");
 				} else if (response.status === 404) {
-					alert("API 엔드포인트를 찾을 수 없습니다.");
+					await alertError("API 엔드포인트를 찾을 수 없습니다.");
 				} else {
-					alert("차량 등록 실패 (코드: " + response.status + ")");
+					await alertError("차량 등록 실패 (코드: " + response.status + ")");
 				}
 			}
 		}
 	} catch (e) {
 		console.error(e);
-		alert("차량 등록 중 오류가 발생했습니다.");
+		await alertError("차량 등록 중 오류가 발생했습니다.");
 		plateStatus.value = "error";
 	}
 };
@@ -447,10 +513,10 @@ const removeVehicle = async (id: number) => {
 	if (!confirm("차량을 정말 삭제하시겠습니까?")) return;
 	try {
 		await userStore.removeVehicle(id); // 서버 의존. 필요시 주석
-		alert("차량이 삭제되었습니다. (테스트)");
+		await alertSuccess("차량이 삭제되었습니다. (테스트)");
 	} catch (e) {
 		console.error(e);
-		alert("차량 삭제 중 오류가 발생했습니다. (테스트 모드)");
+		await alertError("차량 삭제 중 오류가 발생했습니다. (테스트 모드)");
 	}
 };
 
@@ -563,15 +629,15 @@ const preventInvalidNicknameChars = (e: KeyboardEvent) => {
 
 const updateNickname = async () => {
 	const nick = newNickname.value.trim();
-	if (!nick) return alert("닉네임을 입력해주세요.");
+	if (!nick) return await alertWarning("닉네임을 입력해주세요.");
 	try {
 		await userStore.updateProfile({ nickname: nick }); // 서버 의존(테스트 시 주석 가능)
-		alert("닉네임이 변경되었습니다.");
+		await alertSuccess("닉네임이 변경되었습니다.");
 		showNicknameModal.value = false;
 		newNickname.value = "";
 	} catch (err: any) {
 		console.error(err);
-		alert("변경 실패: " + err.message);
+		await alertError("변경 실패: " + err.message);
 	}
 };
 
@@ -674,16 +740,16 @@ const toggleNotifications = async () => {
     
     // 성공 메시지 표시
     if (isNotificationEnabled.value) {
-      alert("푸시 알림이 활성화되었습니다.");
+      await alertSuccess("푸시 알림이 활성화되었습니다.");
       setTimeout(() => {
         showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
       }, 1000);
     } else {
-      alert("푸시 알림이 해제되었습니다.");
+      await alertSuccess("푸시 알림이 해제되었습니다.");
     }
   } catch (e) {
     console.error("[UserProfile] 알림 설정 변경 중 오류:", e);
-    alert(`알림 설정 변경 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+    await alertError(`알림 설정 변경 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
   }
 };
 
@@ -696,15 +762,15 @@ const installPWA = async () => {
       deferredPrompt = null;
     } catch (e) {
       console.error(e);
-      alert("PWA 설치 중 오류가 발생했습니다.");
+      await alertError("PWA 설치 중 오류가 발생했습니다.");
     }
   } else if (window.matchMedia("(display-mode: standalone)").matches) {
-    alert("이미 PWA로 설치되어 실행 중입니다.");
+    await alert("이미 PWA로 설치되어 실행 중입니다.");
   } else {
     const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("android")) alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
-    else if (ua.includes("iphone") || ua.includes("ipad")) alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
-    else alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
+    if (ua.includes("android")) await alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
+    else if (ua.includes("iphone") || ua.includes("ipad")) await alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
+    else await alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
   }
 };
 
@@ -1155,6 +1221,7 @@ onMounted(async () => {
 	max-width: 320px;
 	padding: 27px 24px 50px;
 	border-radius: 0;
+	position: relative;
 }
 .modal__title {
 	font-size: 18px;
@@ -1269,6 +1336,9 @@ onMounted(async () => {
 .status.duplicate {
 	color: #f44336;
 }
+.status.invalid {
+	color: #e91e63;
+}
 .status.error {
 	color: #ff9800;
 }
@@ -1350,6 +1420,35 @@ onMounted(async () => {
   max-width: 360px;
   border-radius: 10px;
   padding: 27px 24px 32px;
+}
+
+/* Modal Close Button */
+.modal-close-btn {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	width: 32px;
+	height: 32px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: #666;
+	transition: all 0.2s ease;
+	z-index: 10;
+}
+
+.modal-close-btn:hover {
+	background-color: rgba(0, 0, 0, 0.1);
+	color: #333;
+}
+
+.modal-close-btn svg {
+	width: 20px;
+	height: 20px;
 }
 
 /* ── 알림 카드 ── */

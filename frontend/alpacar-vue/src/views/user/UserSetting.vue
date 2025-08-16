@@ -79,6 +79,14 @@
         class="modal modal--phone"
         @click.stop
       >
+        <!-- X Close Button -->
+        <button class="modal-close-btn" @click="closePhoneModal" aria-label="닫기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        
         <h3 class="modal__title">
           새 전화번호 입력
         </h3>
@@ -121,12 +129,13 @@
           v-if="newPhoneNumber && !isPhoneValid"
           class="error-message"
         >
-          올바른 전화번호 형식으로 입력해주세요 (숫자 11자리)
+          010, 011, 016, 017, 018, 019로 시작하는 10~11자리 번호만 입력 가능
         </div>
 
         <button
           class="modal__button"
           @click="requestPhoneChange"
+          :disabled="!isPhoneValid"
         >
           변경하기
         </button>
@@ -143,6 +152,14 @@
         class="modal modal--password"
         @click.stop
       >
+        <!-- X Close Button -->
+        <button class="modal-close-btn" @click="showPasswordModal = false" aria-label="닫기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        
         <h3 class="modal__title">
           비밀번호 변경
         </h3>
@@ -224,6 +241,14 @@
         class="modal modal--email-verify"
         @click.stop
       >
+        <!-- X Close Button -->
+        <button class="modal-close-btn" @click="showEmailVerificationModal = false" aria-label="닫기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        
         <h3 class="modal__title">
           {{ verificationTarget === 'phone' ? '전화번호 변경' : '비밀번호 변경' }} 인증
         </h3>
@@ -290,6 +315,7 @@ import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { apiClient } from "@/api/parking";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 /* ====== 스토어 ====== */
 const router = useRouter();
@@ -313,7 +339,7 @@ const loadDetailedUserInfo = async () => {
     console.log('[UserSetting] 사용자 상세 정보 로딩 완료');
   } catch (error) {
     console.error('[UserSetting] 사용자 정보 로딩 실패:', error);
-    alert('사용자 정보를 불러오는데 실패했습니다.');
+    await alertError('사용자 정보를 불러오는데 실패했습니다.');
   } finally {
     isLoadingUserInfo.value = false;
   }
@@ -357,7 +383,12 @@ const phoneDisplay = ref("");
 const newPhoneNumber = ref("");
 const showPhoneModal = ref(false);
 
-const isPhoneValid = computed(() => /^[0-9]{11}$/.test(newPhoneNumber.value));
+const isPhoneValid = computed(() => {
+  if (!newPhoneNumber.value || newPhoneNumber.value.length < 10 || newPhoneNumber.value.length > 11) {
+    return false;
+  }
+  return /^(010|011|016|017|018|019)[0-9]{7,8}$/.test(newPhoneNumber.value);
+});
 
 const handlePhoneInput = (e: Event) => {
   let digits = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, "");
@@ -387,7 +418,7 @@ const verificationTarget = ref<'phone' | 'password'>('phone');
 
 const requestPhoneChange = async () => {
   if (!newPhoneNumber.value.trim()) {
-    alert("새 전화번호를 입력해주세요.");
+    await alertWarning("새 전화번호를 입력해주세요.");
     return;
   }
   
@@ -397,7 +428,7 @@ const requestPhoneChange = async () => {
   }
   
   if (!userInfo.value?.email) {
-    alert("이메일 정보를 불러오는데 실패했습니다.");
+    await alertError("이메일 정보를 불러오는데 실패했습니다.");
     return;
   }
   
@@ -420,8 +451,8 @@ const refreshDetailedUserInfo = async () => {
 };
 
 const executePhoneChange = async () => {
-  if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
-  if (!newPhoneNumber.value || !isPhoneValid.value) { alert("올바른 전화번호를 입력해주세요."); return; }
+  if (!emailVerified.value) { await alertWarning("이메일 인증을 먼저 완료해주세요."); return; }
+  if (!newPhoneNumber.value || !isPhoneValid.value) { await alertWarning("올바른 전화번호를 입력해주세요."); return; }
 
   const payload = {
     phone: newPhoneNumber.value,
@@ -437,7 +468,7 @@ const executePhoneChange = async () => {
       phone: newPhoneNumber.value,
     };
 
-    alert("전화번호가 성공적으로 변경되었습니다.");
+    await alertSuccess("전화번호가 성공적으로 변경되었습니다.");
     showEmailVerificationModal.value = false;
     showPhoneModal.value = false;
     newPhoneNumber.value = "";
@@ -461,7 +492,7 @@ const executePhoneChange = async () => {
       e?.response?.data?.detail ||
       e?.response?.data?.message ||
       e?.message || "서버 오류";
-    alert("전화번호 변경 실패: " + msg);
+    await alertError("전화번호 변경 실패: " + msg);
   }
 };
 
@@ -497,7 +528,7 @@ const requestPasswordChange = async () => {
   }
   
   if (!userInfo.value?.email) {
-    alert("이메일 정보를 불러오는데 실패했습니다.");
+    await alertError("이메일 정보를 불러오는데 실패했습니다.");
     return;
   }
   
@@ -509,22 +540,22 @@ const requestPasswordChange = async () => {
 };
 
 const confirmPasswordChange = async () => {
-  if (!emailVerified.value) { alert("이메일 인증을 먼저 완료해주세요."); return; }
+  if (!emailVerified.value) { await alertWarning("이메일 인증을 먼저 완료해주세요."); return; }
   if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
-    return alert("모든 비밀번호 필드를 입력해주세요.");
+    return await alertWarning("모든 비밀번호 필드를 입력해주세요.");
   }
   if (newPassword.value !== confirmPassword.value) {
-    return alert("새 비밀번호가 일치하지 않습니다.");
+    return await alertWarning("새 비밀번호가 일치하지 않습니다.");
   }
 
   try {
     await userStore.changePassword(currentPassword.value, newPassword.value); // 서버 의존(테스트 시 주석 가능)
-    alert("비밀번호가 성공적으로 변경되었습니다. (테스트)");
+    await alertSuccess("비밀번호가 성공적으로 변경되었습니다.");
     showEmailVerificationModal.value = false;
     showPasswordModal.value = false;
   } catch (e: any) {
     console.error(e);
-    alert("변경 실패: " + e.message);
+    await alertError("변경 실패: " + e.message);
   } finally {
     currentPassword.value = "";
     newPassword.value = "";
@@ -545,12 +576,12 @@ const sendEmailVerification = async () => {
     });
     if (response.ok) {
       emailSent.value = true;
-      alert("인증번호를 발송했습니다. (테스트)");
+      await alertSuccess("인증번호를 발송했습니다.");
     } else {
-      alert("인증번호 발송 실패");
+      await alertError("인증번호 발송 실패");
     }
   } catch {
-    alert("인증번호 발송 실패 (테스트 모드)");
+    await alertError("인증번호 발송 실패");
   }
 };
 
@@ -563,21 +594,21 @@ const verifyEmailCode = async () => {
     });
     if (response.ok) {
       emailVerified.value = true;
-      alert("이메일 인증이 완료되었습니다. (테스트)");
+      await alertSuccess("이메일 인증이 완료되었습니다.");
     } else {
       const error = await response.json();
-      alert(error.detail || "인증 실패");
+      await alertError(error.detail || "인증 실패");
     }
   } catch {
-    alert("인증 실패 (테스트 모드)");
+    await alertError("인증 실패");
   }
 };
 
 /* ====== 보안 검증 ====== */
-const checkAuthenticationStatus = () => {
+const checkAuthenticationStatus = async () => {
   // 1. 소셜 로그인 유저인 경우 접근 차단
   if (isSocialUser.value) {
-    alert('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
+    await alertWarning('소셜 로그인 사용자는 이 페이지에 접근할 수 없습니다.');
     router.push('/user-profile');
     return false;
   }
@@ -594,7 +625,7 @@ const checkAuthenticationStatus = () => {
 
 /* ====== 마운트(테스트용) ====== */
 onMounted(async () => {
-  if (!checkAuthenticationStatus()) return;
+  if (!(await checkAuthenticationStatus())) return;
 
   // 사용자 상세 정보 로딩
   await loadDetailedUserInfo();
@@ -652,7 +683,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #776b5d;
+  color: #4B3D34;
   font-size: 14px;
   font-weight: 700;
 }
@@ -746,6 +777,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   max-width: 360px;
   padding: 27px 24px 32px;
   border-radius: 10px;
+  position: relative;
 }
 
 .modal__title {
@@ -778,7 +810,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 .modal__button {
   width: 100%;
   height: 48px;
-  background: #776b5d;
+  background: #4B3D34;
   color: #ffffff;
   border: none;
   font-size: 16px;
@@ -792,6 +824,15 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 
 .modal__button--success {
   background: #4caf50;
+}
+
+.modal__button:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+.modal__button:disabled:hover {
+  background: #cccccc;
 }
 
 /* 비밀번호 유효성 안내 */
@@ -847,6 +888,35 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 
 .verification-complete {
   margin-top: 10px;
+}
+
+/* Modal Close Button */
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #666;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.modal-close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+.modal-close-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* Responsive */

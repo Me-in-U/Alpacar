@@ -1,9 +1,30 @@
 # parking\models.py
 from django.db import models
 from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.db.models import Avg
+import random
+import pytz
 
 from events.models import VehicleEvent
 from vehicles.models import Vehicle
+
+# 한국 시간대 설정
+KST = pytz.timezone('Asia/Seoul')
+
+def korean_now():
+    """한국 시간대의 현재 시간을 반환"""
+    return timezone.now().astimezone(KST)
+
+def get_korean_now():
+    """한국 시간대의 현재 시간을 반환 (모델 필드용)"""
+    from datetime import datetime
+    # UTC 현재 시간을 한국 시간대로 변환 후 naive datetime으로 반환
+    utc_now = timezone.now()
+    korean_time = utc_now.astimezone(KST)
+    # naive datetime으로 변환 (타임존 정보 제거)
+    return korean_time.replace(tzinfo=None)
 
 
 class ParkingSpace(models.Model):
@@ -21,9 +42,9 @@ class ParkingSpace(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ("free", "비어있음"),
-        ("occupied", "사용중"),
-        ("reserved", "예약됨"),
+        ("free", "free"),
+        ("occupied", "occupied"),
+        ("reserved", "reserved"),
     ]
 
     zone = models.CharField("구역", max_length=10)  # 주차 구역 이름
@@ -47,8 +68,8 @@ class ParkingSpace(models.Model):
         on_delete=models.SET_NULL,
         related_name="current_space",
     )
-    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각
-    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각
+    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각 (한국 시간대)
+    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각 (한국 시간대)
 
     class Meta:
         db_table = "parking_space"  # 테이블명 지정
@@ -56,8 +77,20 @@ class ParkingSpace(models.Model):
         verbose_name_plural = "주차 공간"
         unique_together = (("zone", "slot_number"),)  # 구역+번호 조합 유일
 
+    def save(self, *args, **kwargs):
+        """저장 시 한국 시간대 적용"""
+        # 새로 생성되는 객체인 경우 created_at을 한국 시간으로 설정
+        if not self.pk and not self.created_at:
+            self.created_at = get_korean_now()
+        
+        # 업데이트되는 경우 updated_at을 한국 시간으로 설정
+        self.updated_at = get_korean_now()
+        
+        super().save(*args, **kwargs)
+        
     def __str__(self):
-        return f"{self.zone}-{self.slot_number} ({self.get_status_display()})"
+        return f"{self.zone}-{self.slot_number}"
+    
 
 
 class ParkingAssignment(models.Model):
@@ -96,8 +129,8 @@ class ParkingAssignment(models.Model):
         related_name="assignments",
     )  # 배정된 주차 공간
     start_time = models.DateTimeField(
-        "입차 시각", default=timezone.now
-    )  # 입차 시각 기본 현재 시각
+        "입차 시각", default=get_korean_now
+    )  # 입차 시각 기본 현재 시각 (한국 시간대)
     end_time = models.DateTimeField(
         "출차 시각", null=True, blank=True
     )  # 출차 시각(미출차 시 null)
@@ -108,14 +141,29 @@ class ParkingAssignment(models.Model):
         default="ASSIGNED",
     )  # 배정 상태
 
-    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각
-    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각
+    created_at = models.DateTimeField("생성일시", auto_now_add=True)  # 등록 시각 (한국 시간대)
+    updated_at = models.DateTimeField("수정일시", auto_now=True)  # 수정 시각 (한국 시간대)
 
     class Meta:
         db_table = "parking_assignment"  # 테이블명 지정
         verbose_name = "주차 배정"
         verbose_name_plural = "주차 배정"
 
+    def set_korean_end_time(self):
+        """출차 시각을 한국 시간대로 설정"""
+        self.end_time = get_korean_now()
+        
+    def save(self, *args, **kwargs):
+        """저장 시 한국 시간대 적용"""
+        # 새로 생성되는 객체인 경우 created_at을 한국 시간으로 설정
+        if not self.pk and not self.created_at:
+            self.created_at = get_korean_now()
+        
+        # 업데이트되는 경우 updated_at을 한국 시간으로 설정
+        self.updated_at = get_korean_now()
+        
+        super().save(*args, **kwargs)
+        
     def __str__(self):
         return f"{self.space} - {self.get_status_display()}"  # 대표 문자열
 
@@ -139,14 +187,72 @@ class ParkingAssignmentHistory(models.Model):
         blank=True,
     )  # 관련 배정 (삭제 시 null)
     score = models.IntegerField("점수", help_text="변경된 점수")  # 변경된 점수
-    created_at = models.DateTimeField("변경 시각", auto_now_add=True)  # 이력 기록 시각
+    created_at = models.DateTimeField("변경 시각", auto_now_add=True)  # 이력 기록 시각 (한국 시간대)
 
     class Meta:
         db_table = "parking_assignment_history"  # 테이블명 지정
         verbose_name = "배정 점수 히스토리"
         verbose_name_plural = "배정 점수 히스토리"
 
+    def save(self, *args, **kwargs):
+        """저장 시 한국 시간대 적용"""
+        # 새로 생성되는 객체인 경우 created_at을 한국 시간으로 설정
+        if not self.pk and not self.created_at:
+            self.created_at = get_korean_now()
+        
+        super().save(*args, **kwargs)
+        
     def __str__(self):
         return (
             f"{self.user.nickname} - {self.score}점 @ {self.created_at}"  # 대표 문자열
         )
+
+
+@receiver(post_save, sender=ParkingAssignment)
+def create_parking_score_on_completion(sender, instance, created, **kwargs):
+    """
+    주차 배정이 완료(COMPLETED)될 때 자동으로 점수 생성
+    """
+    if instance.status == 'COMPLETED' and instance.end_time:
+        # 이미 점수가 생성되었는지 확인
+        existing_history = ParkingAssignmentHistory.objects.filter(
+            assignment=instance
+        ).first()
+        
+        if not existing_history:
+            # 사용자의 현재 점수를 그대로 사용
+            current_user_score = instance.user.score
+            
+            # 사용자 점수가 0이거나 설정되지 않은 경우 기본값 사용
+            if current_user_score == 0:
+                new_score = 75  # 기본값
+            else:
+                new_score = current_user_score
+            
+            # 점수 히스토리 생성 (한국 시간대 적용)
+            history = ParkingAssignmentHistory(
+                user=instance.user,
+                assignment=instance,
+                score=new_score
+            )
+            # 명시적으로 한국 시간대 설정
+            history.created_at = get_korean_now()
+            history.save()
+            
+            # 사용자 평균 점수 업데이트
+            update_user_average_score(instance.user)
+
+
+def update_user_average_score(user):
+    """
+    사용자의 평균 점수를 계산하여 User 모델의 score 필드 업데이트
+    """
+    from accounts.models import User
+    
+    avg_score = ParkingAssignmentHistory.objects.filter(
+        user=user
+    ).aggregate(avg_score=Avg('score'))['avg_score']
+    
+    if avg_score is not None:
+        user.score = round(avg_score)
+        user.save(update_fields=['score'])

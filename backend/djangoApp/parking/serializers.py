@@ -37,10 +37,16 @@ class VehicleSimpleSerializer(serializers.ModelSerializer):
 
 
 class ParkingAssignmentSerializer(serializers.ModelSerializer):
-    space_display = serializers.CharField(source="space", read_only=True)
+    space_display = serializers.SerializerMethodField()
     vehicle = VehicleSimpleSerializer(read_only=True)
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     space = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    def get_space_display(self, obj):
+        """주차 공간 정보 반환 (상태 없이)"""
+        if obj.space:
+            return f"{obj.space.zone}-{obj.space.slot_number}"
+        return "N/A"
 
     class Meta:
         model = ParkingAssignment
@@ -79,7 +85,9 @@ class ParkingHistorySerializer(serializers.ModelSerializer):
 
     def get_space(self, obj):
         """주차 공간 정보 반환"""
-        return str(obj.space) if obj.space else "N/A"
+        if obj.space:
+            return f"{obj.space.zone}-{obj.space.slot_number}"
+        return "N/A"
 
     def get_score(self, obj):
         """해당 배정의 점수 반환"""
@@ -89,13 +97,11 @@ class ParkingHistorySerializer(serializers.ModelSerializer):
             if history:
                 return history.score
             else:
-                # 임시로 랜덤값 반환
-                import random
-
-                return random.randint(60, 95)
+                # 점수 히스토리가 없는 경우 null 또는 기본값 반환
+                return None
         except Exception:
-            # 에러 발생시 기본값 반환
-            return 75
+            # 에러 발생시 null 반환
+            return None
 
 
 class ParkingScoreHistorySerializer(serializers.ModelSerializer):

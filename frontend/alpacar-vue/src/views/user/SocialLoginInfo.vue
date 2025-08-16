@@ -44,6 +44,14 @@
 		<!-- Vehicle Registration Modal -->
 		<div v-if="showModal" class="modal-overlay" @click="showModal = false">
 			<div class="modal-content" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showModal = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<div class="modal-header">
 					<h3 class="modal-title">차량 번호를 입력해주세요</h3>
 				</div>
@@ -56,9 +64,10 @@
 				<div class="license-status" v-if="vehicleNumber">
 					<span v-if="plateStatus === 'checking'" class="status checking">확인 중...</span>
 					<span v-else-if="plateStatus === 'ok'" class="status ok">✔ 사용 가능</span>
-					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량</span>
+					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량번호입니다</span>
+					<span v-else-if="plateStatus === 'invalid'" class="status invalid">✗ 등록된 차량번호가 아닙니다</span>
 					<span v-else-if="plateStatus === 'error'" class="status error">검증 실패, 다시 시도</span>
-					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요</span>
+					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요 (예: 12가3456)</span>
 				</div>
 
 				<div class="modal-footer">
@@ -77,6 +86,7 @@ import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 import { SecureTokenManager } from "@/utils/security";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -86,10 +96,18 @@ const selectedSkill = ref("advanced");
 
 // ── 차량번호 상태/검증 ──
 const vehicleNumber = ref("");
-const plateRegex = /^(?:0[1-9]|[1-9]\d|[1-9]\d{2})[가-힣][1-9]\d{3}$/;
+
+// 한국 번호판 정규식 패턴 (더 정확한 한글 문자 제한)
+const KOREAN_PLATE_CHARS = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배";
+const plateRegex = new RegExp(
+  `^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` +  // 01-99 또는 100-999
+  `[${KOREAN_PLATE_CHARS}]` +              // 한글 1자 (지정된 문자만)
+  `[1-9]\\d{3}$`                          // 1000-9999
+);
+
 const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
 
-type PlateStatus = "idle" | "checking" | "ok" | "duplicate" | "error";
+type PlateStatus = "idle" | "checking" | "ok" | "duplicate" | "invalid" | "error";
 const plateStatus = ref<PlateStatus>("idle");
 let plateTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -115,8 +133,8 @@ const getSecureToken = () => {
 	return SecureTokenManager.getSecureToken("access_token");
 };
 
-// 로그인 확인
-onMounted(() => {
+// 로그인 확인 및 기존 차량 정보 로드
+onMounted(async () => {
 	const token = getSecureToken();
 	if (!token) {
 		console.log("[SOCIAL-LOGIN-INFO] 토큰 없음 - 로그인 페이지로 리다이렉트");
@@ -134,6 +152,18 @@ onMounted(() => {
 	
 	// 토큰이 만료되었는지 확인하는 API 호출
 	verifyToken(token);
+	
+	// 기존 등록된 차량 정보 확인
+	try {
+		await userStore.fetchMyVehicles();
+		if (userStore.vehicles && userStore.vehicles.length > 0) {
+			// 이미 등록된 차량이 있다면 formData 업데이트
+			formData.vehicleNumber = userStore.vehicles[0].license_plate;
+			console.log("[SOCIAL-LOGIN-INFO] 기존 차량 정보 발견:", formData.vehicleNumber);
+		}
+	} catch (error) {
+		console.warn("[SOCIAL-LOGIN-INFO] 차량 정보 로드 실패:", error);
+	}
 });
 
 // 토큰 검증 함수
@@ -185,13 +215,35 @@ watch(vehicleNumber, () => {
 	plateStatus.value = "checking";
 	plateTimer = setTimeout(async () => {
 		try {
-			// check_license가 AllowAny라면 헤더 없이도 OK.
-			// 인증이 필요한 경우, 아래 headers에 토큰을 넣어주세요.
-			const res = await fetch(`${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`);
-			if (!res.ok) throw new Error();
+			const url = `${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`;
+			console.log('[차량번호 검증] 요청 URL:', url);
+			console.log('[차량번호 검증] 원본 번호:', vehicleNumber.value);
+			console.log('[차량번호 검증] 인코딩된 번호:', encodeURIComponent(vehicleNumber.value));
+			
+			const res = await fetch(url);
+			console.log('[차량번호 검증] 응답 상태:', res.status, res.statusText);
+			
+			if (!res.ok) {
+				console.error('[차량번호 검증] HTTP 오류:', res.status, res.statusText);
+				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+			}
+			
 			const data = await res.json();
-			plateStatus.value = data.exists ? "duplicate" : "ok";
-		} catch {
+			console.log('[차량번호 검증] 응답 데이터:', data);
+			
+			// 새로운 API 응답 형식 처리
+			if (data.status === "valid") {
+				plateStatus.value = "ok";
+			} else if (data.status === "duplicate") {
+				plateStatus.value = "duplicate";
+			} else if (data.status === "invalid") {
+				plateStatus.value = "invalid";
+			} else {
+				console.warn('[차량번호 검증] 예상치 못한 status:', data.status);
+				plateStatus.value = "error";
+			}
+		} catch (error) {
+			console.error('[차량번호 검증] 에러:', error);
 			plateStatus.value = "error";
 		}
 	}, 400);
@@ -200,7 +252,7 @@ watch(vehicleNumber, () => {
 // 차량 등록
 const addVehicle = async () => {
 	if (!canAddVehicle.value) {
-		alert("차량번호를 확인해주세요.");
+		await alertWarning("차량번호를 확인해주세요.");
 		return;
 	}
 
@@ -228,7 +280,7 @@ const addVehicle = async () => {
 			// 등록 직후 내 차량 목록 갱신이 필요하면 아래 주석 해제
 			// await userStore.fetchMyVehicles();
 
-			alert("차량 번호가 성공적으로 등록되었습니다!");
+			await alertSuccess("차량 번호가 성공적으로 등록되었습니다!");
 			showModal.value = false;
 			vehicleNumber.value = "";
 			plateStatus.value = "idle";
@@ -236,26 +288,26 @@ const addVehicle = async () => {
 			const contentType = response.headers.get("content-type");
 			if (contentType && contentType.includes("application/json")) {
 				const errorData = await response.json();
-				alert("차량 번호 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
+				await alertError("차량 번호 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
 				if ((errorData.detail || "").includes("이미") || response.status === 400) {
 					plateStatus.value = "duplicate";
 				}
 			} else {
 				if (response.status === 404) {
-					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
+					await alertError("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
 					// 세션 만료 시 로그인 페이지로 이동
 					userStore.clearUser();
 					console.log("[SOCIAL-LOGIN-INFO] 세션 만료 - 로그인 페이지로 리다이렉트");
 					router.replace("/login");
 				} else {
-					alert("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
+					await alertError("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
 			}
 		}
 	} catch (error) {
 		console.error("차량 번호 저장 중 오류:", error);
-		alert("차량 번호 저장 중 오류가 발생했습니다.");
+		await alertError("차량 번호 저장 중 오류가 발생했습니다.");
 		plateStatus.value = "error";
 	}
 };
@@ -264,8 +316,18 @@ const addVehicle = async () => {
 const completeSetup = async () => {
 	formData.parkingSkill = selectedSkill.value;
 
-	if (!formData.vehicleNumber) {
-		alert("차량 번호를 먼저 등록해주세요.");
+	console.log("[설정완료 디버그] 시작", {
+		vehicleNumber: formData.vehicleNumber,
+		selectedSkill: selectedSkill.value,
+		userInfo: userStore.me
+	});
+
+	// 차량 등록 여부 확인 - formData.vehicleNumber 또는 userStore.vehicles 확인
+	const hasVehicle = formData.vehicleNumber || (userStore.vehicles && userStore.vehicles.length > 0);
+	
+	if (!hasVehicle) {
+		console.log("[설정완료 디버그] 차량 등록 필요");
+		await alertWarning("차량 번호를 먼저 등록해주세요.");
 		return;
 	}
 
@@ -280,6 +342,12 @@ const completeSetup = async () => {
 		const scoreMap: Record<string, number> = { beginner: 30, intermediate: 65, advanced: 86 };
 		const userScore = scoreMap[selectedSkill.value] || 30;
 
+		console.log("[설정완료 디버그] API 요청 전", {
+			skill: selectedSkill.value,
+			score: userScore,
+			apiUrl: `${BACKEND_BASE_URL}/user/parking-skill/`
+		});
+
 		const response = await fetch(`${BACKEND_BASE_URL}/user/parking-skill/`, {
 			method: "POST",
 			headers: {
@@ -292,30 +360,50 @@ const completeSetup = async () => {
 			}),
 		});
 
+		console.log("[설정완료 디버그] API 응답", {
+			status: response.status,
+			statusText: response.statusText,
+			ok: response.ok
+		});
+
 		if (response.ok) {
-			alert(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`);
-			router.push("/main");
+			console.log("[설정완료 디버그] 성공 - 메인페이지로 리다이렉트 시도");
+			await alertSuccess(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`);
+			
+			// 강제 리다이렉트 시도
+			try {
+				await router.push("/main");
+				console.log("[설정완료 디버그] router.push 성공");
+			} catch (routerError) {
+				console.error("[설정완료 디버그] router.push 실패:", routerError);
+				// 대체 방법 시도
+				window.location.href = "/main";
+			}
 		} else {
 			const contentType = response.headers.get("content-type");
 			if (contentType && contentType.includes("application/json")) {
 				const errorData = await response.json();
-				alert("주차실력 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
+				console.error("[설정완료 디버그] API 오류 데이터:", errorData);
+				await alertError("주차실력 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
 			} else {
 				if (response.status === 404) {
-					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
+					console.error("[설정완료 디버그] 404 오류 - API 엔드포인트 없음");
+					await alertError("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
+					console.error("[설정완료 디버그] 401 오류 - 인증 실패");
 					// 세션 만료 시 로그인 페이지로 이동
 					userStore.clearUser();
 					console.log("[SOCIAL-LOGIN-INFO] 세션 만료 - 로그인 페이지로 리다이렉트");
 					router.replace("/login");
 				} else {
-					alert("주차실력 저장에 실패했습니다. (오류 코드: " + response.status + ")");
+					console.error("[설정완료 디버그] 기타 HTTP 오류:", response.status);
+					await alertError("주차실력 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
 			}
 		}
 	} catch (error) {
-		console.error("주차실력 저장 중 오류:", error);
-		alert("주차실력 저장 중 오류가 발생했습니다.");
+		console.error("[설정완료 디버그] 예외 발생:", error);
+		await alertError("주차실력 저장 중 오류가 발생했습니다.");
 	}
 };
 </script>
@@ -537,6 +625,7 @@ const completeSetup = async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
+	position: relative;
 }
 .modal-header {
 	text-align: center;
@@ -611,6 +700,9 @@ const completeSetup = async () => {
 .status.duplicate {
 	color: #f44336;
 }
+.status.invalid {
+	color: #e91e63;
+}
 .status.error {
 	color: #ff9800;
 }
@@ -622,6 +714,35 @@ const completeSetup = async () => {
 	color: #f44336;
 	font-size: 14px;
 	text-align: center;
+}
+
+/* Modal Close Button */
+.modal-close-btn {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	width: 32px;
+	height: 32px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: #666;
+	transition: all 0.2s ease;
+	z-index: 10;
+}
+
+.modal-close-btn:hover {
+	background-color: rgba(0, 0, 0, 0.1);
+	color: #333;
+}
+
+.modal-close-btn svg {
+	width: 20px;
+	height: 20px;
 }
 
 /* Responsive Design */

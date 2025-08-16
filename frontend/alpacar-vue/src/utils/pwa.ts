@@ -681,7 +681,8 @@ export async function sendSubscriptionToServer(subscription: PushSubscription): 
   }
   
   try {
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    // SecureTokenManager를 사용하여 암호화된 토큰 가져오기
+    const token = SecureTokenManager.getSecureToken('access_token');
     console.log('인증 토큰 확인:', token ? `${token.substring(0, 10)}...` : 'MISSING');
     
     if (!token) {

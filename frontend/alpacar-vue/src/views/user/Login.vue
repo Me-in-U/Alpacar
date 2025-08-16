@@ -49,6 +49,7 @@
 					<span class="button-text loading" v-else>로그인 중...</span>
 				</button>
 
+
 				<!-- Social Login Buttons -->
 				<div class="social-login">
 					<!-- Google Login -->
@@ -57,10 +58,6 @@
 						<span class="button-text">구글 로그인</span>
 					</button>
 
-					<!-- Kakao Login -->
-					<button class="kakao-login-button" @click="handleKakaoLogin">
-						<span class="button-text">카카오 로그인</span>
-					</button>
 				</div>
 
 				<!-- Links -->
@@ -79,6 +76,7 @@ import { defineComponent, ref } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
+import { alert, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "Login",
@@ -92,7 +90,8 @@ export default defineComponent({
 		const handleLogin = async () => {
 			if (isLoading.value) return;
 			if (!email.value || !password.value) {
-				return alert("이메일과 비밀번호를 모두 입력해주세요.");
+				await alert("이메일과 비밀번호를 모두 입력해주세요.");
+				return;
 			}
 
 			isLoading.value = true;
@@ -103,7 +102,7 @@ export default defineComponent({
 				router.push("/main");
 			} catch (err: any) {
 				console.error("로그인 실패:", err);
-				alert("로그인 실패: " + err.message);
+				await alertError("로그인 실패: " + err.message);
 			} finally {
 				isLoading.value = false;
 			}
@@ -121,14 +120,10 @@ export default defineComponent({
 			} catch (error) {
 				console.error("❌ 리다이렉트 실패:", error);
 				const errorMessage = error instanceof Error ? error.message : String(error);
-				alert(`구글 로그인 중 오류가 발생했습니다: ${errorMessage}`);
+				alertError(`구글 로그인 중 오류가 발생했습니다: ${errorMessage}`);
 			}
 		};
 
-		const handleKakaoLogin = () => {
-			console.log("카카오 로그인 시도");
-			router.push("/social-login-info");
-		};
 
 		return {
 			email,
@@ -137,7 +132,6 @@ export default defineComponent({
 			isLoading,
 			handleLogin,
 			handleGoogleLogin,
-			handleKakaoLogin,
 		};
 	},
 });
@@ -362,25 +356,6 @@ export default defineComponent({
 	flex-shrink: 0;
 }
 
-.kakao-login-button {
-	width: 100%;
-	height: 50px;
-	background-color: #f9e000;
-	border: none;
-	border-radius: 8px;
-	cursor: pointer;
-	transition: all 0.3s ease;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.kakao-login-button:hover {
-	background-color: #f0d800;
-	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(249, 224, 0, 0.3);
-}
-
 .button-text {
 	font-family: "Inter", sans-serif;
 	font-weight: 600;
@@ -394,7 +369,7 @@ export default defineComponent({
 }
 
 .google-login-button .button-text,
-.kakao-login-button .button-text {
+.button-text {
 	color: #333333;
 }
 

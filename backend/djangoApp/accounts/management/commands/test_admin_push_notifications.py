@@ -103,7 +103,7 @@ class Command(BaseCommand):
             create_notification(
                 user=user,
                 title="🅿️ 주차 구역 배정",
-                message=f"{assignment_data['plate_number']} 차량에 {assignment_data['assigned_space']} 구역이 배정되었습니다. 안내에 따라 주차해 주세요.",
+                message=f"{assignment_data['plate_number']} 차량이 {assignment_data['assigned_space']} 구역에 배정`되었습니다. 안내에 따라 주차해 주세요.",
                 notification_type='parking_assigned',
                 data=assignment_data
             )
