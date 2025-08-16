@@ -44,6 +44,14 @@
 		<!-- Vehicle Registration Modal -->
 		<div v-if="showModal" class="modal-overlay" @click="showModal = false">
 			<div class="modal-content" @click.stop>
+				<!-- X Close Button -->
+				<button class="modal-close-btn" @click="showModal = false" aria-label="닫기">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+				
 				<div class="modal-header">
 					<h3 class="modal-title">차량 번호를 입력해주세요</h3>
 				</div>
@@ -58,7 +66,7 @@
 					<span v-else-if="plateStatus === 'ok'" class="status ok">✔ 사용 가능</span>
 					<span v-else-if="plateStatus === 'duplicate'" class="status duplicate">✗ 이미 등록된 차량</span>
 					<span v-else-if="plateStatus === 'error'" class="status error">검증 실패, 다시 시도</span>
-					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요</span>
+					<span v-else-if="!isVehicleNumberValid" class="status error">올바른 차량번호 형식으로 입력해주세요 (예: 12가3456)</span>
 				</div>
 
 				<div class="modal-footer">
@@ -86,7 +94,15 @@ const selectedSkill = ref("advanced");
 
 // ── 차량번호 상태/검증 ──
 const vehicleNumber = ref("");
-const plateRegex = /^(?:0[1-9]|[1-9]\d|[1-9]\d{2})[가-힣][1-9]\d{3}$/;
+
+// 한국 번호판 정규식 패턴 (더 정확한 한글 문자 제한)
+const KOREAN_PLATE_CHARS = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배";
+const plateRegex = new RegExp(
+  `^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` +  // 01-99 또는 100-999
+  `[${KOREAN_PLATE_CHARS}]` +              // 한글 1자 (지정된 문자만)
+  `[1-9]\\d{3}$`                          // 1000-9999
+);
+
 const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
 
 type PlateStatus = "idle" | "checking" | "ok" | "duplicate" | "error";
@@ -537,6 +553,7 @@ const completeSetup = async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
+	position: relative;
 }
 .modal-header {
 	text-align: center;
@@ -622,6 +639,35 @@ const completeSetup = async () => {
 	color: #f44336;
 	font-size: 14px;
 	text-align: center;
+}
+
+/* Modal Close Button */
+.modal-close-btn {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	width: 32px;
+	height: 32px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: #666;
+	transition: all 0.2s ease;
+	z-index: 10;
+}
+
+.modal-close-btn:hover {
+	background-color: rgba(0, 0, 0, 0.1);
+	color: #333;
+}
+
+.modal-close-btn svg {
+	width: 20px;
+	height: 20px;
 }
 
 /* Responsive Design */
