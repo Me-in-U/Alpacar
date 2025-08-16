@@ -652,7 +652,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #776b5d;
+  color: #4B3D34;
   font-size: 14px;
   font-weight: 700;
 }
@@ -778,7 +778,7 @@ const formatPhoneNumber = (phone: string | undefined | null) => {
 .modal__button {
   width: 100%;
   height: 48px;
-  background: #776b5d;
+  background: #4B3D34;
   color: #ffffff;
   border: none;
   font-size: 16px;
