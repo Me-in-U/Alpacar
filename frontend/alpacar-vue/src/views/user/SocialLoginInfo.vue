@@ -86,6 +86,7 @@ import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 import { SecureTokenManager } from "@/utils/security";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -251,7 +252,7 @@ watch(vehicleNumber, () => {
 // 차량 등록
 const addVehicle = async () => {
 	if (!canAddVehicle.value) {
-		alert("차량번호를 확인해주세요.");
+		await alertWarning("차량번호를 확인해주세요.");
 		return;
 	}
 
@@ -279,7 +280,7 @@ const addVehicle = async () => {
 			// 등록 직후 내 차량 목록 갱신이 필요하면 아래 주석 해제
 			// await userStore.fetchMyVehicles();
 
-			alert("차량 번호가 성공적으로 등록되었습니다!");
+			await alertSuccess("차량 번호가 성공적으로 등록되었습니다!");
 			showModal.value = false;
 			vehicleNumber.value = "";
 			plateStatus.value = "idle";
@@ -287,26 +288,26 @@ const addVehicle = async () => {
 			const contentType = response.headers.get("content-type");
 			if (contentType && contentType.includes("application/json")) {
 				const errorData = await response.json();
-				alert("차량 번호 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
+				await alertError("차량 번호 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
 				if ((errorData.detail || "").includes("이미") || response.status === 400) {
 					plateStatus.value = "duplicate";
 				}
 			} else {
 				if (response.status === 404) {
-					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
+					await alertError("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
 					// 세션 만료 시 로그인 페이지로 이동
 					userStore.clearUser();
 					console.log("[SOCIAL-LOGIN-INFO] 세션 만료 - 로그인 페이지로 리다이렉트");
 					router.replace("/login");
 				} else {
-					alert("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
+					await alertError("차량 번호 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
 			}
 		}
 	} catch (error) {
 		console.error("차량 번호 저장 중 오류:", error);
-		alert("차량 번호 저장 중 오류가 발생했습니다.");
+		await alertError("차량 번호 저장 중 오류가 발생했습니다.");
 		plateStatus.value = "error";
 	}
 };
@@ -326,7 +327,7 @@ const completeSetup = async () => {
 	
 	if (!hasVehicle) {
 		console.log("[설정완료 디버그] 차량 등록 필요");
-		alert("차량 번호를 먼저 등록해주세요.");
+		await alertWarning("차량 번호를 먼저 등록해주세요.");
 		return;
 	}
 
@@ -367,7 +368,7 @@ const completeSetup = async () => {
 
 		if (response.ok) {
 			console.log("[설정완료 디버그] 성공 - 메인페이지로 리다이렉트 시도");
-			alert(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`);
+			await alertSuccess(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`);
 			
 			// 강제 리다이렉트 시도
 			try {
@@ -383,11 +384,11 @@ const completeSetup = async () => {
 			if (contentType && contentType.includes("application/json")) {
 				const errorData = await response.json();
 				console.error("[설정완료 디버그] API 오류 데이터:", errorData);
-				alert("주차실력 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
+				await alertError("주차실력 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
 			} else {
 				if (response.status === 404) {
 					console.error("[설정완료 디버그] 404 오류 - API 엔드포인트 없음");
-					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
+					await alertError("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
 					console.error("[설정완료 디버그] 401 오류 - 인증 실패");
 					// 세션 만료 시 로그인 페이지로 이동
@@ -396,13 +397,13 @@ const completeSetup = async () => {
 					router.replace("/login");
 				} else {
 					console.error("[설정완료 디버그] 기타 HTTP 오류:", response.status);
-					alert("주차실력 저장에 실패했습니다. (오류 코드: " + response.status + ")");
+					await alertError("주차실력 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
 			}
 		}
 	} catch (error) {
 		console.error("[설정완료 디버그] 예외 발생:", error);
-		alert("주차실력 저장 중 오류가 발생했습니다.");
+		await alertError("주차실력 저장 중 오류가 발생했습니다.");
 	}
 };
 </script>

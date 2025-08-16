@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
+import AlertProvider from '@/components/ui/AlertProvider.vue'
 </script>
 
 <template>
   <RouterView />
+  <AlertProvider />
 </template>
 
 <style>
