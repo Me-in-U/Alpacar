@@ -74,6 +74,7 @@ import { defineComponent, ref, onMounted, onBeforeUnmount } from "vue";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { SecureTokenManager } from "@/utils/security";
+import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "AdminParkingLogs",
@@ -121,7 +122,7 @@ export default defineComponent({
 			if (!res.ok) {
 				loading.value = false;
 				console.log("이벤트 불러오기 실패", res.status, res.statusText);
-				alert("페이지 로딩 실패");
+				await alertError("페이지 로딩 실패");
 				throw new Error("이벤트 불러오기 실패");
 			}
 
@@ -147,7 +148,7 @@ export default defineComponent({
 		const manualEntrance = async () => {
 			const plate = pushPlate.value.trim();
 			if (!plate) {
-				alert("차량번호를 입력하세요");
+				await alertWarning("차량번호를 입력하세요");
 				return;
 			}
 			const token = SecureTokenManager.getSecureToken("access_token");
@@ -162,7 +163,7 @@ export default defineComponent({
 				});
 				if (!res.ok) {
 					const err = await res.json().catch(() => ({}));
-					alert("수동입차 실패: " + (err.detail || err.message || res.status));
+					await alertError("수동입차 실패: " + (err.detail || err.message || res.status));
 					return;
 				}
 				const data = await res.json();
@@ -172,10 +173,10 @@ export default defineComponent({
 				if (idx >= 0) logs.value.splice(idx, 1, data);
 				else logs.value.unshift(data);
 
-				alert(res.status === 201 ? "입차 이벤트가 생성되었습니다." : "이미 진행 중인 이벤트를 반환했습니다.");
+				await alertSuccess(res.status === 201 ? "입차 이벤트가 생성되었습니다." : "이미 진행 중인 이벤트를 반환했습니다.");
 			} catch (e) {
 				console.error(e);
-				alert("수동입차 처리 중 오류가 발생했습니다.");
+				await alertError("수동입차 처리 중 오류가 발생했습니다.");
 			}
 		};
 
@@ -262,7 +263,7 @@ export default defineComponent({
 
 		const sendPush = async () => {
 			if (!pushPlate.value.trim()) {
-				alert("차량번호를 입력하세요");
+				await alertWarning("차량번호를 입력하세요");
 				return;
 			}
 			const token = SecureTokenManager.getSecureToken("access_token");
@@ -275,10 +276,10 @@ export default defineComponent({
 				body: JSON.stringify({ license_plate: pushPlate.value.trim() }),
 			});
 			if (!res.ok) {
-				alert("푸시 발송 실패");
+				await alertError("푸시 발송 실패");
 				return;
 			}
-			alert("푸시 발송 성공");
+			await alertSuccess("푸시 발송 성공");
 			pushPlate.value = "";
 		};
 
