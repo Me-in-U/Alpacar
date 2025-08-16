@@ -32,7 +32,7 @@ const uint8_t SERVO_OPEN_POS = 90;
 const uint8_t SERVO_CLOSED_POS = 0;
 
 // === VL53L0X 설정 ===
-// Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
 const uint16_t TRIGGER_THRESHOLD_MM = 150;  // 5cm
 
 WebSocketsClient webSocket;
@@ -220,10 +220,10 @@ void setup() {
   gateServo.write(SERVO_CLOSED_POS);
 
   // VL53L0X
-  // if (!lox.begin()) {
-  //   displayStatus("VL53 init fail");
-  //   while (1) delay(100);
-  // }
+  if (!lox.begin()) {
+    displayStatus("VL53 init fail");
+    while (1) delay(100);
+  }
 
   // 1) Wi‑Fi 자동 재연결 모드
   WiFi.mode(WIFI_STA);
@@ -265,22 +265,22 @@ void loop() {
     ensureWiFiConnected();
   }
 
-  // VL53L0X_RangingMeasurementData_t measure;
-  // lox.rangingTest(&measure, false);
+  VL53L0X_RangingMeasurementData_t measure;
+  lox.rangingTest(&measure, false);
   // 시리얼에 항상 출력해 줍니다.
-  // if (measure.RangeStatus == 0) {
-  //   Serial.printf("거리: %4d mm\n", measure.RangeMilliMeter);
-  // } else {
-  //   Serial.printf("거리측정 오류: 상태=%d\n", measure.RangeStatus);
-  // }
-  // // 2) 차량이 입차 중이고, 아직 벗어남 감지 전이면 거리 체크
-  // if (carEntering && !carLeftZone) {
-  //   if (measure.RangeStatus == 0 && measure.RangeMilliMeter > TRIGGER_THRESHOLD_MM) {
-  //     // 구역 벗어남 감지
-  //     carLeftZone = true;
-  //     leaveDetectedAt = millis();
-  //   }
-  // }
+  if (measure.RangeStatus == 0) {
+    Serial.printf("거리: %4d mm\n", measure.RangeMilliMeter);
+  } else {
+    Serial.printf("거리측정 오류: 상태=%d\n", measure.RangeStatus);
+  }
+  // 2) 차량이 입차 중이고, 아직 벗어남 감지 전이면 거리 체크
+  if (carEntering && !carLeftZone) {
+    if (measure.RangeStatus == 0 && measure.RangeMilliMeter > TRIGGER_THRESHOLD_MM) {
+      // 구역 벗어남 감지
+      carLeftZone = true;
+      leaveDetectedAt = millis();
+    }
+  }
 
   // 3) 벗어남 감지 후 2초 경과 시 문 닫기
   if (carEntering && carLeftZone && millis() - leaveDetectedAt > 2000) {
