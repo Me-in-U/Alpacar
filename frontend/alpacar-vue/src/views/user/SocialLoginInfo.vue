@@ -132,8 +132,8 @@ const getSecureToken = () => {
 	return SecureTokenManager.getSecureToken("access_token");
 };
 
-// 로그인 확인
-onMounted(() => {
+// 로그인 확인 및 기존 차량 정보 로드
+onMounted(async () => {
 	const token = getSecureToken();
 	if (!token) {
 		console.log("[SOCIAL-LOGIN-INFO] 토큰 없음 - 로그인 페이지로 리다이렉트");
@@ -151,6 +151,18 @@ onMounted(() => {
 	
 	// 토큰이 만료되었는지 확인하는 API 호출
 	verifyToken(token);
+	
+	// 기존 등록된 차량 정보 확인
+	try {
+		await userStore.fetchMyVehicles();
+		if (userStore.vehicles && userStore.vehicles.length > 0) {
+			// 이미 등록된 차량이 있다면 formData 업데이트
+			formData.vehicleNumber = userStore.vehicles[0].license_plate;
+			console.log("[SOCIAL-LOGIN-INFO] 기존 차량 정보 발견:", formData.vehicleNumber);
+		}
+	} catch (error) {
+		console.warn("[SOCIAL-LOGIN-INFO] 차량 정보 로드 실패:", error);
+	}
 });
 
 // 토큰 검증 함수
@@ -303,7 +315,17 @@ const addVehicle = async () => {
 const completeSetup = async () => {
 	formData.parkingSkill = selectedSkill.value;
 
-	if (!formData.vehicleNumber) {
+	console.log("[설정완료 디버그] 시작", {
+		vehicleNumber: formData.vehicleNumber,
+		selectedSkill: selectedSkill.value,
+		userInfo: userStore.me
+	});
+
+	// 차량 등록 여부 확인 - formData.vehicleNumber 또는 userStore.vehicles 확인
+	const hasVehicle = formData.vehicleNumber || (userStore.vehicles && userStore.vehicles.length > 0);
+	
+	if (!hasVehicle) {
+		console.log("[설정완료 디버그] 차량 등록 필요");
 		alert("차량 번호를 먼저 등록해주세요.");
 		return;
 	}
@@ -319,6 +341,12 @@ const completeSetup = async () => {
 		const scoreMap: Record<string, number> = { beginner: 30, intermediate: 65, advanced: 86 };
 		const userScore = scoreMap[selectedSkill.value] || 30;
 
+		console.log("[설정완료 디버그] API 요청 전", {
+			skill: selectedSkill.value,
+			score: userScore,
+			apiUrl: `${BACKEND_BASE_URL}/user/parking-skill/`
+		});
+
 		const response = await fetch(`${BACKEND_BASE_URL}/user/parking-skill/`, {
 			method: "POST",
 			headers: {
@@ -331,29 +359,49 @@ const completeSetup = async () => {
 			}),
 		});
 
+		console.log("[설정완료 디버그] API 응답", {
+			status: response.status,
+			statusText: response.statusText,
+			ok: response.ok
+		});
+
 		if (response.ok) {
+			console.log("[설정완료 디버그] 성공 - 메인페이지로 리다이렉트 시도");
 			alert(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`);
-			router.push("/main");
+			
+			// 강제 리다이렉트 시도
+			try {
+				await router.push("/main");
+				console.log("[설정완료 디버그] router.push 성공");
+			} catch (routerError) {
+				console.error("[설정완료 디버그] router.push 실패:", routerError);
+				// 대체 방법 시도
+				window.location.href = "/main";
+			}
 		} else {
 			const contentType = response.headers.get("content-type");
 			if (contentType && contentType.includes("application/json")) {
 				const errorData = await response.json();
+				console.error("[설정완료 디버그] API 오류 데이터:", errorData);
 				alert("주차실력 저장 실패: " + (errorData.detail || errorData.message || "서버 오류"));
 			} else {
 				if (response.status === 404) {
+					console.error("[설정완료 디버그] 404 오류 - API 엔드포인트 없음");
 					alert("API 엔드포인트를 찾을 수 없습니다. 서버 설정을 확인해주세요.");
 				} else if (response.status === 401) {
+					console.error("[설정완료 디버그] 401 오류 - 인증 실패");
 					// 세션 만료 시 로그인 페이지로 이동
 					userStore.clearUser();
 					console.log("[SOCIAL-LOGIN-INFO] 세션 만료 - 로그인 페이지로 리다이렉트");
 					router.replace("/login");
 				} else {
+					console.error("[설정완료 디버그] 기타 HTTP 오류:", response.status);
 					alert("주차실력 저장에 실패했습니다. (오류 코드: " + response.status + ")");
 				}
 			}
 		}
 	} catch (error) {
-		console.error("주차실력 저장 중 오류:", error);
+		console.error("[설정완료 디버그] 예외 발생:", error);
 		alert("주차실력 저장 중 오류가 발생했습니다.");
 	}
 };
