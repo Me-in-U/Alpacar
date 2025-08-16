@@ -136,9 +136,7 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
         if msg_type == "score":
             plate = (data.get("license_plate") or "").strip()
             score = data.get("score")
-            slot_label = (
-                data.get("zone_id") or ""
-            ).strip()  # Jetson이 보낸 “해당 구역/슬롯”
+            raw_slot = (data.get("zone_id") or "").strip()
 
             if not plate or score is None:
                 await self.send(
@@ -168,36 +166,8 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                 )
                 return
 
-            # ✅ “내 차만” 반영: 현재 plate의 배정 슬롯과 Jetson이 보고한 slot_label이 일치할 때만 수락
-            assigned_label = await self._get_assigned_label_for_plate(
-                plate
-            )  # e.g., "B3"
-            if (
-                slot_label
-                and assigned_label
-                and slot_label.upper() != assigned_label.upper()
-            ):
-                # 내 차가 아닌 주차 완료 이벤트 → 무시(ignored)로 응답
-                await self.send(
-                    text_data=json.dumps(
-                        {
-                            "message_type": "score_ack",
-                            "license_plate": plate,
-                            "score": score,
-                            "zone_id": slot_label,
-                            "status": "ignored",
-                            "detail": "slot mismatch (not this vehicle's assigned space)",
-                            "expected": assigned_label,
-                            "received": slot_label,
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-                return
-
-            # ✅ “내 차만” 반영은 유지하되, 다른 칸에 주차해도 수락하여 방영/완료 처리
-            #    - mismatch 여부만 기록하고 계속 진행
-            slot_label = (data.get("zone_id") or "").strip().upper()
+            # 불일치여도 수락: mismatch만 기록
+            slot_label = raw_slot.upper() if raw_slot else ""
             assigned_label = await self._get_assigned_label_for_plate(
                 plate
             )  # e.g., "B3"
@@ -207,29 +177,29 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
 
             # 1) 점수 저장
             ok_score, msg_score = await database_sync_to_async(add_score_from_jetson)(
-                plate, int(score)
+                plate, score
             )
 
-            # 2) 점수 수신을 '주차 완료'로 간주하여 상태 전환
-            #    - slot_label이 오면 그 칸으로 완료 처리 (불일치여도 수락)
+            # 2) 주차 완료 처리(불일치여도 받은 slot_label로 완료 시도)
             ok_park, msg_park, occupied_label = await database_sync_to_async(
                 mark_parking_complete_from_ai
             )(plate, slot_label or None)
 
-            # 3) ACK 응답 (둘 다 성공해야 success)
             used_label = slot_label or assigned_label or occupied_label
+
+            # 3) ACK
             await self.send(
                 text_data=json.dumps(
                     {
                         "message_type": "score_ack",
                         "license_plate": plate,
-                        "score": int(score),
+                        "score": score,
                         "zone_id": used_label,
                         "status": "success" if (ok_score and ok_park) else "error",
                         "detail": f"{msg_score}; {msg_park}",
-                        "mismatch": mismatch,  # ← 불일치 여부 (true/false)
-                        "expected": assigned_label,  # ← 원래 배정칸 (예: "B3")
-                        "received": slot_label,  # ← 젯슨이 전송한 실제칸 (예: "B2")
+                        "mismatch": mismatch,
+                        "expected": assigned_label,
+                        "received": slot_label or None,
                     },
                     ensure_ascii=False,
                 )
