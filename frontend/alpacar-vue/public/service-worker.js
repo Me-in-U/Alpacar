@@ -2,15 +2,12 @@
 // ✅ Workbox 프리캐시 주입 지점 (빌드 시 자동으로 매니페스트 주입됨)
 const precacheManifest = self.__WB_MANIFEST || [];
 
-const SW_VERSION = "v3.4";
+const SW_VERSION = "v3.5";
 const CACHE_NAME = `alpacar-cache-${SW_VERSION}`;
 const precacheResources = ["/", "/index.html"];
 
 // Workbox 매니페스트와 기본 리소스 결합
-const allPrecacheResources = [
-  ...precacheResources,
-  ...precacheManifest.map(entry => typeof entry === 'string' ? entry : entry.url)
-];
+const allPrecacheResources = [...precacheResources, ...precacheManifest.map((entry) => (typeof entry === "string" ? entry : entry.url))];
 
 const NOTIFICATION_SETTINGS = {
 	parking_assigned: { title: "🚗 주차 배정", icon: "/alpaca-192.png", badge: "/alpaca-192.png", tag: "parking-assigned-notification" },
@@ -28,7 +25,7 @@ self.addEventListener("install", (event) => {
 			// 중복 제거: Set을 사용하여 중복 URL 제거
 			const uniqueResources = [...new Set(allPrecacheResources)];
 			console.log(`Unique resources: ${uniqueResources.length}`);
-			
+
 			// 하나씩 추가하여 중복 에러 방지
 			for (const resource of uniqueResources) {
 				try {
@@ -62,14 +59,27 @@ self.addEventListener("fetch", (event) => {
 		return; // 그냥 브라우저 기본 처리
 	}
 
+	//v3.4
 	// 1.5) OAuth 관련 경로/쿼리는 무조건 네트워크 통과 (캐시 금지)
-	const OAUTH_PATH = /\/(auth|oauth|login|signin|logout|callback|accounts)\b/i;
+	// const OAUTH_PATH = /\/(auth|oauth|login|signin|logout|callback|accounts)\b/i;
+	// const OAUTH_QUERY_KEYS = ["state", "code", "g_state", "scope", "prompt", "authuser", "hd"];
+	// const hasOAuthQuery = OAUTH_QUERY_KEYS.some((k) => url.searchParams.has(k));
+	// if (OAUTH_PATH.test(url.pathname) || hasOAuthQuery) {
+	// 	event.respondWith(fetch(req).catch(() => new Response("오프라인입니다.", { status: 503 })));
+	// 	return;
+	// }
+	// ✅ 1.0) OAuth 콜백은 '완전 우회'(가로채지 않음) — 브라우저 기본 리다이렉트/네비 처리
+	//    * 백엔드 콜백(토큰 발급/302): /api/auth/social/google/callback/
+	//    * 프론트 콜백(쿼리 파싱):     /auth/social/google/callback
+	const BYPASS_PATHS = ["/api/auth/social/google/callback/", "/auth/social/google/callback"];
+	if (BYPASS_PATHS.some((p) => url.pathname.startsWith(p))) {
+		return; // event.respondWith 호출 금지 => 브라우저가 직접 처리
+	}
+
+	// (선택) state/code 등 OAuth 쿼리가 있으면 우회
 	const OAUTH_QUERY_KEYS = ["state", "code", "g_state", "scope", "prompt", "authuser", "hd"];
 	const hasOAuthQuery = OAUTH_QUERY_KEYS.some((k) => url.searchParams.has(k));
-	if (OAUTH_PATH.test(url.pathname) || hasOAuthQuery) {
-		event.respondWith(fetch(req).catch(() => new Response("오프라인입니다.", { status: 503 })));
-		return;
-	}
+	if (hasOAuthQuery) return;
 
 	// 2) API는 항상 네트워크로
 	if (url.pathname.startsWith("/api/")) {
