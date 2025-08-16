@@ -1037,7 +1037,7 @@ onMounted(async () => {
   background-color: #f9f9f9; 
   border-radius: 6px;        
   border: 1px solid #c1b49e; /* #e0e0e0 → 팔레트 light beige-gray */
-  font-size: 10px;           
+  font-size: 11px;           
   line-height: 1.4;          
   color: #565656;            /* #555 → 팔레트 mid-gray */
   text-align: left;         
