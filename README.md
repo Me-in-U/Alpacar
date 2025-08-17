@@ -1,5 +1,5 @@
 # 알파카(Alpacar)
-![온보딩배너](./docs/assets/alpacar-onboarding-banner.png)
+<img src="./docs/assets/alpacar-onboarding-banner.png" alt="온보딩배너" width="60%">
 
 ## 프로젝트 소개
 스마트 주차 관리 시스템
@@ -116,39 +116,44 @@
       └── requirements.txt
   ```
 </details>
+
 ### Frontend
-frontend/
-└── alpacar-vue/
-    ├── public/
-    ├── src/
-    │   ├── api/
-    │   ├── assets/
-    │   ├── components/
-    │   ├── composables/
-    │   ├── data/
-    │   ├── router/
-    │   ├── stores/
-    │   ├── types/
-    │   ├── utils/
-    │   ├── views/
-    │   ├── App.vue
-    │   └── main.ts
-    ├── .vscode/
-    ├── dev-dist/
-    ├── node_modules/
-    ├── .gitignore
-    ├── Dockerfile
-    ├── env.d.ts
-    ├── index.html
-    ├── MOBILE_DEBUG.md
-    ├── package.json
-    ├── package-lock.json
-    ├── README.md
-    ├── replace-alerts.js
-    ├── tsconfig.app.json
-    ├── tsconfig.json
-    ├── tsconfig.node.json
-    └── vite.config.ts
+<details>
+  <summary>펼쳐보기</summary>
+  ```plantext
+  frontend/
+  └── alpacar-vue/
+      ├── public/
+      ├── src/
+      │   ├── api/
+      │   ├── assets/
+      │   ├── components/
+      │   ├── composables/
+      │   ├── data/
+      │   ├── router/
+      │   ├── stores/
+      │   ├── types/
+      │   ├── utils/
+      │   ├── views/
+      │   ├── App.vue
+      │   └── main.ts
+      ├── .vscode/
+      ├── dev-dist/
+      ├── node_modules/
+      ├── .gitignore
+      ├── Dockerfile
+      ├── env.d.ts
+      ├── index.html
+      ├── MOBILE_DEBUG.md
+      ├── package.json
+      ├── package-lock.json
+      ├── README.md
+      ├── replace-alerts.js
+      ├── tsconfig.app.json
+      ├── tsconfig.json
+      ├── tsconfig.node.json
+      └── vite.config.ts
+</details>    
 
 ### jetson
 <details>
@@ -220,3 +225,52 @@ frontend/
 - [화면 명세서](./docs/화면_명세서.pdf)
 
 ## 화면 구성
+### 랜딩페이지
+![온보딩](./docs/assets/온보딩.gif)
+
+### 웹앱 - 회원가입
+- 이메일 방식/구글 소셜 로그인 방식으로 회원가입 가능
+- 차량 번호 등록 및 주차 실력 선택
+![회원가입](./docs/assets/회원가입%20후%20사용자%20정보%20기입.gif)
+
+### 웹앱 - 메인페이지
+- 앞면에는 사용자의 점수에 해당하는 등급에 맞는 알파카 아바타 표시
+- 뒷면에는 도로모양의 점수바에 현재 위치 표시
+![3d카드](./docs/assets/3d카드.gif)
+
+### 웹앱 - 주차 자리 추천 받기
+- OCR로 차량 번호가 인식되면 차량 크기와 운전자의 주차실력을 고려해 최적의 주차 공간 추천
+- 추천 받은 위치가 주차장 도면에 표시되며 내 차의 위치가 실시간으로 추적됨
+![주차공간추천](./docs/assets/주차%20공간%20추천.gif)
+
+### 웹앱 - 주차 기록 확인하기
+- 주차 일시와 장소, 점수를 확인
+- 그래프로 주차 점수 변화를 한 눈에 확인
+<img src="./docs/assets/히스토리.gif" alt="히스토리" width="60%">
+
+### 웹앱 - 유저 프로필 페이지
+- 사용자 정보와 등록한 차량 정보를 확인
+- 웹앱 알림 켜가/끄기 설정
+- 웹앱 다운로드
+<img src="./docs/assets/유저프로필.gif" alt="유저프로필" width="60%">
+
+### 웹앱 - 회원정보 수정 페이지
+- 전화번호와 비밀번호 수정
+- 소셜 로그인 사용자는 접근 불가
+- 전화번호, 비밀번호는 이메일 인증 후 변경 가능
+![전화번호변경](./docs/assets/전화번호%20변경.gif)
+![비밀번호변경](./docs/assets/비밀번호%20변경.gif)
+
+### 관리자 - 실시간 주차장 현황
+- 실시간으로 주차장 차량 현황 확인
+- 차량 배정 상태 수동 변경 가능
+![실시간주차현황](./docs/assets/실시간주차현황.gif)
+
+### 관리자 - 실시간 번호판 인식
+- OCR 기반 차량번호 인식
+- 인식된 차량번호는 주차장 입구에 설치된 LED에 표시됨
+
+### 관리자 - 로그 및 기록
+- OCR 기반 차량번호 인식 후 차량번호와 입차/주차/출차 시간, 주차자리 기록
+- 수동으로 차량 상태 변경 및 푸시 알림 발송 기능
+![로그 및 기록](./docs/assets/로그%20및%20기록.gif)
