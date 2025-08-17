@@ -91,12 +91,11 @@
 							<div class="gate-box"></div>
 						</div>
 						<!-- 차량 오버레이 (내 차량 하이라이트) -->
-						<!-- 차량 오버레이 (내 차량 하이라이트) -->
 						<svg class="overlay" viewBox="0 0 900 550" preserveAspectRatio="none">
 							<!-- 🔻 화살표 머리 -->
 							<defs>
 								<marker id="arrowhead" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-									<path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4dd2" />
+									<path d="M 0 0 L 10 5 L 0 10 z" fill="#ff6bf8" />
 								</marker>
 							</defs>
 
@@ -104,7 +103,6 @@
 							<path v-if="arrowD" :d="arrowD" class="guide-path" marker-end="url(#arrowhead)" />
 
 							<!-- 기존 차량 폴리곤/라벨 -->
-							<!-- 기존 차량 폴리곤/라벨 (필터 적용) -->
 							<g v-for="obj in filteredVehicles" :key="obj.track_id">
 								<template v-if="!isVehicleParked(obj.track_id) || myPlatesSet.has(obj.track_id)">
 									<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" :stroke="myPlatesSet.has(obj.track_id) ? '#00e5ff' : '#ff0'" stroke-width="3" />
@@ -179,7 +177,7 @@
 						</template>
 
 						<!-- 추천 핀 -->
-						<img class="pin" src="@/assets/pin.png" alt="pin" v-if="pinStyle.top" :style="pinStyle" />
+						<img class="pin pin--blink" src="@/assets/pin.png" alt="pin" v-if="pinStyle.top" :style="pinStyle" />
 						<!-- 내 차 아이콘(연출용) -->
 						<img class="car" src="@/assets/my-car.png" alt="car" />
 					</div>
@@ -188,10 +186,6 @@
 						<div class="legend-item">
 							<div class="box recommended"></div>
 							<span>추천 위치</span>
-						</div>
-						<div class="legend-item">
-							<div class="box occupied"></div>
-							<span>사용 중</span>
 						</div>
 						<div class="legend-item">
 							<div class="box empty"></div>
@@ -225,7 +219,6 @@ import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
 import { useUserStore } from "@/stores/user";
 import navi_topview_car_1 from "@/assets/navi_topview_car_1.png";
-/** 점유 슬롯 표시용 이미지 URL (실 URL로 교체 필요) */
 const OCCUPIED_IMG_URL = navi_topview_car_1;
 
 /* ==== 지도 강제 표시 토글 ==== */
@@ -503,9 +496,9 @@ function updatePin() {
 		if (!spotEl) return;
 		const spotRect = spotEl.getBoundingClientRect();
 		const pinW = 24,
-			pinH = 24;
+			pinH = 30;
 		const x = spotRect.left - wrapRect.left + spotRect.width / 2 - pinW / 2;
-		const y = spotRect.top - wrapRect.top + spotRect.height / 2 - pinH / 2 - 35;
+		const y = spotRect.top - wrapRect.top + spotRect.height / 2 - pinH / 2 - 25;
 		pinStyle.left = `${x}px`;
 		pinStyle.top = `${y}px`;
 		// 🔻 핀 위치 갱신 후 경로도 갱신
@@ -531,42 +524,97 @@ function getSlotCenterInViewBox(slotId: string) {
 	const y = (pxY / wrapRect.height) * 550; // viewBox height
 	return { x, y };
 }
+function clamp(n: number, lo: number, hi: number) {
+	return Math.max(lo, Math.min(hi, n));
+}
+function isTopRow(slotId: string) {
+	const top = layout.rows[0];
+	return top.left.includes(slotId) || top.right.includes(slotId);
+}
 
-// 내 차 → 배정 슬롯까지 ‘중앙 차도’ 경유 L-라우팅
 function recomputeGuide() {
 	const mine = vehicles.value.find((v) => myPlatesSet.has(v.track_id));
 	if (!mine || !recommendedId.value) {
 		arrowD.value = "";
 		return;
 	}
-	const start = {
-		x: mine.center[0] + layout.carOffsetX,
-		y: mine.center[1] + layout.carOffsetY,
-	};
+
+	const start = { x: mine.center[0] + layout.carOffsetX, y: mine.center[1] + layout.carOffsetY };
 	const target = getSlotCenterInViewBox(recommendedId.value);
 	if (!target) {
 		arrowD.value = "";
 		return;
 	}
 
-	const CY = 550 / 2; // 중앙 차도 y (viewBox 기준)
+	const dirY = isTopRow(recommendedId.value) ? -1 : +1;
 
-	// 점선 L 경로: 시작 → (시작.x, 중앙) → (도착.x, 중앙) → 도착
-	const d =
-		`M ${start.x.toFixed(1)} ${start.y.toFixed(1)} ` + `L ${start.x.toFixed(1)} ${CY.toFixed(1)} ` + `L ${target.x.toFixed(1)} ${CY.toFixed(1)} ` + `L ${target.x.toFixed(1)} ${target.y.toFixed(1)}`;
-	arrowD.value = d;
+	// 너무 가까우면 숨김
+	const dist = Math.hypot(target.x - start.x, target.y - start.y);
+	if (dist < 34) {
+		arrowD.value = "";
+		return;
+	}
+
+	// 슬롯 앞 살짝 들어온 엔트리/정지점
+	const ENTRY_IN = 18;
+	const PARK_INSET = 12;
+	const entry = { x: target.x, y: target.y - dirY * ENTRY_IN };
+	const park = { x: target.x, y: target.y - dirY * PARK_INSET };
+
+	// ===== 핵심: start→entry 벡터의 법선으로, "목표가 있는 쪽"으로 컨트롤을 민다
+	const vx = entry.x - start.x;
+	const vy = entry.y - start.y;
+
+	// 법선(n) = (-vy, vx) 또는 (vy, -vx) 중 하나
+	let nx = -vy,
+		ny = vx;
+	// 컨트롤이 반드시 목표가 있는 쪽(수평 방향으로 target.x 쪽)으로 밀리도록 부호 결정
+	const needXSign = Math.sign(target.x - start.x) || 1;
+	if (Math.sign(nx) !== needXSign) {
+		nx = -nx;
+		ny = -ny;
+	}
+
+	// 정규화
+	const nLen = Math.hypot(nx, ny) || 1;
+	nx /= nLen;
+	ny /= nLen;
+
+	// 오프셋 크기(멀수록 크게 휨)
+	const offset = clamp(dist * 0.35, 18, 90);
+
+	// 컨트롤 포인트: start와 entry의 중간쯤에서 법선 방향으로 offset 만큼 이동
+	let cx = start.x + vx * 0.52 + nx * offset;
+	let cy = start.y + vy * 0.52 + ny * offset;
+
+	// 단조(y 되돌림 방지): 컨트롤 y가 start↔entry 범위를 벗어나지 않게
+	const yMin = Math.min(start.y, entry.y),
+		yMax = Math.max(start.y, entry.y);
+	cy = clamp(cy, yMin, yMax);
+
+	// x도 시작→목표 방향으로만 진행하도록 (지나친 되돌림 방지)
+	const xMin = Math.min(start.x, entry.x),
+		xMax = Math.max(start.x, entry.x);
+	cx = clamp(cx, xMin, xMax);
+
+	// ===== 경로: 단 하나의 Quadratic Bézier → 수직으로 살짝 밀어넣기
+	arrowD.value = `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} ` + `Q ${cx.toFixed(1)} ${cy.toFixed(1)}, ${entry.x.toFixed(1)} ${entry.y.toFixed(1)} ` + `L ${park.x.toFixed(1)} ${park.y.toFixed(1)}`;
 }
+
 watch(recommendedId, updatePin);
 watch(vehicles, () => nextTick(recomputeGuide), { deep: true });
 
 /* 슬롯 클래스 (상태 3종 + 추천) */
 function spotClasses(spot: string) {
 	const st = statusMap[spot];
+	const isRec = recommendedId.value === spot;
+
 	return {
-		recommended: recommendedId.value === spot,
-		occupied: st === "occupied",
-		reserved: st === "reserved",
-		empty: st === "free",
+		recommended: isRec,
+		// 추천일 땐 다른 상태 클래스 붙이지 않음 → 추천색이 항상 우선
+		occupied: !isRec && st === "occupied",
+		reserved: !isRec && st === "reserved",
+		empty: !isRec && st === "free",
 	};
 }
 
@@ -620,7 +668,7 @@ onBeforeUnmount(() => {
 .main-page-container {
 	width: 100vw;
 	max-width: 440px;
-	height: 100vh;            /* ✅ 내부 스크롤 컨테이너 방식: 고정 높이 */
+	height: 100vh; /* ✅ 내부 스크롤 컨테이너 방식: 고정 높이 */
 	position: relative;
 	background: #f9f5ec;
 	margin: 0 auto;
@@ -630,11 +678,11 @@ onBeforeUnmount(() => {
 }
 
 .main-content {
-	flex: 1;                  /* ✅ 남은 공간을 차지 */
+	flex: 1; /* ✅ 남은 공간을 차지 */
 	display: block;
 	width: 100%;
-	overflow-y: auto;         /* ✅ 이 영역만 스크롤 */
-	height: auto;             /* ✅ 내부 스크롤용 */
+	overflow-y: auto; /* ✅ 이 영역만 스크롤 */
+	height: auto; /* ✅ 내부 스크롤용 */
 	padding-top: 30px;
 	padding-bottom: 80px;
 	/* min-height 제거 */
@@ -802,7 +850,7 @@ onBeforeUnmount(() => {
 	border-left: 0;
 }
 .slot.recommended {
-	background: #8fcd2b;
+	background: #99d636;
 }
 .slot.occupied {
 	background: transparent;
@@ -811,7 +859,7 @@ onBeforeUnmount(() => {
 	background: #9c9c9c;
 }
 .slot.reserved {
-	background: #f5dd29;
+	background: #dac841;
 }
 .slot-placeholder {
 	visibility: hidden;
@@ -832,6 +880,23 @@ onBeforeUnmount(() => {
 	position: absolute;
 	width: 24px;
 	height: 24px;
+}
+/* 깜빡 + 살짝 점프 느낌 */
+.pin.pin--blink {
+	animation: pinBlink 1.1s ease-in-out infinite;
+	filter: drop-shadow(0 0 4px rgba(255, 107, 248, 0.55));
+}
+
+@keyframes pinBlink {
+	0%,
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	50% {
+		opacity: 0.35; /* 깜빡임 강도 */
+		transform: translateY(-3px);
+	}
 }
 .car {
 	position: absolute;
@@ -1049,14 +1114,14 @@ onBeforeUnmount(() => {
 
 /* 🔻 내 차량 → 배정 슬롯 안내 라인 */
 .guide-path {
-	stroke: #ff4dd2; /* 눈에 잘 띄는 분홍 */
-	stroke-width: 4;
+	stroke: #ff6bf8; /* 눈에 잘 띄는 분홍 */
+	stroke-width: 6;
 	fill: none;
 	stroke-dasharray: 12 10;
 	stroke-linecap: round;
-	opacity: 0.95;
+	opacity: 1;
 	animation: guideDash 1.2s linear infinite;
-	filter: drop-shadow(0 0 2px rgba(255, 77, 210, 0.35));
+	filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.35));
 }
 @keyframes guideDash {
 	to {

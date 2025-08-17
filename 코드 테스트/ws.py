@@ -22,21 +22,21 @@ ALL_SLOTS = ["B1", "B2", "B3", "C1", "C2", "C3", "A1", "A2", "A3", "A4", "A5"]
 
 # 초기 슬롯 상태
 BASE_SLOT_MAP: Dict[str, str] = {
-    "B1": "free",
-    "B2": "free",
+    "B1": "occupied",
+    "B2": "occupied",
     "B3": "free",
     "C1": "occupied",
-    "C2": "reserved",
-    "C3": "free",
-    "A1": "free",
+    "C2": "occupied",
+    "C3": "occupied",
+    "A1": "occupied",
     "A2": "occupied",
-    "A3": "free",
-    "A4": "free",
-    "A5": "reserved",
+    "A3": "occupied",
+    "A4": "occupied",
+    "A5": "occupied",
 }
 
 # 토글 후보
-TOGGLE_CANDIDATES = ["B2", "B3", "C3", "A3", "A4"]
+TOGGLE_CANDIDATES = ["B2", "C3", "A1", "A3", "A4"]
 
 # ===== 내부 공유 상태 (요청 처리 시 사용) =====
 _state_lock = threading.RLock()
@@ -218,7 +218,7 @@ def handle_request_assignment(ws, payload: Dict[str, Any]):
 
     # (옵션) 몇 초 후 score 전송
     def _send_score_later():
-        time.sleep(5)
+        time.sleep(15)
         score = {"message_type": "score", "license_plate": plate, "score": 100}
         print("[후속] score =>", json.dumps(score, ensure_ascii=False))
         with suppress(Exception):
