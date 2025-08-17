@@ -328,6 +328,11 @@ type TelemetryCar = {
 };
 const vehicles = ref<TelemetryCar[]>([]);
 
+// WS로 막 들어온 최신 원시값(목표)
+const rawTargets = new Map<string, TelemetryCar>();
+
+const smoothMap = new Map<string, { center: [number, number]; corners: number[]; meta: Omit<TelemetryCar, "center" | "corners"> }>();
+
 /* ==== 필터링된 차량 목록 getter ==== */
 const filteredVehicles = computed(() => {
 	const list = vehicles.value;
@@ -377,21 +382,37 @@ function connectWS() {
 
 			switch (data?.message_type) {
 				case "car_position": {
+					// 1) 들어온 프레임을 표준 형태로 변환
 					const arr = Array.isArray(data.vehicles) ? data.vehicles : [];
 					const converted = arr.map((v: any) => ({
 						track_id: String(v?.track_id ?? v?.plate ?? ""),
-						center: [Number(v?.center?.[0] ?? v?.center?.x ?? 0), Number(v?.center?.[1] ?? v?.center?.y ?? 0)] as [number, number],
+						center: [Number(v?.center?.x ?? v?.center?.[0] ?? 0), Number(v?.center?.y ?? v?.center?.[1] ?? 0)] as [number, number],
 						corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
 						state: v?.state,
 						suggested: v?.suggested ?? "",
 					})) as TelemetryCar[];
-					vehicles.value.splice(0, vehicles.value.length, ...converted);
 
-					// 내 차가 프레임에 있는지 판단
-					const mine = vehicles.value.find((v) => myPlatesSet.has(v.track_id));
-					lastFrameHasMine = !!mine;
+					// 2) 목표값(rawTargets) 갱신 + smoothMap 초기화/메타 갱신
+					for (const car of converted) {
+						rawTargets.set(car.track_id, car);
+						if (!smoothMap.has(car.track_id)) {
+							// 최초 관측: 현재 위치 = 목표 위치로 seed
+							smoothMap.set(car.track_id, {
+								center: [...car.center],
+								corners: [...car.corners],
+								meta: { track_id: car.track_id, state: car.state, suggested: car.suggested },
+							});
+						} else {
+							// 메타 정보만 갱신(추천 슬롯/상태 등)
+							const s = smoothMap.get(car.track_id)!;
+							s.meta = { track_id: car.track_id, state: car.state, suggested: car.suggested };
+						}
+					}
 
-					// 내 차가 보이면: 해제 타이머 중단, 일정시간 후 '인식됨' 확정
+					// 3) 인식 상태는 "이번 프레임 원본(converted)"로 판정
+					const mineRaw = converted.find((v) => myPlatesSet.has(v.track_id));
+					lastFrameHasMine = !!mineRaw;
+
 					if (lastFrameHasMine) {
 						if (lostTimer) {
 							clearTimeout(lostTimer);
@@ -403,9 +424,7 @@ function connectWS() {
 								seenTimer = null;
 							}, SEEN_CONFIRM_MS);
 						}
-					}
-					// 내 차가 안 보이면: 확정 타이머 중단, 일정시간 후 '미인식' 확정
-					else {
+					} else {
 						if (seenTimer) {
 							clearTimeout(seenTimer);
 							seenTimer = null;
@@ -417,10 +436,23 @@ function connectWS() {
 							}, LOST_GRACE_MS);
 						}
 					}
-					updateMyStateFromVehicles();
+
+					// 4) 추천 슬롯 반영(원본 프레임에도 있을 때)
+					if (mineRaw?.suggested && statusMap[mineRaw.suggested]) {
+						if (recommendedId.value !== mineRaw.suggested) {
+							recommendedId.value = mineRaw.suggested;
+							updatePin();
+						}
+						isLoading.value = false;
+					} else if (lastFrameHasMine) {
+						isLoading.value = true; // 인식은 됐고 추천 대기
+					}
+
+					// 5) 가이드 재계산(표시는 스무딩된 vehicles가 매 프레임 업데이트)
 					nextTick(recomputeGuide);
 					break;
 				}
+
 				case "parking_space": {
 					const payload = data.spaces || {};
 					Object.entries(payload).forEach(([slot, info]: any) => {
@@ -454,6 +486,50 @@ function connectWS() {
 			console.error("[ParkingStatus WS] parse error:", err, e.data);
 		}
 	};
+}
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const lerpArr = (out: number[], from: number[], to: number[], t: number) => {
+	const n = Math.min(from.length, to.length);
+	out.length = n;
+	for (let i = 0; i < n; i++) out[i] = lerp(from[i], to[i], t);
+	return out;
+};
+
+// 시간상수(감속 강도). 값이 작을수록 더 빠르게 따라감.
+const TAU_SEC = 0.18; // 180ms
+let rafId = 0;
+let lastTs = performance.now();
+
+function smoothTick(ts: number) {
+	const dt = Math.min(0.05, (ts - lastTs) / 1000); // 최대 50ms 캡
+	lastTs = ts;
+	const alpha = 1 - Math.exp(-dt / TAU_SEC); // 지수 평활 알파
+
+	// 목표가 있는 차들 스무딩
+	for (const [id, target] of rawTargets) {
+		const s = smoothMap.get(id)!;
+		// center 보간
+		s.center[0] = lerp(s.center[0], target.center[0], alpha);
+		s.center[1] = lerp(s.center[1], target.center[1], alpha);
+		// corners 보간(같은 길이 가정)
+		s.corners = lerpArr(new Array(target.corners.length), s.corners, target.corners, alpha);
+	}
+
+	// 사라진 차량 정리(옵션: 서서히 제거하고 싶으면 TTL 두고 페이드아웃)
+	for (const id of Array.from(smoothMap.keys())) {
+		if (!rawTargets.has(id)) smoothMap.delete(id);
+	}
+
+	// 화면에 그릴 배열로 재구성
+	vehicles.value = Array.from(smoothMap.values()).map((s) => ({
+		track_id: s.meta.track_id,
+		center: [s.center[0], s.center[1]] as [number, number],
+		corners: [...s.corners],
+		state: s.meta.state,
+		suggested: s.meta.suggested,
+	}));
+
+	rafId = requestAnimationFrame(smoothTick);
 }
 
 /* 내 차량 인식/추천 상태 갱신 */
@@ -654,12 +730,15 @@ onMounted(async () => {
 	connectWS(); // 실시간 연결
 	window.addEventListener("resize", recomputeGuide);
 	recomputeGuide();
+	lastTs = performance.now();
+	rafId = requestAnimationFrame(smoothTick);
 });
 onBeforeUnmount(() => {
 	ws?.close();
 	if (seenTimer) clearTimeout(seenTimer);
 	if (lostTimer) clearTimeout(lostTimer);
 	window.removeEventListener("resize", recomputeGuide);
+	cancelAnimationFrame(rafId);
 });
 </script>
 

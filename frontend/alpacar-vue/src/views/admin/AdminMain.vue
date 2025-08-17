@@ -68,7 +68,7 @@
 						</div>
 
 						<svg class="overlay" :width="layout.mapW" :height="layout.mapH">
-							<g v-for="obj in vehicles" :key="obj.track_id">
+							<g v-for="obj in vehicles" :key="obj.track_id" :opacity="obj.opacity ?? 1">
 								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" stroke="#ff0" stroke-width="2" />
 								<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="36" fill="#ff0" text-anchor="middle">
 									{{ obj.track_id }}
@@ -178,6 +178,86 @@ const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
 export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },
 	setup() {
+		// ---- 차량 스무딩 상태/유틸 ----
+		const rawTargets = new Map<string, { center: [number, number]; corners: number[]; state?: string; suggested?: string; track_id: string }>();
+
+		type SmoothState = {
+			center: [number, number];
+			corners: number[];
+			meta: { track_id: string; state?: string; suggested?: string };
+			opacity: number; // 0~1
+			fadingOut: boolean; // true면 사라지는 중
+		};
+
+		const smoothMap = new Map<string, SmoothState>();
+
+		const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+		const lerpArr = (out: number[], from: number[], to: number[], t: number) => {
+			const n = Math.min(from.length, to.length);
+			out.length = n;
+			for (let i = 0; i < n; i++) out[i] = lerp(from[i], to[i], t);
+			return out;
+		};
+
+		// 이동 스무딩(작을수록 더 빨리 붙음)
+		const TAU_SEC = 0.18;
+		// 페이드 인/아웃 시간
+		const IN_FADE_SEC = 0.2;
+		const OUT_FADE_SEC = 0.35;
+
+		let rafId = 0;
+		let lastTs = performance.now();
+
+		function smoothTick(ts: number) {
+			const dt = Math.min(0.05, (ts - lastTs) / 1000); // 최대 50ms
+			lastTs = ts;
+			const alpha = 1 - Math.exp(-dt / TAU_SEC);
+
+			// 목표 향해 스무딩
+			for (const [id, target] of rawTargets) {
+				const s = smoothMap.get(id)!;
+				// 이동
+				s.center[0] = lerp(s.center[0], target.center[0], alpha);
+				s.center[1] = lerp(s.center[1], target.center[1], alpha);
+				s.corners = lerpArr(new Array(target.corners.length), s.corners, target.corners, alpha);
+				// 메타 갱신
+				s.meta.state = target.state;
+				s.meta.suggested = target.suggested;
+				// 페이드 인
+				s.fadingOut = false;
+				if (s.opacity < 1) {
+					s.opacity = Math.min(1, s.opacity + dt / IN_FADE_SEC);
+				}
+			}
+
+			// 사라진 차량 페이드 아웃 및 제거
+			for (const [id, s] of Array.from(smoothMap.entries())) {
+				if (!rawTargets.has(id)) {
+					s.fadingOut = true;
+					s.opacity = Math.max(0, s.opacity - dt / OUT_FADE_SEC);
+					if (s.opacity <= 0) {
+						smoothMap.delete(id);
+					}
+				}
+			}
+
+			// 화면에 그릴 배열 재구성 (opacity 포함)
+			vehicles.splice(
+				0,
+				vehicles.length,
+				...Array.from(smoothMap.values()).map((s) => ({
+					track_id: s.meta.track_id,
+					center: [s.center[0], s.center[1]] as [number, number],
+					corners: [...s.corners],
+					state: s.meta.state,
+					suggested: s.meta.suggested,
+					opacity: s.opacity, // 👈 추가
+				}))
+			);
+
+			rafId = requestAnimationFrame(smoothTick);
+		}
+
 		const authHeaders = () => ({
 			Authorization: `Bearer ${SecureTokenManager.getSecureToken("access_token")}`,
 			"Content-Type": "application/json",
@@ -341,6 +421,7 @@ export default defineComponent({
 				corners: number[];
 				state?: string;
 				suggested?: string;
+				opacity?: number;
 			}>
 		>([]);
 
@@ -380,19 +461,47 @@ export default defineComponent({
 					switch (data?.message_type) {
 						case "car_position": {
 							const arr = Array.isArray(data.vehicles) ? data.vehicles : [];
-							vehicles.splice(
-								0,
-								vehicles.length,
-								...arr.map((v: any) => ({
-									track_id: String(v?.track_id ?? v?.plate ?? ""),
-									center: [Number(v?.center?.[0] ?? v?.center?.x ?? 0), Number(v?.center?.[1] ?? v?.center?.y ?? 0)] as [number, number],
-									corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
-									state: v?.state,
-									suggested: v?.suggested ?? "",
-								}))
-							);
+							const converted = arr.map((v: any) => ({
+								track_id: String(v?.track_id ?? v?.plate ?? ""),
+								center: [Number(v?.center?.x ?? v?.center?.[0] ?? 0), Number(v?.center?.y ?? v?.center?.[1] ?? 0)] as [number, number],
+								corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
+								state: v?.state,
+								suggested: v?.suggested ?? "",
+							}));
+
+							// 1) 이번 프레임에서 본 차량 id 수집
+							const seen = new Set<string>();
+
+							// 2) 목표(rawTargets) 업데이트 + 새 차량 seed
+							for (const car of converted) {
+								seen.add(car.track_id);
+								rawTargets.set(car.track_id, car);
+
+								if (!smoothMap.has(car.track_id)) {
+									// 새로 보인 차량: 위치 seed + opacity=0으로 시작(페이드 인)
+									smoothMap.set(car.track_id, {
+										center: [car.center[0], car.center[1]] as [number, number], // 🔧 tuple로 명시
+										corners: [...car.corners],
+										meta: { track_id: car.track_id, state: car.state, suggested: car.suggested },
+										opacity: 0, // 👈 페이드 인 시작
+										fadingOut: false,
+									});
+								} else {
+									// 기존: 메타만 즉시 동기화 (좌표는 smoothTick에서 보간)
+									const s = smoothMap.get(car.track_id)!;
+									s.meta.state = car.state;
+									s.meta.suggested = car.suggested;
+								}
+							}
+
+							// 3) 이번 프레임에 안 보인 차량은 rawTargets에서 제거 → 페이드 아웃 트리거
+							for (const id of Array.from(rawTargets.keys())) {
+								if (!seen.has(id)) rawTargets.delete(id);
+							}
+
 							break;
 						}
+
 						case "parking_space": {
 							const payload = data.spaces || {};
 							Object.entries(payload).forEach(([slot, info]: any) => {
@@ -478,10 +587,13 @@ export default defineComponent({
 			fetchUsageToday();
 			fetchActiveVehicles(); // 초기 보정용
 			usageTimer = setInterval(fetchUsageToday, 5000);
+			lastTs = performance.now();
+			rafId = requestAnimationFrame(smoothTick);
 		});
 		onBeforeUnmount(() => {
 			ws?.close();
 			clearInterval(usageTimer);
+			cancelAnimationFrame(rafId);
 		});
 
 		/* ===== 도우미 ===== */
@@ -553,10 +665,10 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	background: #F9F5EC;
+	background: #f9f5ec;
 }
 .container {
-	background: #F9F5EC;
+	background: #f9f5ec;
 	min-height: calc(100vh - 64px);
 	padding: 48px 64px;
 	box-sizing: border-box;

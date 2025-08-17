@@ -16,7 +16,7 @@ WS_URL = "wss://i13e102.p.ssafy.io/ws/jetson/"
 CANVAS_W, CANVAS_H = 900, 550
 
 MY_PLATE = "157고4895"
-OTHER_PLATES = ["12가3456", "11가1111"]
+OTHER_PLATES = ["12가3456", "11가1211"]
 
 ALL_SLOTS = ["B1", "B2", "B3", "C1", "C2", "C3", "A1", "A2", "A3", "A4", "A5"]
 
@@ -163,7 +163,7 @@ def pick_assignment(size_class: Optional[str]) -> Optional[str]:
 
 
 # ===== 송신 루프 =====
-def sender_loop(ws, fps: float = 2.0):
+def sender_loop(ws, fps: float = 20.0):
     print("[송신 시작] car_position 프레임을 주기적으로 전송합니다.")
     t = 0.0
     dt = 1.0 / fps
