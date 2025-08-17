@@ -16,27 +16,27 @@ WS_URL = "wss://i13e102.p.ssafy.io/ws/jetson/"
 CANVAS_W, CANVAS_H = 900, 550
 
 MY_PLATE = "157고4895"
-OTHER_PLATES = ["12가3456", "11가1111"]
+OTHER_PLATES = ["12가3456", "11가1211"]
 
 ALL_SLOTS = ["B1", "B2", "B3", "C1", "C2", "C3", "A1", "A2", "A3", "A4", "A5"]
 
 # 초기 슬롯 상태
 BASE_SLOT_MAP: Dict[str, str] = {
     "B1": "free",
-    "B2": "free",
+    "B2": "occupied",
     "B3": "free",
     "C1": "occupied",
-    "C2": "reserved",
-    "C3": "free",
+    "C2": "occupied",
+    "C3": "occupied",
     "A1": "free",
     "A2": "occupied",
     "A3": "free",
-    "A4": "free",
-    "A5": "reserved",
+    "A4": "occupied",
+    "A5": "free",
 }
 
 # 토글 후보
-TOGGLE_CANDIDATES = ["B2", "B3", "C3", "A3", "A4"]
+TOGGLE_CANDIDATES = ["B2", "C3", "A1", "A3", "A4"]
 
 # ===== 내부 공유 상태 (요청 처리 시 사용) =====
 _state_lock = threading.RLock()
@@ -163,7 +163,7 @@ def pick_assignment(size_class: Optional[str]) -> Optional[str]:
 
 
 # ===== 송신 루프 =====
-def sender_loop(ws, fps: float = 2.0):
+def sender_loop(ws, fps: float = 20.0):
     print("[송신 시작] car_position 프레임을 주기적으로 전송합니다.")
     t = 0.0
     dt = 1.0 / fps
@@ -218,7 +218,7 @@ def handle_request_assignment(ws, payload: Dict[str, Any]):
 
     # (옵션) 몇 초 후 score 전송
     def _send_score_later():
-        time.sleep(5)
+        time.sleep(15)
         score = {"message_type": "score", "license_plate": plate, "score": 100}
         print("[후속] score =>", json.dumps(score, ensure_ascii=False))
         with suppress(Exception):
