@@ -10,5 +10,5 @@ deploy-to-ec2:
     - docker-compose build | tee docker_build.log
     - docker-compose up -d --force-recreate
     - docker system prune -af --volumes
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "develop"'
+  # rules:
+  #   - if: '$CI_COMMIT_BRANCH == "develop"'
