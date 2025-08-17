@@ -2,6 +2,7 @@ import asyncio
 import json
 import math
 import os
+os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 import queue
 import threading
 import time
@@ -17,16 +18,13 @@ import websocket
 from ultralytics import YOLO
 from ml.recommender import recommend_best_zone
 
-# Module logger
 logger = logging.getLogger(__name__)
 
-# 로깅 설정
 logging.basicConfig(
-    level=logging.DEBUG,  # DEBUG 레벨로 설정하여 더 자세한 로그 출력
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),  # 콘솔 출력
-        # logging.FileHandler('track-video.log')  # 파일 출력
+        logging.StreamHandler(),
     ]
 )
 
@@ -34,8 +32,8 @@ logging.basicConfig(
 # Configuration
 # =============================
 
-# VIDEO_PATH = 0
-VIDEO_PATH = "data/video_part_2.mp4"
+VIDEO_PATH = 0
+# VIDEO_PATH = "WIN_20250817_00_00_55_Pro.mp4"
 MODEL_PATH = "track-obb.pt"
 TRACKER_CFG_NAME = "bytetrack.yaml"
 WSS_URL = "wss://i13e102.p.ssafy.io/ws/jetson/"
@@ -48,8 +46,10 @@ OUTPUT_HEIGHT = 550
 GRID_W = 56
 GRID_H = 24
 
-IMG_SIZE = 1080
-CONF_THRES = 0.2
+IMG_SIZE = 1280
+IMG_HEIGHT = 720
+IMG_WIDTH = 1280
+CONF_THRES = 0.4
 IOU_THRES = 0.6
 
 ENTER_THRESHOLD_SECONDS = 3.0
@@ -60,11 +60,10 @@ LOST_THRESHOLD_SECONDS = float(os.getenv("LOST_THRESHOLD_SECONDS", "2.0"))
 SNAPSHOT_INTERVAL_S = 0.5
 SNAPSHOT_PATH = str(Path(__file__).with_name("status_snapshot.json"))
 
-# Parking zones (normalized)
 PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     {
         "id": "B1", 
-        "rect": [0.371914, 0.00823, 0.45216, 0.26749],
+        "rect": [0.378086, 0.004115, 0.45679, 0.245542],
         "left_zone": "",
         "right_zone": "B2",
         "left_pillar": True,
@@ -73,7 +72,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "B2", 
-        "rect": [0.448302, 0.010974, 0.527778, 0.268861],
+        "rect": [0.454475, 0.005487, 0.530864, 0.245542],
         "left_zone": "B1",
         "right_zone": "B3",
         "left_pillar": False,
@@ -82,7 +81,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "B3", 
-        "rect": [0.522377, 0.006859, 0.603395, 0.266118],
+        "rect": [0.530864, 0.005487, 0.608796, 0.246914],
         "left_zone": "B2",
         "right_zone": "",
         "left_pillar": False,
@@ -91,7 +90,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "C1", 
-        "rect": [0.633488, 0.005487, 0.709105, 0.237311],
+        "rect": [0.636574, 0.002743, 0.715278, 0.215364],
         "left_zone": "",
         "right_zone": "C2",
         "left_pillar": True,
@@ -100,7 +99,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "C2", 
-        "rect": [0.706019, 0.006859, 0.783951, 0.242798],
+        "rect": [0.709877, 0.005487, 0.79321, 0.215364],
         "left_zone": "C1",
         "right_zone": "C3",
         "left_pillar": False,
@@ -109,7 +108,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "C3", 
-        "rect": [0.783951, 0.009602, 0.858796, 0.238683],
+        "rect": [0.782407, 0.00823, 0.861883, 0.21262],
         "left_zone": "C2",
         "right_zone": "",
         "left_pillar": False,
@@ -118,7 +117,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "A1", 
-        "rect": [0.374228, 0.727023, 0.450617, 0.969822],
+        "rect": [0.371914, 0.72428, 0.453704, 0.99177],
         "left_zone": "A2",
         "right_zone": "",
         "left_pillar": False,
@@ -127,7 +126,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "A2", 
-        "rect": [0.448302, 0.727023, 0.524691, 0.973937],
+        "rect": [0.451389, 0.725652, 0.534722, 1.0],
         "left_zone": "A3",
         "right_zone": "A1",
         "left_pillar": False,
@@ -136,7 +135,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "A3", 
-        "rect": [0.523148, 0.72428, 0.60108, 0.973937],
+        "rect": [0.533179, 0.725652, 0.615741, 0.997257],
         "left_zone": "",
         "right_zone": "A2",
         "left_pillar": True,
@@ -145,7 +144,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "A4", 
-        "rect": [0.631173, 0.73251, 0.707562, 0.971193],
+        "rect": [0.645062, 0.720165, 0.733796, 0.994513],
         "left_zone": "A5",
         "right_zone": "",
         "left_pillar": False,
@@ -154,7 +153,7 @@ PARKING_ZONES_NORM: List[Dict[str, Any]] = [
     },
     {
         "id": "A5", 
-        "rect": [0.704475, 0.733882, 0.781636, 0.975309],
+        "rect": [0.725309, 0.720165, 0.813272, 0.989026],
         "left_zone": "",
         "right_zone": "A4",
         "left_pillar": True,
@@ -183,16 +182,13 @@ def point_in_norm_rect(
 
 
 class VehicleSpecsHelper:
-    """차량 사양 정보 관련 헬퍼 클래스"""
     
-    # 차량 크기별 사양 정보 (미터 단위)
     SIZE_CLASS_SPECS = {
         "compact": {"width": 2.0, "length": 4.2, "size_code": 1},
         "midsize": {"width": 2.5, "length": 5.0, "size_code": 2},
         "suv": {"width": 2.8, "length": 5.2, "size_code": 3}
     }
     
-    # 차량 크기별 박스 크기 (픽셀 단위)
     SIZE_CLASS_BOXES = {
         "compact": (200, 80),
         "midsize": (250, 100),
@@ -210,7 +206,6 @@ class VehicleSpecsHelper:
     
     @classmethod
     def get_box_size_from_size_class(cls, size_class: Optional[str]) -> Tuple[int, int]:
-        """size_class로부터 박스 크기 반환 (픽셀 단위)"""
         if not size_class:
             return (250, 100)
         
@@ -218,7 +213,6 @@ class VehicleSpecsHelper:
     
     @classmethod
     def parse_size_class_string(cls, size_class: str) -> Tuple[int, int]:
-        """size_class 문자열을 파싱하여 박스 크기 반환"""
         try:
             if "," in size_class:
                 width, length = map(float, size_class.split(","))
@@ -229,11 +223,8 @@ class VehicleSpecsHelper:
 
 
 class ZoneInfoHelper:
-    """주차 구역 정보 관련 헬퍼 클래스"""
-    
     @staticmethod
     def find_zone_by_id(zones_norm: List[Dict[str, Any]], zone_id: str) -> Optional[Dict[str, Any]]:
-        """구역 ID로 구역 정보 찾기"""
         for zone in zones_norm:
             if zone["id"] == zone_id:
                 return zone
@@ -243,7 +234,6 @@ class ZoneInfoHelper:
     def get_adjacent_zone_info(zones_norm: List[Dict[str, Any]], zone_info: Dict[str, Any], slot_map: Dict[str, str], 
                               occupant_to_zone: Dict[int, str], last_angle_by_id: Dict[int, float],
                               last_center_by_id: dict[int, tuple[float, float]], plate_mgr) -> dict[str, any]:
-        """인접 구역 정보 추출"""
         result = {
             "left_occupied": 0, "left_angle": 0.0, "left_offset": 0.0, "left_size": 0,
             "left_width": 0, "left_length": 0, "left_has_pillar": 0,
@@ -251,7 +241,6 @@ class ZoneInfoHelper:
             "right_width": 0, "right_length": 0, "right_has_pillar": 0
         }
         
-        # 좌측 구역 처리
         left_zone_id = zone_info.get("left_zone", "")
         if left_zone_id:
             result["left_occupied"] = 1 if slot_map.get(left_zone_id) != "free" else 0
@@ -262,7 +251,6 @@ class ZoneInfoHelper:
                     zones_norm, left_zone_id, occupant_to_zone, last_angle_by_id, last_center_by_id, plate_mgr, result, "left"
                 )
         
-        # 우측 구역 처리
         right_zone_id = zone_info.get("right_zone", "")
         if right_zone_id:
             result["right_occupied"] = 1 if slot_map.get(right_zone_id) != "free" else 0
@@ -280,19 +268,15 @@ class ZoneInfoHelper:
     def _fill_adjacent_vehicle_info(zones_norm: List[Dict[str, Any]], zone_upper: str, occupant_to_zone: Dict[int, str], 
                                    last_angle_by_id: Dict[int, float], last_center_by_id: Dict[int, Tuple[float, float]], 
                                    plate_mgr, result: Dict[str, Any], side: str):
-        """인접 차량 정보 채우기"""
         found_vehicle = False
         for tid, occupied_zone in occupant_to_zone.items():
             if occupied_zone == zone_upper:
                 found_vehicle = True
-                # 각도 정보 (라디안 단위)
                 angle_rad = last_angle_by_id.get(tid, 0.0)
                 result[f"{side}_angle"] = angle_rad
                 
-                # # offset 계산 (주차 구역 중심과 차량 중심 간의 거리)
                 # vehicle_center = last_center_by_id.get(tid)
                 # if vehicle_center:
-                #     # 주차 구역 정보 찾기
                 #     zone_info = ZoneInfoHelper.find_zone_by_id(zones_norm, zone_upper)
                 #     if zone_info and "rect" in zone_info:
                 #         zone_rect = zone_info["rect"]
@@ -310,8 +294,6 @@ class ZoneInfoHelper:
                 # else:
                 #     result[f"{side}_offset"] = 0.0
                 
-                # 크기 정보
-                # 플레이트가 없어도 midsize 기준으로 기본값을 넣어야 함
                 size_class = None
                 if tid is not None:
                     license_plate = plate_mgr.get(tid)
@@ -325,19 +307,8 @@ class ZoneInfoHelper:
                 result[f"{side}_size"] = specs.get("size_code", 2)
                 break
         
-        # # 디버깅: 인접 차량 정보가 제대로 설정되었는지 확인
-        # if found_vehicle:
-        #     logger.debug(f"[Feature] {side} adjacent vehicle found: angle={result[f'{side}_angle']:.4f}rad, offset={result.get(f'{side}_offset', 0.0):.4f}")
-        # else:
-        #     logger.debug(f"[Feature] {side} adjacent zone {zone_upper} has no vehicle")
-    
     @staticmethod
     def calculate_goal_position(zone_rect: List[float], frame_wh: Optional[Tuple[int, int]] = None) -> Tuple[float, float]:
-        """구역 사각형에서 목표 위치 계산
-
-        - frame_wh가 주어지면 프레임 픽셀 좌표로 반환
-        - frame_wh가 없으면 추천기 입력 격자 좌표(GRID_W x GRID_H)로 반환
-        """
         cx = (zone_rect[0] + zone_rect[2]) / 2
         cy = (zone_rect[1] + zone_rect[3]) / 2
         if frame_wh:
@@ -347,11 +318,8 @@ class ZoneInfoHelper:
 
 
 class ExceptionHandler:
-    """예외 처리 헬퍼 클래스"""
-    
     @staticmethod
     def safe_execute(func: Callable, *args, default=None, **kwargs):
-        """안전한 함수 실행"""
         try:
             return func(*args, **kwargs)
         except Exception as e:
@@ -360,7 +328,6 @@ class ExceptionHandler:
     
     @staticmethod
     def safe_async_execute(func: Callable, *args, default=None, **kwargs):
-        """안전한 비동기 함수 실행"""
         try:
             return func(*args, **kwargs)
         except Exception as e:
@@ -505,8 +472,6 @@ class ParkingManager:
 
 
 class ReservationManager:
-    """예약, 배정, 완료 상태를 중앙에서 관리한다."""
-
     def __init__(self) -> None:
         self._reserved: set[str] = set()
         self._assigned_by_plate: Dict[str, str] = {}
@@ -552,7 +517,6 @@ class ReservationManager:
         return True
 
     def complete(self, plate: str, zone: str, send_snapshot: Callable[[], None]) -> None:
-        # 예약 완료 처리: 예약 해제 및 매핑 제거, 완료 구역으로 마킹
         self._reserved.discard(zone)
         if plate:
             self._assigned_by_plate.pop(plate, None)
@@ -565,15 +529,12 @@ class ReservationManager:
             pass
 
     def preempt_zone(self, zone: str) -> Optional[str]:
-        """구역이 선점당했을 때 예약과 배정을 제거하고, 해당 plate를 반환한다."""
         self._reserved.discard(zone)
         plate = None
-        # zone -> plate 역조회
         for p, z in list(self._assigned_by_plate.items()):
             if z == zone:
                 plate = p
                 self._assigned_by_plate.pop(p, None)
-                # size class는 유지하여 재할당에 사용
                 break
         return plate
 
@@ -603,8 +564,6 @@ class ReservationManager:
 # =============================
 
 class WSClient:
-    """WebSocketApp 기반 클라이언트. 백그라운드 스레드에서 run_forever."""
-
     def __init__(self, url: str) -> None:
         self.url = url
         self.wsapp: Optional[websocket.WebSocketApp] = None
@@ -664,6 +623,16 @@ class WSClient:
                 raise RuntimeError("socket not connected")
         except Exception as e:
             logger.error(f"[WebSocket] send failed: {e}")
+
+
+    def is_connected(self) -> bool:
+        return self._connected.is_set()
+
+    async def wait_connected(self, timeout: Optional[float] = None) -> bool:
+        try:
+            return await asyncio.to_thread(self._connected.wait, timeout)
+        except Exception:
+            return False
 
 
 
@@ -1567,8 +1536,9 @@ class TrackerApp:
                 "controlled_length": length_m,
                 "zone_id": str(zid),
                 "agent_angle_tier": "intermediate",
-                "left_angle_deg": adjacent_info.get("left_angle", 0.0) * 180 / np.pi - 90 if adjacent_info.get("left_angle", 0.0) != 0 else 0.0,
-                "right_angle_deg": adjacent_info.get("right_angle", 0.0) * 180 / np.pi - 90 if adjacent_info.get("right_angle", 0.0) != 0 else adjacent_info.get("right_angle", 0.0) * 180 / np.pi,
+                # 각도는 '슬롯 정렬(수직) 기준 편차'를 도 단위로 제공: abs(rad->deg - 90) 그리고 [0, 90]로 클램프
+                "left_angle_deg": max(0.0, min(90.0, abs(adjacent_info.get("left_angle", 0.0) * 180 / np.pi - 90.0))),
+                "right_angle_deg": max(0.0, min(90.0, abs(adjacent_info.get("right_angle", 0.0) * 180 / np.pi - 90.0))),
             }
             
             # 각도 및 offset 정보 디버깅
@@ -1596,6 +1566,48 @@ class TrackerApp:
             for track_id in track_ids
         ]
 
+    async def _listen_dummy_assignment_request(self) -> None:
+        try:
+            # WebSocket 연결 완료 대기 (_on_open 이후 실행 보장)
+            connected = await self.ws.wait_connected(5.0)
+            if not connected:
+                logger.error("[DummyAssignment] WS 연결 대기 타임아웃")
+                return
+            # 서버로 hello 요청을 보냄
+            await asyncio.to_thread(self.ws.send_json, {"message_type": "hello"})
+            # 응답을 기다림
+            msg = await self.ws.recv()
+            try:
+                data = json.loads(msg)
+            except Exception as e:
+                logger.debug(f"[DummyAssignment] JSON 파싱 오류: {e}")
+                return
+
+            # 여러 대의 차량 정보를 받을 수 있도록 처리
+            vehicles = data.get("vehicles")
+            if vehicles and isinstance(vehicles, list):
+                for vehicle in vehicles:
+                    license_plate = str(vehicle.get("license_plate") or "")
+                    if license_plate:
+                        self.plate_mgr.enqueue_plate(license_plate)
+                    size_class = str(vehicle.get("size_class") or "")
+                    if license_plate and size_class:
+                        self.plate_mgr.plate_to_size_class[license_plate] = size_class
+                        self.resv.set_size_class(license_plate, size_class)
+            else:
+                # 기존 단일 차량 처리 (호환성)
+                license_plate = str(data.get("license_plate") or "")
+                if license_plate:
+                    self.plate_mgr.enqueue_plate(license_plate)
+                size_class = str(data.get("size_class") or "")
+                if license_plate and size_class:
+                    self.plate_mgr.plate_to_size_class[license_plate] = size_class
+                    self.resv.set_size_class(license_plate, size_class)
+
+            logger.info("[DummyAssignment] 초기 할당 요청 처리 완료")
+        except Exception as e:
+            logger.error(f"[DummyAssignment] 예외 발생: {e}")
+            
     async def _listen_assignment_request(self) -> None:
         logger.info("[Assignment] 할당 요청 리스너 시작")
         try:
@@ -1642,10 +1654,6 @@ class TrackerApp:
                         elif free_zones:
                             assigned_zone = free_zones[0]
                             logger.info(f"[Assignment] fallback 구역 사용: {assigned_zone}")
-
-                        # 사용자 실력 레벨 가져오기
-                        user_skill_level = data.get("user_skill_level", "beginner")
-                        logger.info(f"[Assignment] 사용자 실력 레벨: {user_skill_level}")
 
                         await self._reserve_zone(license_plate, assigned_zone, slot_map)
 
@@ -1727,7 +1735,6 @@ class TrackerApp:
     def _release_state_for_tid(self, tid: int, plate: str = "") -> None:
         tid = int(tid)
 
-        # 점유 해제
         try:
             zone = self._get_occupant_map().get(tid, "")
             if zone:
@@ -1737,7 +1744,6 @@ class TrackerApp:
         except Exception:
             pass
 
-        # 예약/배정 해제
         try:
             if plate:
                 assigned = self.resv.get_assigned_by_plate().get(plate)
@@ -1749,7 +1755,6 @@ class TrackerApp:
         except Exception:
             pass
 
-        # 캐시 정리
         try:
             self._last_seen_by_id.pop(tid, None)
             self._reported_lost.discard(tid)
@@ -1775,7 +1780,6 @@ class TrackerApp:
                             "license_plate": plate,
                             "zone": zid,
                         })
-                        # 상태 해제 및 스냅샷 전송
                         self._release_state_for_tid(prev_tid, plate)
                         await self._send_snapshot(None, 0, 0)
             self._last_zone_to_tid = cur_zone_to_tid
@@ -1783,7 +1787,6 @@ class TrackerApp:
             pass
 
     async def _handle_lost_tracks(self, now_ts: float) -> None:
-        """프레임에서 사라진 트랙을 즉시 exit로 처리한다."""
         try:
             lost_ids = [tid for tid, ts in list(self._last_seen_by_id.items()) if now_ts - ts >= LOST_THRESHOLD_SECONDS]
             if not lost_ids:
@@ -1804,7 +1807,6 @@ class TrackerApp:
                     "zone": zone,
                 })
 
-                # 상태 완전 해제
                 self._release_state_for_tid(tid, plate)
                 did_release = True
 
@@ -1816,20 +1818,17 @@ class TrackerApp:
     def _choose_zone_for_assignment(
         self, slot_map: Dict[str, str], size_class: Optional[str]
     ) -> str:
-        # free인 구역들만 추출
         free_zones = [z for z, state in slot_map.items() if state == "free"]
         
         if not free_zones:
             logger.warning("[Assignment] 사용 가능한 free 구역이 없습니다.")
             return ""
         
-        # 추천 모델이 있으면 사용
         suggested_zone = self._get_suggested_zone_from_recommender(size_class or "", free_zones)
         if suggested_zone and suggested_zone in free_zones:
             logger.info(f"[Assignment] 추천 모델 사용: {suggested_zone}")
             return suggested_zone
         
-        # fallback: 첫 번째 free 구역
         fallback_zone = free_zones[0]
         logger.info(f"[Assignment] fallback 사용: {fallback_zone}")
         return fallback_zone
@@ -1843,10 +1842,9 @@ class TrackerApp:
                 logger.debug(f"[Recommender] 입력 특성: {feat}")
             
             best = recommend_best_zone(feats, user_skill_level=user_skill_level)
+            logger.info(f"[Recommender] 추천 결과: {best}")
             
             if best:
-                # best 목록에서 주차구역이 compact 라면 small_only 부터 추천 best 순으로
-                # compact 차량일 때 small_only 구역 우선 추천, 없으면 best[0] 사용
                 if size_class == "compact":
                     small_only_zones = [item for item in best if item.get("small_only", False)]
                     if small_only_zones:
@@ -1869,11 +1867,9 @@ class TrackerApp:
     async def _reserve_zone(self, license_plate: str, assigned_zone: str, slot_map: Dict[str, str]) -> None:
         if not assigned_zone:
             return
-        # 중앙화된 매니저를 통해 처리 및 스냅샷 전송
         self.resv.reserve(license_plate, assigned_zone, slot_map, lambda: asyncio.create_task(self._send_snapshot(None, 0, 0)))
 
     async def _handle_parking_completion(self) -> None:
-        """예약된 구역에 배정 차량이 실제로 주차 완료되었을 때 이벤트를 전송하고 예약을 해제한다."""
         try:
             zone_to_assigned_plate: Dict[str, str] = self.resv.get_zone_to_assigned_plate_map()
             for zid in list(self.resv.get_reserved()):
@@ -1902,8 +1898,33 @@ class TrackerApp:
         except Exception as e:
             logger.exception(f"[ParkingCompletion] 예외 발생: {e}")
 
-    def _handle_mispark_release(self, occupant_to_zone: Dict[int, str]) -> None:
-        self.resv.release_mispark(occupant_to_zone, self.plate_mgr)
+    async def _handle_mispark_release(self, occupant_to_zone: Dict[int, str]) -> None:
+        try:
+            # mispark 감지 및 해제
+            vehicles_to_release: List[str] = []
+            for plate, assigned_zone in list(self.resv._assigned_by_plate.items()):
+                tid = self.plate_mgr.get_track_id_by_plate(plate)
+                if tid is None:
+                    continue
+                actual_zone = occupant_to_zone.get(int(tid))
+                if actual_zone is None:
+                    continue
+                if actual_zone != assigned_zone:
+                    # mispark 감지 - 점수 계산 및 전송
+                    score = self._calculate_parking_score(int(tid), actual_zone)
+                    await self._emit({
+                        "message_type": "score",
+                        "license_plate": plate,
+                        "score": round(score, 2),
+                        "zone_id": actual_zone,
+                    })
+                    logger.info(f"[Mispark] 점수 계산 완료: plate={plate}, zone={actual_zone}, score={round(score, 2)}")
+                    vehicles_to_release.append(plate)
+            
+            # 기존 release_mispark 로직 실행
+            self.resv.release_mispark(occupant_to_zone, self.plate_mgr)
+        except Exception as e:
+            logger.exception(f"[Mispark] 점수 계산 중 오류: {e}")
 
     async def _handle_preemption_and_reassign(self) -> None:
         try:
@@ -1946,28 +1967,30 @@ class TrackerApp:
             pass
 
     async def run(self) -> None:
-        # EventBus 시작 및 기본 핸들러 등록
         if self._event_loop_task is None:
             self._event_loop_task = asyncio.create_task(self._event_loop())
-            # 핸들러: exit, score, assignment, re-assignment → WS 전송
             self._on("exit", self._send_ws)
             self._on("score", self._send_ws)
             self._on("assignment", self._send_ws)
             self._on("re-assignment", self._send_ws)
 
-        self.model = YOLO(MODEL_PATH)
-        results = self.model.track(
-            source=VIDEO_PATH,
-            stream=True,
-            imgsz=IMG_SIZE,
-            conf=CONF_THRES,
-            iou=IOU_THRES,
-            tracker=self.tracker_cfg,
-            visualize=False,
-            verbose=False,
-        )
+        logger.info("[Main] 프로그램 시작 시 초기 할당 요청 실행")
+        try:
+            await self._listen_dummy_assignment_request()
+        except Exception as e:
+            logger.error(f"[Main] 초기 할당 요청 실행 중 오류: {e}")
 
-        headless = os.getenv("HEADLESS", "0") == "1"
+        self.model = YOLO(MODEL_PATH)
+        
+        cap = cv2.VideoCapture(VIDEO_PATH)
+        if not cap.isOpened():
+            logger.error(f"[VideoCapture] 비디오 소스를 열 수 없습니다: {VIDEO_PATH}")
+            return
+        
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, IMG_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, IMG_HEIGHT)
+        
+        headless = os.getenv("HEADLESS", "1") == "1"
         window_name = "Tracking"
         if not headless:
             cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
@@ -1978,7 +2001,26 @@ class TrackerApp:
         try:
             listener_task = asyncio.create_task(self._listen_assignment_request())
 
-            for r in results:
+            while cap.isOpened():
+                success, frame = cap.read()
+                if not success:
+                    logger.warning("[VideoCapture] 프레임을 읽을 수 없습니다. 비디오 종료 또는 오류")
+                    break
+                
+                results = self.model.track(
+                    frame, 
+                    persist=True,
+                    imgsz=IMG_SIZE,
+                    conf=CONF_THRES,
+                    iou=IOU_THRES,
+                    tracker=self.tracker_cfg,
+                    verbose=False
+                )
+                
+                if not results or len(results) == 0:
+                    continue
+                    
+                r = results[0]
                 try:
                     im0 = r.orig_img if hasattr(r, "orig_img") else None
                     if im0 is None:
@@ -1987,7 +2029,6 @@ class TrackerApp:
                     
                     ids = extract_track_ids(r) or []
                     now_ts = time.time()
-                    # 마지막 관측 시각 갱신 및 재등장 시 플래그 해제
                     for tid in ids:
                         tid_i = int(tid)
                         self._last_seen_by_id[tid_i] = now_ts
@@ -2007,11 +2048,9 @@ class TrackerApp:
                     self.parking.update(centers, ids, w_full, h_full, now_ts)
                     await self._handle_exit_events()
 
-                    # 최근 프레임 정보 보관 (템플릿 매칭용)
                     try:
                         self._last_frame_wh = (w_full, h_full)
                         if polys and ids:
-                            # ids와 polys의 순서가 일치한다고 가정
                             for idx, tid in enumerate(ids):
                                 if idx < len(polys):
                                     self._last_poly_by_id[int(tid)] = polys[idx]
@@ -2030,7 +2069,7 @@ class TrackerApp:
 
                     await self._handle_parking_completion()
 
-                    self._handle_mispark_release(self._get_occupant_map())
+                    await self._handle_mispark_release(self._get_occupant_map())
                     await self._handle_preemption_and_reassign()
                     await self._handle_exit_events()
 
@@ -2052,7 +2091,7 @@ class TrackerApp:
                         im_disp = self._resize_for_display(im0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
                         cv2.imshow(window_name, im_disp)
                         key = cv2.waitKey(1) & 0xFF
-                        if key == 27:  # ESC key
+                        if key == 27:
                             logger.info("[Main] ESC 키로 종료 요청됨")
                             break
                         try:
@@ -2068,13 +2107,15 @@ class TrackerApp:
                     logger.exception(f"[RunLoop] error: {loop_err}")
                 finally:
                     await asyncio.sleep(0)
+            
+            cap.release()
+            
         except KeyboardInterrupt:
             logger.info("[Main] KeyboardInterrupt로 종료 요청됨")
         except Exception as e:
             logger.exception(f"[Main] 예상치 못한 오류: {e}")
         finally:
             logger.info("[Main] 프로그램 종료 중...")
-            # 리소스 정리
             try:
                 if listener_task and not listener_task.done():
                     logger.info("[Main] listener_task 취소 중...")
