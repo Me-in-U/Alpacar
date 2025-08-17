@@ -620,7 +620,7 @@ onBeforeUnmount(() => {
 .main-page-container {
 	width: 100vw;
 	max-width: 440px;
-	min-height: 100vh;
+	height: 100vh;            /* ✅ 내부 스크롤 컨테이너 방식: 고정 높이 */
 	position: relative;
 	background: #f9f5ec;
 	margin: 0 auto;
@@ -628,14 +628,16 @@ onBeforeUnmount(() => {
 	display: flex;
 	flex-direction: column;
 }
+
 .main-content {
-	flex: 1;
+	flex: 1;                  /* ✅ 남은 공간을 차지 */
 	display: block;
+	width: 100%;
+	overflow-y: auto;         /* ✅ 이 영역만 스크롤 */
+	height: auto;             /* ✅ 내부 스크롤용 */
 	padding-top: 80px;
 	padding-bottom: 80px;
-	min-height: calc(100vh - 160px);
-	overflow-y: auto;
-	width: 100%;
+	/* min-height 제거 */
 }
 
 /* 미인식 상태 */
