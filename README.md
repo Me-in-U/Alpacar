@@ -2,7 +2,7 @@
 <img src="./docs/assets/alpacar-onboarding-banner.png" alt="온보딩배너" width="60%">
 
 ## 프로젝트 소개
-스마트 주차 관리 시스템
+사용자의 차량 크기와 주차실력을 고려해 최적의 주차공간을 추천해주는 스마트 주차 관리 시스템
 
 ## 프로젝트 기간
 2025.07.14 ~ 2025.08.19 (6주)
@@ -76,6 +76,7 @@
 ### Arduino
 <details>
   <summary>펼쳐보기</summary>
+
   ```plantext
   Arduino/
   ├── get_ocr_kor_ws/
@@ -89,6 +90,7 @@
 ### Backend
 <details>
   <summary>펼쳐보기</summary>
+
   ```plantext
   backend/
   └── djangoApp/
@@ -120,6 +122,7 @@
 ### Frontend
 <details>
   <summary>펼쳐보기</summary>
+
   ```plantext
   frontend/
   └── alpacar-vue/
@@ -153,33 +156,43 @@
       ├── tsconfig.json
       ├── tsconfig.node.json
       └── vite.config.ts
+  ```
 </details>    
 
 ### jetson
 <details>
   <summary>펼쳐보기</summary>
+
   ```plantext
   jetson/
-  ├── best.pt
-  ├── camera_tracking_obb.py
-  ├── image_detector.py
-  ├── local-websocket-server.py
-  ├── output_obb.mp4
-  ├── parking_check copy.py
-  ├── parking_check.py
-  ├── requirements.txt
-  ├── sample.mp4
-  ├── track.py
-  ├── track-video.py
-  ├── video_split.py
-  ├── yolo_bytetrack_advanced.py
-  └── yolo_simple.py
-    ```
+  ├── ml/
+  │   ├── artifacts/
+  │   │   ├── experiments_history.csv
+  │   │   ├── rf_score_model.joblib
+  │   │   └── rf_step_model.joblib
+  │   ├── advanced_extract_goal_features_dataset.csv
+  │   └── recommender.py
+  │
+  ├── best.pt (5.6MB)                   
+  ├── bytetrack.yaml                     
+  ├── camera_tracking_obb.py             
+  ├── image_detector.py                 
+  ├── local-websocket-server.py         
+  ├── output_obb.mp4 (14MB)              
+  ├── parking_check copy.py             
+  ├── parking_check.py                  
+  ├── requirements.txt                   
+  ├── sample.mp4 (2.9MB)                 
+  ├── track.py                           
+  ├── track-video.py                     
+  └── video_split.py                     
+  ```
 </details>
 
 ### Raspi
 <details>
   <summary>펼쳐보기</summary>
+
   ```plantext
   Raspi/
   ├── autorun.service
