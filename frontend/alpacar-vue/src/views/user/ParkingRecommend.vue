@@ -635,7 +635,7 @@ onBeforeUnmount(() => {
 	width: 100%;
 	overflow-y: auto;         /* ✅ 이 영역만 스크롤 */
 	height: auto;             /* ✅ 내부 스크롤용 */
-	padding-top: 80px;
+	padding-top: 30px;
 	padding-bottom: 80px;
 	/* min-height 제거 */
 }
