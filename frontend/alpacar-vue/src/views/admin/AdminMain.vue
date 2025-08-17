@@ -66,15 +66,12 @@
 							<div class="gate-arm"></div>
 							<div class="gate-box"></div>
 						</div>
-
-						<svg class="overlay" :width="layout.mapW" :height="layout.mapH">
-							<g v-for="obj in vehicles" :key="obj.track_id">
-								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" stroke="#ff0" stroke-width="2" />
-								<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="36" fill="#ff0" text-anchor="middle">
-									{{ obj.track_id }}
-								</text>
-							</g>
-						</svg>
+						<div class="cars-layer" :style="{ width: layout.mapW + 'px', height: layout.mapH + 'px' }">
+							<div v-for="obj in vehicles" :key="obj.track_id" class="car-entity" :style="carStyle(obj)">
+								<img :src="carTopImg" class="car-img" alt="car" />
+								<div class="car-label">{{ obj.track_id }}</div>
+							</div>
+						</div>
 
 						<template v-for="(row, idx) in layout.rows" :key="'row-' + idx">
 							<div class="row" :style="{ marginLeft: (idx === 0 ? layout.offsetTopX : layout.offsetBottomX) + 'px' }">
@@ -171,6 +168,7 @@ import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { SecureTokenManager } from "@/utils/security";
 import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import carTopImg from "@/assets/navi_topview_car_1.png"; // ⬅️ 탑뷰 자동차 이미지
 
 const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
 // const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
@@ -178,6 +176,153 @@ const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
 export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },
 	setup() {
+		// ---- 차량 스무딩 상태/유틸 ----
+		const rawTargets = new Map<string, { center: [number, number]; corners: number[]; state?: string; suggested?: string; track_id: string }>();
+
+		type SmoothState = {
+			center: [number, number];
+			corners: number[];
+			meta: { track_id: string; state?: string; suggested?: string };
+			opacity: number; // 0~1
+			fadingOut: boolean; // true면 사라지는 중
+		};
+
+		const smoothMap = new Map<string, SmoothState>();
+
+		const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+		const lerpArr = (out: number[], from: number[], to: number[], t: number) => {
+			const n = Math.min(from.length, to.length);
+			out.length = n;
+			for (let i = 0; i < n; i++) out[i] = lerp(from[i], to[i], t);
+			return out;
+		};
+
+		// 이동 스무딩(작을수록 더 빨리 붙음)
+		const TAU_SEC = 0.18;
+		// 페이드 인/아웃 시간
+		const IN_FADE_SEC = 0.2;
+		const OUT_FADE_SEC = 0.35;
+
+		let rafId = 0;
+		let lastTs = performance.now();
+
+		function smoothTick(ts: number) {
+			const dt = Math.min(0.05, (ts - lastTs) / 1000); // 최대 50ms
+			lastTs = ts;
+			const alpha = 1 - Math.exp(-dt / TAU_SEC);
+
+			// 목표 향해 스무딩
+			for (const [id, target] of rawTargets) {
+				const s = smoothMap.get(id)!;
+				// 이동
+				s.center[0] = lerp(s.center[0], target.center[0], alpha);
+				s.center[1] = lerp(s.center[1], target.center[1], alpha);
+				s.corners = lerpArr(new Array(target.corners.length), s.corners, target.corners, alpha);
+				// 메타 갱신
+				s.meta.state = target.state;
+				s.meta.suggested = target.suggested;
+				// 페이드 인
+				s.fadingOut = false;
+				if (s.opacity < 1) {
+					s.opacity = Math.min(1, s.opacity + dt / IN_FADE_SEC);
+				}
+			}
+
+			// 사라진 차량 페이드 아웃 및 제거
+			for (const [id, s] of Array.from(smoothMap.entries())) {
+				if (!rawTargets.has(id)) {
+					s.fadingOut = true;
+					s.opacity = Math.max(0, s.opacity - dt / OUT_FADE_SEC);
+					if (s.opacity <= 0) {
+						smoothMap.delete(id);
+					}
+				}
+			}
+
+			// 화면에 그릴 배열 재구성 (opacity 포함)
+			vehicles.splice(
+				0,
+				vehicles.length,
+				...Array.from(smoothMap.values()).map((s) => ({
+					track_id: s.meta.track_id,
+					center: [s.center[0], s.center[1]] as [number, number],
+					corners: [...s.corners],
+					state: s.meta.state,
+					suggested: s.meta.suggested,
+					opacity: s.opacity, // 👈 추가
+				}))
+			);
+
+			rafId = requestAnimationFrame(smoothTick);
+		}
+		/** 코너 배열에서 점 읽기 */
+		function getPt(corners: number[], idx: number) {
+			const i = (idx % (corners.length / 2)) * 2;
+			return { x: corners[i] ?? 0, y: corners[i + 1] ?? 0 };
+		}
+		/** 두 점 사이 거리 */
+		const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(bx - ax, by - ay);
+
+		/**
+		 * bbox(사각형 4코너 가정)에서
+		 * - 길이/너비(픽셀)
+		 * - 각도(rad, x+축 기준 시계반대)
+		 * 를 추정. 코너 순서가 [p0,p1,p2,p3]로 인접하게 들어온다는 전제.
+		 */
+		function metricsFromCorners(corners: number[]) {
+			if (!Array.isArray(corners) || corners.length < 8) {
+				// corners가 없으면 적당한 기본 크기
+				return { length: 70, width: 32, angle: 0 };
+			}
+			const p0 = getPt(corners, 0);
+			const p1 = getPt(corners, 1);
+			const p2 = getPt(corners, 2);
+			// 두 변 길이
+			const a = dist(p0.x, p0.y, p1.x, p1.y);
+			const b = dist(p1.x, p1.y, p2.x, p2.y);
+
+			// 더 긴 쪽을 차량의 "길이"로 간주
+			let length = Math.max(a, b);
+			let width = Math.min(a, b);
+
+			// 각도: 더 긴 변의 방향 벡터 사용
+			let vx: number, vy: number;
+			if (a >= b) {
+				vx = p1.x - p0.x;
+				vy = p1.y - p0.y;
+			} else {
+				vx = p2.x - p1.x;
+				vy = p2.y - p1.y;
+			}
+			const angle = Math.atan2(vy, vx);
+
+			// 너무 작게 들어오는 경우 최소값 보정(보기 좋게)
+			length = Math.max(50, length);
+			width = Math.max(26, width);
+
+			return { length, width, angle };
+		}
+
+		/**
+		 * 각 차량의 이미지 스타일(위치/회전/크기/투명도) 계산
+		 */
+		function carStyle(obj: { center: [number, number]; corners: number[]; opacity?: number }) {
+			const { length, width, angle } = metricsFromCorners(obj.corners);
+
+			// 중심좌표 + (필요시 오프셋)
+			const cx = (obj.center?.[0] ?? 0) + (layout.carOffsetX || 0);
+			const cy = (obj.center?.[1] ?? 0) + (layout.carOffsetY || 0);
+
+			return {
+				left: cx + "px",
+				top: cy + "px",
+				width: length + "px",
+				height: width + "px",
+				transform: `translate(-50%, -50%) rotate(${angle}rad)`,
+				opacity: obj.opacity ?? 1,
+			} as const;
+		}
+
 		const authHeaders = () => ({
 			Authorization: `Bearer ${SecureTokenManager.getSecureToken("access_token")}`,
 			"Content-Type": "application/json",
@@ -341,6 +486,7 @@ export default defineComponent({
 				corners: number[];
 				state?: string;
 				suggested?: string;
+				opacity?: number;
 			}>
 		>([]);
 
@@ -380,19 +526,47 @@ export default defineComponent({
 					switch (data?.message_type) {
 						case "car_position": {
 							const arr = Array.isArray(data.vehicles) ? data.vehicles : [];
-							vehicles.splice(
-								0,
-								vehicles.length,
-								...arr.map((v: any) => ({
-									track_id: String(v?.track_id ?? v?.plate ?? ""),
-									center: [Number(v?.center?.[0] ?? v?.center?.x ?? 0), Number(v?.center?.[1] ?? v?.center?.y ?? 0)] as [number, number],
-									corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
-									state: v?.state,
-									suggested: v?.suggested ?? "",
-								}))
-							);
+							const converted = arr.map((v: any) => ({
+								track_id: String(v?.track_id ?? v?.plate ?? ""),
+								center: [Number(v?.center?.x ?? v?.center?.[0] ?? 0), Number(v?.center?.y ?? v?.center?.[1] ?? 0)] as [number, number],
+								corners: Array.isArray(v?.corners) ? (Array.isArray(v.corners[0]) ? v.corners.flat().map(Number) : v.corners.map(Number)) : [],
+								state: v?.state,
+								suggested: v?.suggested ?? "",
+							}));
+
+							// 1) 이번 프레임에서 본 차량 id 수집
+							const seen = new Set<string>();
+
+							// 2) 목표(rawTargets) 업데이트 + 새 차량 seed
+							for (const car of converted) {
+								seen.add(car.track_id);
+								rawTargets.set(car.track_id, car);
+
+								if (!smoothMap.has(car.track_id)) {
+									// 새로 보인 차량: 위치 seed + opacity=0으로 시작(페이드 인)
+									smoothMap.set(car.track_id, {
+										center: [car.center[0], car.center[1]] as [number, number], // 🔧 tuple로 명시
+										corners: [...car.corners],
+										meta: { track_id: car.track_id, state: car.state, suggested: car.suggested },
+										opacity: 0, // 👈 페이드 인 시작
+										fadingOut: false,
+									});
+								} else {
+									// 기존: 메타만 즉시 동기화 (좌표는 smoothTick에서 보간)
+									const s = smoothMap.get(car.track_id)!;
+									s.meta.state = car.state;
+									s.meta.suggested = car.suggested;
+								}
+							}
+
+							// 3) 이번 프레임에 안 보인 차량은 rawTargets에서 제거 → 페이드 아웃 트리거
+							for (const id of Array.from(rawTargets.keys())) {
+								if (!seen.has(id)) rawTargets.delete(id);
+							}
+
 							break;
 						}
+
 						case "parking_space": {
 							const payload = data.spaces || {};
 							Object.entries(payload).forEach(([slot, info]: any) => {
@@ -478,10 +652,13 @@ export default defineComponent({
 			fetchUsageToday();
 			fetchActiveVehicles(); // 초기 보정용
 			usageTimer = setInterval(fetchUsageToday, 5000);
+			lastTs = performance.now();
+			rafId = requestAnimationFrame(smoothTick);
 		});
 		onBeforeUnmount(() => {
 			ws?.close();
 			clearInterval(usageTimer);
+			cancelAnimationFrame(rafId);
 		});
 
 		/* ===== 도우미 ===== */
@@ -542,6 +719,8 @@ export default defineComponent({
 			jetsonLive,
 			canChangeStatus,
 			changeSelectedStatus,
+			carStyle,
+			carTopImg,
 		};
 	},
 });
@@ -553,10 +732,10 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	background: #F9F5EC;
+	background: #f9f5ec;
 }
 .container {
-	background: #F9F5EC;
+	background: #f9f5ec;
 	min-height: calc(100vh - 64px);
 	padding: 48px 64px;
 	box-sizing: border-box;
@@ -1120,5 +1299,44 @@ export default defineComponent({
 /* 패널 간격 살짝 조정 */
 .assign-panel .panel-card + .panel-card {
 	margin-top: 8px;
+}
+/* 차량 이미지 레이어(지도 위에 절대배치) */
+.cars-layer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	pointer-events: none; /* 클릭 막기 */
+	z-index: 3; /* 슬롯보다 위 */
+}
+
+/* 차량 개체 */
+.car-entity {
+	position: absolute; /* left/top은 center 기준 */
+	transform-origin: 50% 50%; /* 회전 기준 중심 */
+	will-change: transform, width, height, opacity;
+	filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.35));
+}
+
+/* 실제 이미지 */
+.car-img {
+	width: 120%;
+	height: 120%;
+	display: block;
+	object-fit: contain; /* 비율 유지 */
+	pointer-events: none;
+}
+
+/* 번호판/트랙ID 라벨 */
+.car-label {
+	position: absolute;
+	left: 50%;
+	top: -18px; /* 차량 위에 살짝 */
+	transform: translateX(-50%);
+	font-size: 20px;
+	font-weight: 800;
+	color: #ff0;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+	white-space: nowrap;
+	pointer-events: none;
 }
 </style>
