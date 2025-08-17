@@ -1332,7 +1332,7 @@ export default defineComponent({
 	left: 50%;
 	top: -18px; /* 차량 위에 살짝 */
 	transform: translateX(-50%);
-	font-size: 16px;
+	font-size: 20px;
 	font-weight: 800;
 	color: #ff0;
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);

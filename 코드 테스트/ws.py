@@ -22,17 +22,17 @@ ALL_SLOTS = ["B1", "B2", "B3", "C1", "C2", "C3", "A1", "A2", "A3", "A4", "A5"]
 
 # 초기 슬롯 상태
 BASE_SLOT_MAP: Dict[str, str] = {
-    "B1": "occupied",
+    "B1": "free",
     "B2": "occupied",
     "B3": "free",
     "C1": "occupied",
     "C2": "occupied",
     "C3": "occupied",
-    "A1": "occupied",
+    "A1": "free",
     "A2": "occupied",
-    "A3": "occupied",
+    "A3": "free",
     "A4": "occupied",
-    "A5": "occupied",
+    "A5": "free",
 }
 
 # 토글 후보

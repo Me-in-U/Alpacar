@@ -41,12 +41,7 @@
 						<div class="info-detail">예상 소요시간: 약 2분</div>
 						<div class="info-detail">난이도: 쉬움 (초급자 적합)</div>
 						<div class="info-detail" v-if="currentPlate">현재 차량: {{ currentPlate }}</div>
-					</div>
-
-					<!-- 🔻 강제 표시 중 알림 & 되돌리기 -->
-					<div v-if="forceShowMap" class="force-hint">
-						카메라 인식 없이 지도를 표시 중입니다.
-						<button class="skip-btn ghost sm" @click="forceShowMap = false">라이브로 전환</button>
+						<div v-if="forceShowMap" class="force-hint">차량 인식 대기중입니다.</div>
 					</div>
 				</section>
 
@@ -85,29 +80,23 @@
 							<div class="gate-pole"></div>
 							<div class="gate-box"></div>
 						</div>
-						<!-- 차량 오버레이 (내 차량 하이라이트) -->
+						<!-- 차량 오버레이: 이미지로 렌더 -->
+						<div class="cars-layer" :style="{ width: layout.mapW + 'px', height: layout.mapH + 'px' }">
+							<div v-for="obj in filteredVehicles" :key="obj.track_id" class="car-entity" :class="{ mine: myPlatesSet.has(obj.track_id) }" :style="carStyle(obj)">
+								<span v-if="myPlatesSet.has(obj.track_id)" class="ping-ring"></span>
+								<img :src="carTopImg" class="car-img" alt="car" />
+								<div v-if="myPlatesSet.has(obj.track_id)" class="car-label">내 차</div>
+							</div>
+						</div>
+
+						<!-- 가이드 라인(화살표)은 유지하려면 아래처럼 SVG엔 경로만 남겨둠 -->
 						<svg class="overlay" viewBox="0 0 900 550" preserveAspectRatio="none">
-							<!-- 🔻 화살표 머리 -->
 							<defs>
 								<marker id="arrowhead" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
 									<path d="M 0 0 L 10 5 L 0 10 z" fill="#ff6bf8" />
 								</marker>
 							</defs>
-
-							<!-- 🔻 안내 라인 -->
 							<path v-if="arrowD" :d="arrowD" class="guide-path" marker-end="url(#arrowhead)" />
-
-							<!-- 기존 차량 폴리곤/라벨 -->
-							<g v-for="obj in filteredVehicles" :key="obj.track_id">
-								<template v-if="!isVehicleParked(obj.track_id) || myPlatesSet.has(obj.track_id)">
-									<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" :stroke="myPlatesSet.has(obj.track_id) ? '#00e5ff' : '#ff0'" stroke-width="3" />
-									<template v-if="myPlatesSet.has(obj.track_id)">
-										<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="14" fill="#00e5ff" text-anchor="middle">
-											{{ obj.track_id }}
-										</text>
-									</template>
-								</template>
-							</g>
 						</svg>
 
 						<!-- 상/하 행: 관리자와 동일 배치 -->
@@ -139,8 +128,6 @@
 
 						<!-- 추천 핀 -->
 						<img class="pin pin--blink" src="@/assets/pin.png" alt="pin" v-if="pinStyle.top" :style="pinStyle" />
-						<!-- 내 차 아이콘(연출용) -->
-						<img class="car" src="@/assets/my-car.png" alt="car" />
 					</div>
 
 					<div class="legend">
@@ -156,10 +143,10 @@
 							<div class="box reserved"></div>
 							<span>예약됨</span>
 						</div>
-					</div>
-
-					<div class="info-inline ok" v-if="currentPlate">
-						현재 <b>{{ currentPlate }}</b> 차량 주차 중
+						<div class="legend-item">
+							<div class="box occupied"></div>
+							<span>사용중</span>
+						</div>
 					</div>
 				</div>
 
@@ -179,12 +166,10 @@ import { useRouter } from "vue-router";
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
 import { useUserStore } from "@/stores/user";
+import carTopImg from "@/assets/navi_topview_car_1.png";
 
 /* ==== 지도 강제 표시 토글 ==== */
 const forceShowMap = ref(false);
-
-/* ==== 내 차만 보기 토글 ==== */
-const showOnlyMine = ref(false);
 
 // 인식 확정/해제 지연(ms)
 const SEEN_CONFIRM_MS = 800;
@@ -284,27 +269,26 @@ type TelemetryCar = {
 	corners: number[];
 	state?: string;
 	suggested?: string;
+	opacity?: number;
 };
 const vehicles = ref<TelemetryCar[]>([]);
 
 // WS로 막 들어온 최신 원시값(목표)
 const rawTargets = new Map<string, TelemetryCar>();
 
-const smoothMap = new Map<string, { center: [number, number]; corners: number[]; meta: Omit<TelemetryCar, "center" | "corners"> }>();
-
+type SmoothState = {
+	center: [number, number];
+	corners: number[];
+	meta: { track_id: string; state?: string; suggested?: string };
+	opacity: number;
+	fadingOut: boolean;
+};
+const smoothMap = new Map<string, SmoothState>();
 /* ==== 필터링된 차량 목록 getter ==== */
 const filteredVehicles = computed(() => {
 	const list = vehicles.value;
-	// Set의 변경사항을 추적시키기 위한 접근 (Vue 3 reactive Set size는 추적 대상)
-	const _size = (myPlatesSet as Set<string>).size;
 
-	if (!showOnlyMine.value) return list;
-
-	if (currentPlate.value) {
-		return list.filter((v) => v.track_id === currentPlate.value);
-	}
-	// currentPlate가 아직 없으면 내 번호판 목록 기준으로 표시
-	return list.filter((v) => myPlatesSet.has(v.track_id));
+	return list;
 });
 
 /* 내 번호판 세트: Pinia에서 가져옴 */
@@ -355,22 +339,25 @@ function connectWS() {
 					for (const car of converted) {
 						rawTargets.set(car.track_id, car);
 						if (!smoothMap.has(car.track_id)) {
-							// 최초 관측: 현재 위치 = 목표 위치로 seed
 							smoothMap.set(car.track_id, {
 								center: [...car.center],
 								corners: [...car.corners],
 								meta: { track_id: car.track_id, state: car.state, suggested: car.suggested },
+								opacity: 0, // 👈 페이드 인 시작
+								fadingOut: false,
 							});
 						} else {
-							// 메타 정보만 갱신(추천 슬롯/상태 등)
 							const s = smoothMap.get(car.track_id)!;
-							s.meta = { track_id: car.track_id, state: car.state, suggested: car.suggested };
+							s.meta.state = car.state;
+							s.meta.suggested = car.suggested;
 						}
 					}
 
 					// 3) 인식 상태는 "이번 프레임 원본(converted)"로 판정
 					const mineRaw = converted.find((v) => myPlatesSet.has(v.track_id));
 					lastFrameHasMine = !!mineRaw;
+
+					currentPlate.value = mineRaw ? mineRaw.track_id : "";
 
 					if (lastFrameHasMine) {
 						if (lostTimer) {
@@ -455,42 +442,103 @@ const lerpArr = (out: number[], from: number[], to: number[], t: number) => {
 };
 
 // 시간상수(감속 강도). 값이 작을수록 더 빠르게 따라감.
-const TAU_SEC = 0.18; // 180ms
+const TAU_SEC = 0.18;
+const IN_FADE_SEC = 0.2;
+const OUT_FADE_SEC = 0.35;
 let rafId = 0;
 let lastTs = performance.now();
 
-function smoothTick(ts: number) {
-	const dt = Math.min(0.05, (ts - lastTs) / 1000); // 최대 50ms 캡
-	lastTs = ts;
-	const alpha = 1 - Math.exp(-dt / TAU_SEC); // 지수 평활 알파
+function getPt(corners: number[], idx: number) {
+	const i = (idx % (corners.length / 2)) * 2;
+	return { x: corners[i] ?? 0, y: corners[i + 1] ?? 0 };
+}
+const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(bx - ax, by - ay);
 
-	// 목표가 있는 차들 스무딩
+function metricsFromCorners(corners: number[]) {
+	if (!Array.isArray(corners) || corners.length < 8) {
+		return { length: 70 * SCALE, width: 32 * SCALE, angle: 0 };
+	}
+	const p0 = getPt(corners, 0);
+	const p1 = getPt(corners, 1);
+	const p2 = getPt(corners, 2);
+	const a = dist(p0.x, p0.y, p1.x, p1.y);
+	const b = dist(p1.x, p1.y, p2.x, p2.y);
+
+	let length = Math.max(a, b) * SCALE;
+	let width = Math.min(a, b) * SCALE;
+
+	let vx: number, vy: number;
+	if (a >= b) {
+		vx = p1.x - p0.x;
+		vy = p1.y - p0.y;
+	} else {
+		vx = p2.x - p1.x;
+		vy = p2.y - p1.y;
+	}
+	const angle = Math.atan2(vy, vx);
+
+	length = Math.max(50 * SCALE, length);
+	width = Math.max(26 * SCALE, width);
+
+	return { length, width, angle };
+}
+
+function carStyle(obj: { center: [number, number]; corners: number[]; opacity?: number }) {
+	const { length, width, angle } = metricsFromCorners(obj.corners);
+
+	// 🔧 좌표도 축소 비율 적용
+	const sx = SCALE;
+	const cx = (obj.center?.[0] ?? 0) * sx + (layout.carOffsetX || 0);
+	const cy = (obj.center?.[1] ?? 0) * sx + (layout.carOffsetY || 0);
+
+	return {
+		left: cx + "px",
+		top: cy + "px",
+		width: length + "px", // length/width는 metricsFromCorners에서 이미 SCALE 반영
+		height: width + "px",
+		transform: `translate(-50%, -50%) rotate(${angle}rad)`,
+		opacity: obj.opacity ?? 1,
+	} as const;
+}
+
+function smoothTick(ts: number) {
+	const dt = Math.min(0.05, (ts - lastTs) / 1000);
+	lastTs = ts;
+	const alpha = 1 - Math.exp(-dt / TAU_SEC);
+
+	// 목표 반영 + 페이드 인
 	for (const [id, target] of rawTargets) {
 		const s = smoothMap.get(id)!;
-		// center 보간
 		s.center[0] = lerp(s.center[0], target.center[0], alpha);
 		s.center[1] = lerp(s.center[1], target.center[1], alpha);
-		// corners 보간(같은 길이 가정)
 		s.corners = lerpArr(new Array(target.corners.length), s.corners, target.corners, alpha);
+		s.meta.state = target.state;
+		s.meta.suggested = target.suggested;
+		s.fadingOut = false;
+		if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + dt / IN_FADE_SEC);
 	}
 
-	// 사라진 차량 정리(옵션: 서서히 제거하고 싶으면 TTL 두고 페이드아웃)
-	for (const id of Array.from(smoothMap.keys())) {
-		if (!rawTargets.has(id)) smoothMap.delete(id);
+	// 사라진 차량 페이드 아웃 및 제거
+	for (const [id, s] of Array.from(smoothMap.entries())) {
+		if (!rawTargets.has(id)) {
+			s.fadingOut = true;
+			s.opacity = Math.max(0, s.opacity - dt / OUT_FADE_SEC);
+			if (s.opacity <= 0) smoothMap.delete(id);
+		}
 	}
 
-	// 화면에 그릴 배열로 재구성
+	// 화면 배열 재구성
 	vehicles.value = Array.from(smoothMap.values()).map((s) => ({
 		track_id: s.meta.track_id,
 		center: [s.center[0], s.center[1]] as [number, number],
 		corners: [...s.corners],
 		state: s.meta.state,
 		suggested: s.meta.suggested,
+		opacity: s.opacity,
 	}));
 
 	rafId = requestAnimationFrame(smoothTick);
 }
-
 /* 내 차량 인식/추천 상태 갱신 */
 function updateMyStateFromVehicles() {
 	const mine = vehicles.value.find((v) => myPlatesSet.has(v.track_id));
@@ -637,8 +685,14 @@ function recomputeGuide() {
 }
 
 watch(recommendedId, updatePin);
-watch(vehicles, () => nextTick(recomputeGuide), { deep: true });
-
+watch(
+	vehicles,
+	() => {
+		updateMyStateFromVehicles(); // 🔻 추가(핵심)
+		nextTick(recomputeGuide);
+	},
+	{ deep: true }
+);
 /* 슬롯 클래스 (상태 3종 + 추천) */
 function spotClasses(spot: string) {
 	const st = statusMap[spot];
@@ -694,8 +748,17 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
 	ws?.close();
-	if (seenTimer) clearTimeout(seenTimer);
-	if (lostTimer) clearTimeout(lostTimer);
+	if (seenTimer) {
+		clearTimeout(seenTimer);
+		seenTimer = null;
+	}
+	if (isCarRecognized.value && !lostTimer) {
+		lostTimer = window.setTimeout(() => {
+			setRecognizedStable(false);
+			currentPlate.value = ""; // 🔻 추가(선택)
+			lostTimer = null;
+		}, LOST_GRACE_MS);
+	}
 	window.removeEventListener("resize", recomputeGuide);
 	cancelAnimationFrame(rafId);
 });
@@ -888,16 +951,16 @@ onBeforeUnmount(() => {
 	border-left: 0;
 }
 .slot.recommended {
-	background: #8fcd2b;
+	background: #e62d2d;
 } /* 추천 */
 .slot.reserved {
-	background: #f5dd29;
+	background: #b49b55;
 } /* 예약 */
 .slot.occupied {
-	background: #fe5454;
+	background: #9e9d9d;
 } /* 점유 */
 .slot.empty {
-	background: #9c9c9c;
+	background: #6acaa8;
 } /* 미사용 */
 .slot-placeholder {
 	visibility: hidden;
@@ -936,12 +999,47 @@ onBeforeUnmount(() => {
 		transform: translateY(-3px);
 	}
 }
-.car {
+/* 차량 이미지 레이어(지도 위) */
+.cars-layer {
 	position: absolute;
-	top: calc(50% + 12.5px);
-	left: 10px;
-	width: 50px;
-	height: 25px;
+	top: 0;
+	left: 0;
+	pointer-events: none; /* 클릭 막기 */
+	z-index: 3; /* 슬롯보다 위 */
+}
+
+/* 차량 개체 */
+.car-entity {
+	position: absolute; /* left/top은 center 기준 */
+	transform-origin: 50% 50%; /* 회전 기준 중심 */
+	will-change: transform, width, height, opacity;
+	filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.35));
+}
+
+/* 실제 탑뷰 이미지 */
+.car-img {
+	width: 120%;
+	height: 120%;
+	display: block;
+	object-fit: contain;
+	pointer-events: none;
+}
+
+/* 내 차 강조 */
+.car-entity.mine .car-img {
+	filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.8)) drop-shadow(0 0 14px rgba(0, 229, 255, 0.45));
+}
+.car-label {
+	position: absolute;
+	left: 50%;
+	top: -16px;
+	transform: translateX(-50%);
+	font-size: 14px;
+	font-weight: 800;
+	color: #00e5ff;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+	white-space: nowrap;
+	pointer-events: none;
 }
 
 /* 범례 */
@@ -964,16 +1062,16 @@ onBeforeUnmount(() => {
 	border-radius: 3px;
 }
 .recommended.box {
-	background: #8fcd2b;
+	background: #e770ff;
 }
 .occupied.box {
-	background: #fe5454;
+	background: #9e9d9d;
 }
 .empty.box {
-	background: #9c9c9c;
+	background: #6acaa8;
 }
 .reserved.box {
-	background: #f5dd29;
+	background: #b49b55;
 }
 
 /* 완료 버튼 */
@@ -1165,5 +1263,42 @@ onBeforeUnmount(() => {
 	to {
 		stroke-dashoffset: -22;
 	}
+}
+
+/* 핑(ping) 링 이펙트 */
+.ping-ring {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	pointer-events: none;
+	box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.75);
+	animation: ping 1.1s ease-out infinite;
+}
+.car-entity.mine .ping-ring {
+	display: block;
+}
+
+@keyframes ping {
+	0% {
+		box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.75);
+		opacity: 1;
+	}
+	80% {
+		box-shadow: 0 0 0 14px rgba(0, 229, 255, 0);
+		opacity: 0.45;
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
+		opacity: 0;
+	}
+}
+
+/* 이미 있는 내 차 강조와 조화롭게 (있다면 그대로 두어도 OK) */
+.car-entity.mine .car-img {
+	filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.85)) drop-shadow(0 0 20px rgba(0, 229, 255, 0.45));
 }
 </style>
