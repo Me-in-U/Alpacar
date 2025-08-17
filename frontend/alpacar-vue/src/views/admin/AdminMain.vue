@@ -1319,8 +1319,8 @@ export default defineComponent({
 
 /* 실제 이미지 */
 .car-img {
-	width: 120%;
-	height: 120%;
+	width: 100%;
+	height: 100%;
 	display: block;
 	object-fit: contain; /* 비율 유지 */
 	pointer-events: none;

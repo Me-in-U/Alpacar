@@ -1018,8 +1018,8 @@ onBeforeUnmount(() => {
 
 /* 실제 탑뷰 이미지 */
 .car-img {
-	width: 120%;
-	height: 120%;
+	width: 100%;
+	height: 100%;
 	display: block;
 	object-fit: contain;
 	pointer-events: none;
