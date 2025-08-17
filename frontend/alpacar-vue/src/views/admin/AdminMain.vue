@@ -66,15 +66,12 @@
 							<div class="gate-arm"></div>
 							<div class="gate-box"></div>
 						</div>
-
-						<svg class="overlay" :width="layout.mapW" :height="layout.mapH">
-							<g v-for="obj in vehicles" :key="obj.track_id" :opacity="obj.opacity ?? 1">
-								<polygon :points="toPoints(obj.corners, layout.carOffsetX, layout.carOffsetY)" fill="none" stroke="#ff0" stroke-width="2" />
-								<text :x="obj.center[0] + layout.carOffsetX" :y="obj.center[1] + layout.carOffsetY" font-size="36" fill="#ff0" text-anchor="middle">
-									{{ obj.track_id }}
-								</text>
-							</g>
-						</svg>
+						<div class="cars-layer" :style="{ width: layout.mapW + 'px', height: layout.mapH + 'px' }">
+							<div v-for="obj in vehicles" :key="obj.track_id" class="car-entity" :style="carStyle(obj)">
+								<img :src="carTopImg" class="car-img" alt="car" />
+								<div class="car-label">{{ obj.track_id }}</div>
+							</div>
+						</div>
 
 						<template v-for="(row, idx) in layout.rows" :key="'row-' + idx">
 							<div class="row" :style="{ marginLeft: (idx === 0 ? layout.offsetTopX : layout.offsetBottomX) + 'px' }">
@@ -171,6 +168,7 @@ import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { SecureTokenManager } from "@/utils/security";
 import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import carTopImg from "@/assets/navi_topview_car_1.png"; // ⬅️ 탑뷰 자동차 이미지
 
 const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
 // const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
@@ -256,6 +254,73 @@ export default defineComponent({
 			);
 
 			rafId = requestAnimationFrame(smoothTick);
+		}
+		/** 코너 배열에서 점 읽기 */
+		function getPt(corners: number[], idx: number) {
+			const i = (idx % (corners.length / 2)) * 2;
+			return { x: corners[i] ?? 0, y: corners[i + 1] ?? 0 };
+		}
+		/** 두 점 사이 거리 */
+		const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(bx - ax, by - ay);
+
+		/**
+		 * bbox(사각형 4코너 가정)에서
+		 * - 길이/너비(픽셀)
+		 * - 각도(rad, x+축 기준 시계반대)
+		 * 를 추정. 코너 순서가 [p0,p1,p2,p3]로 인접하게 들어온다는 전제.
+		 */
+		function metricsFromCorners(corners: number[]) {
+			if (!Array.isArray(corners) || corners.length < 8) {
+				// corners가 없으면 적당한 기본 크기
+				return { length: 70, width: 32, angle: 0 };
+			}
+			const p0 = getPt(corners, 0);
+			const p1 = getPt(corners, 1);
+			const p2 = getPt(corners, 2);
+			// 두 변 길이
+			const a = dist(p0.x, p0.y, p1.x, p1.y);
+			const b = dist(p1.x, p1.y, p2.x, p2.y);
+
+			// 더 긴 쪽을 차량의 "길이"로 간주
+			let length = Math.max(a, b);
+			let width = Math.min(a, b);
+
+			// 각도: 더 긴 변의 방향 벡터 사용
+			let vx: number, vy: number;
+			if (a >= b) {
+				vx = p1.x - p0.x;
+				vy = p1.y - p0.y;
+			} else {
+				vx = p2.x - p1.x;
+				vy = p2.y - p1.y;
+			}
+			const angle = Math.atan2(vy, vx);
+
+			// 너무 작게 들어오는 경우 최소값 보정(보기 좋게)
+			length = Math.max(50, length);
+			width = Math.max(26, width);
+
+			return { length, width, angle };
+		}
+
+		/**
+		 * 각 차량의 이미지 스타일(위치/회전/크기/투명도) 계산
+		 */
+		function carStyle(obj: { center: [number, number]; corners: number[]; opacity?: number }) {
+			const { length, width, angle } = metricsFromCorners(obj.corners);
+
+			// 중심좌표 + (필요시 오프셋)
+			const cx = (obj.center?.[0] ?? 0) + (layout.carOffsetX || 0);
+			const cy = (obj.center?.[1] ?? 0) + (layout.carOffsetY || 0);
+
+			return {
+				left: cx + "px",
+				top: cy + "px",
+				width: length + "px",
+				height: width + "px",
+				transform: `translate(-50%, -50%) rotate(${angle}rad)`,
+				opacity: obj.opacity ?? 1,
+			} as const;
 		}
 
 		const authHeaders = () => ({
@@ -654,6 +719,8 @@ export default defineComponent({
 			jetsonLive,
 			canChangeStatus,
 			changeSelectedStatus,
+			carStyle,
+			carTopImg,
 		};
 	},
 });
@@ -1232,5 +1299,44 @@ export default defineComponent({
 /* 패널 간격 살짝 조정 */
 .assign-panel .panel-card + .panel-card {
 	margin-top: 8px;
+}
+/* 차량 이미지 레이어(지도 위에 절대배치) */
+.cars-layer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	pointer-events: none; /* 클릭 막기 */
+	z-index: 3; /* 슬롯보다 위 */
+}
+
+/* 차량 개체 */
+.car-entity {
+	position: absolute; /* left/top은 center 기준 */
+	transform-origin: 50% 50%; /* 회전 기준 중심 */
+	will-change: transform, width, height, opacity;
+	filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.35));
+}
+
+/* 실제 이미지 */
+.car-img {
+	width: 120%;
+	height: 120%;
+	display: block;
+	object-fit: contain; /* 비율 유지 */
+	pointer-events: none;
+}
+
+/* 번호판/트랙ID 라벨 */
+.car-label {
+	position: absolute;
+	left: 50%;
+	top: -18px; /* 차량 위에 살짝 */
+	transform: translateX(-50%);
+	font-size: 16px;
+	font-weight: 800;
+	color: #ff0;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+	white-space: nowrap;
+	pointer-events: none;
 }
 </style>

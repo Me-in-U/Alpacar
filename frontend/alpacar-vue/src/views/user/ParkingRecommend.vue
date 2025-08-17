@@ -48,11 +48,6 @@
 						카메라 인식 없이 지도를 표시 중입니다.
 						<button class="skip-btn ghost sm" @click="forceShowMap = false">라이브로 전환</button>
 					</div>
-					<!-- 🔻 새 토글 버튼 -->
-					<div class="view-toggle">
-						<button :class="['toggle-btn', { active: !showOnlyMine }]" @click="showOnlyMine = false">다른 차도 보기</button>
-						<button :class="['toggle-btn', { active: showOnlyMine }]" @click="showOnlyMine = true">내 차만 보기</button>
-					</div>
 				</section>
 
 				<div class="map-section">
@@ -121,24 +116,7 @@
 								<!-- 왼쪽 -->
 								<template v-for="spot in row.left" :key="'L-' + spot">
 									<div v-if="spot === 'x'" class="slot slot-placeholder" aria-hidden="true"></div>
-									<div
-										v-else
-										class="slot"
-										:data-spot-id="spot"
-										:style="{
-											...(idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}),
-											...(statusMap[spot] === 'occupied'
-												? {
-														backgroundImage: `url(${OCCUPIED_IMG_URL})`,
-														backgroundSize: 'cover',
-														backgroundPosition: 'center',
-														backgroundRepeat: 'no-repeat',
-														borderColor: '#fff',
-												  }
-												: {}),
-										}"
-										:class="spotClasses(spot)"
-									>
+									<div v-else class="slot" :data-spot-id="spot" :style="idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}" :class="spotClasses(spot)">
 										{{ spot }}
 									</div>
 								</template>
@@ -149,24 +127,7 @@
 								<!-- 오른쪽 -->
 								<template v-for="spot in row.right" :key="'R-' + spot">
 									<div v-if="spot === 'x'" class="slot slot-placeholder" aria-hidden="true"></div>
-									<div
-										v-else
-										class="slot"
-										:data-spot-id="spot"
-										:style="{
-											...(idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}),
-											...(statusMap[spot] === 'occupied'
-												? {
-														backgroundImage: `url(${navi_topview_car_1})`,
-														backgroundSize: 'cover',
-														backgroundPosition: 'center',
-														backgroundRepeat: 'no-repeat',
-														borderColor: '#fff',
-												  }
-												: {}),
-										}"
-										:class="spotClasses(spot)"
-									>
+									<div v-else class="slot" :data-spot-id="spot" :style="idx === 0 ? { height: layout.topRightSlotH + 'px' } : {}" :class="spotClasses(spot)">
 										{{ spot }}
 									</div>
 								</template>
@@ -218,8 +179,6 @@ import { useRouter } from "vue-router";
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
 import { useUserStore } from "@/stores/user";
-import navi_topview_car_1 from "@/assets/navi_topview_car_1.png";
-const OCCUPIED_IMG_URL = navi_topview_car_1;
 
 /* ==== 지도 강제 표시 토글 ==== */
 const forceShowMap = ref(false);
@@ -929,17 +888,17 @@ onBeforeUnmount(() => {
 	border-left: 0;
 }
 .slot.recommended {
-	background: #99d636;
-}
+	background: #8fcd2b;
+} /* 추천 */
+.slot.reserved {
+	background: #f5dd29;
+} /* 예약 */
 .slot.occupied {
-	background: transparent;
-}
+	background: #fe5454;
+} /* 점유 */
 .slot.empty {
 	background: #9c9c9c;
-}
-.slot.reserved {
-	background: #dac841;
-}
+} /* 미사용 */
 .slot-placeholder {
 	visibility: hidden;
 	border: 0;
