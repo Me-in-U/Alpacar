@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="UTF-8" />
+		<title>WebSocket 스트리밍</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+				background: #000;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.stream {
+				flex: 1;
+				max-width: 100%;
+				position: relative;
+				margin: 0 1%;
+			}
+			img {
+				width: 100%;
+				display: block;
+				background: #222;
+			}
+			.label {
+				position: absolute;
+				top: 8px;
+				left: 8px;
+				color: #fff;
+				background: rgba(0, 0, 0, 0.5);
+				padding: 4px 8px;
+				border-radius: 4px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="stream">
+			<div class="label">OCR 결과</div>
+			<img id="annot-img" alt="Annotated" />
+		</div>
+
+		<!-- Socket.IO 클라이언트 -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.min.js"></script>
+		<script>
+			const socket = io({ transports: ["websocket"] });
+
+			// binaryType 지정 (ArrayBuffer로 받습니다)
+			socket.binaryType = "arraybuffer";
+
+			// 어노테이트 프레임 받기
+			socket.on("annot_frame", (data) => {
+				const blob = new Blob([data], { type: "image/jpeg" });
+				document.getElementById("annot-img").src = URL.createObjectURL(blob);
+			});
+		</script>
+	</body>
+</html>

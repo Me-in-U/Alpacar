@@ -1,0 +1,16 @@
+[Unit]
+Description=OCR Auto Launch
+After=network.target
+
+[Service]
+Type=simple
+User=ssafy
+Group=ssafy
+WorkingDirectory=/home/ssafy/Documents/Test
+Environment="PATH=/home/ssafy/Documents/Test/venv/bin"
+ExecStart=/home/ssafy/Documents/Test/venv/bin/python3 /home/ssafy/Documents/Test/stream_ocr.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
