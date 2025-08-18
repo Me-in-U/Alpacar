@@ -1,0 +1,27 @@
+/* CSS Reset - 브라우저 기본 스타일 완전 초기화 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+}
+
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/* 추가적인 리셋 */
+div, span, p, h1, h2, h3, h4, h5, h6, ul, ol, li, a, button, input, textarea {
+  margin: 0;
+  padding: 0;
+} 

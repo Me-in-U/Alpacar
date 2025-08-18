@@ -1,0 +1,421 @@
+<template>
+	<div class="login-container">
+		<!-- Main Content -->
+		<div class="main-content">
+			<!-- Logo -->
+			<div class="logo-container">
+				<div class="logo-image"></div>
+			</div>
+
+			<!-- Login Form -->
+			<div class="login-form">
+				<!-- Email Input -->
+				<div class="input-field">
+					<input 
+						type="email" 
+						placeholder="이메일 입력" 
+						v-model="email" 
+						class="input"
+						@keyup.enter="handleLogin" 
+					/>
+				</div>
+
+				<!-- Password Input -->
+				<div class="input-field">
+					<input 
+						type="password" 
+						placeholder="비밀번호 입력" 
+						v-model="password" 
+						class="input"
+						@keyup.enter="handleLogin" 
+					/>
+				</div>
+
+				<!-- Auto Login Checkbox -->
+				<div class="auto-login-container">
+					<label class="auto-login-label">
+						<input 
+							type="checkbox" 
+							v-model="autoLogin" 
+							class="auto-login-checkbox"
+						/>
+						<span class="auto-login-text">자동 로그인</span>
+					</label>
+				</div>
+
+				<!-- Login Button -->
+				<button class="login-button" @click="handleLogin" :disabled="isLoading">
+					<span class="button-text" v-if="!isLoading">로그인</span>
+					<span class="button-text loading" v-else>로그인 중...</span>
+				</button>
+
+
+				<!-- Social Login Buttons -->
+				<div class="social-login">
+					<!-- Google Login -->
+					<button class="google-login-button" @click="handleGoogleLogin">
+						<div class="google-icon"></div>
+						<span class="button-text">구글 로그인</span>
+					</button>
+
+				</div>
+
+				<!-- Links -->
+				<div class="links">
+					<router-link to="/signup" class="link">회원가입</router-link>
+					<span class="separator">|</span>
+					<router-link to="/forgot-password" class="link">비밀번호 찾기</router-link>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+
+<script lang="ts">
+import { defineComponent, ref } from "vue";
+import { useRouter } from "vue-router";
+import { BACKEND_BASE_URL } from "@/utils/api";
+import { useUserStore } from "@/stores/user";
+import { alert, alertError } from "@/composables/useAlert";
+
+export default defineComponent({
+	name: "Login",
+	setup() {
+		const router = useRouter();
+		const email = ref("");
+		const password = ref("");
+		const autoLogin = ref(false);
+		const isLoading = ref(false);
+
+		const handleLogin = async () => {
+			if (isLoading.value) return;
+			if (!email.value || !password.value) {
+				await alert("이메일과 비밀번호를 모두 입력해주세요.");
+				return;
+			}
+
+			isLoading.value = true;
+			try {
+				const userStore = useUserStore();
+				// 자동 로그인 옵션과 함께 로그인
+				await userStore.login(email.value, password.value, autoLogin.value);
+				router.push("/main");
+			} catch (err: any) {
+				console.error("로그인 실패:", err);
+				await alertError("로그인 실패: " + err.message);
+			} finally {
+				isLoading.value = false;
+			}
+		};
+
+		const handleGoogleLogin = () => {
+			console.log("🔍 구글 로그인 버튼 클릭됨");
+			const backendUrl = BACKEND_BASE_URL || "https://i13e102.p.ssafy.io/api";
+			const googleLoginUrl = `${backendUrl}/auth/social/google/login/`;
+			console.log("🔗 리다이렉트 URL:", googleLoginUrl);
+			
+			try {
+				console.log("🚀 리다이렉트 시작...");
+				window.location.href = googleLoginUrl;
+			} catch (error) {
+				console.error("❌ 리다이렉트 실패:", error);
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				alertError(`구글 로그인 중 오류가 발생했습니다: ${errorMessage}`);
+			}
+		};
+
+
+		return {
+			email,
+			password,
+			autoLogin,
+			isLoading,
+			handleLogin,
+			handleGoogleLogin,
+		};
+	},
+});
+</script>
+
+<style scoped>
+.login-container {
+	width: 100%;
+	min-height: 100vh;
+	background-color: #F9F5EC;
+	position: relative;
+	overflow-x: hidden;
+	font-family: "Inter", sans-serif;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.main-content {
+	width: 100%;
+	max-width: 440px;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	position: relative;
+}
+
+/* Logo */
+.logo-container {
+	margin-top: 113px;
+	width: 200px;
+	height: 31px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin-bottom: 60px;
+}
+
+.logo-image {
+	width: 100%;
+	height: 100%;
+	background-image: url("@/assets/alpaca-logo.png");
+	background-size: contain;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+/* Login Form */
+.login-form {
+	width: 100%;
+	max-width: 344px;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	flex: 1;
+	padding: 0 48px;
+}
+
+.input-field {
+	width: 100%;
+}
+
+.input {
+	width: 100%;
+	height: 50px;
+	background-color: #ffffff;
+	border: 1px solid #cccccc;
+	border-radius: 8px;
+	padding: 0 15px;
+	font-size: 16px;
+	font-weight: 400;
+	color: #333333;
+	outline: none;
+	transition: border-color 0.3s ease;
+	box-sizing: border-box;
+}
+
+.input::placeholder {
+	color: #999999;
+}
+
+.input:focus {
+	border-color: #4B3D34;
+}
+
+/* Auto Login Checkbox */
+.auto-login-container {
+	width: 100%;
+	margin-bottom: 10px;
+}
+
+.auto-login-label {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	font-size: 14px;
+	color: #666666;
+	gap: 8px;
+}
+
+.auto-login-checkbox {
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	border: 2px solid #cccccc;
+	border-radius: 4px;
+	background-color: #ffffff;
+	cursor: pointer;
+	position: relative;
+	transition: all 0.3s ease;
+}
+
+.auto-login-checkbox:checked {
+	background-color: #4B3D34;
+	border-color: #4B3D34;
+}
+
+.auto-login-checkbox:checked::after {
+	content: "✓";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: white;
+	font-size: 12px;
+	font-weight: bold;
+}
+
+.auto-login-text {
+	font-family: "Inter", sans-serif;
+	font-weight: 400;
+	line-height: 1.2;
+	user-select: none;
+}
+
+/* Login Button */
+.login-button {
+	width: 100%;
+	height: 50px;
+	background-color: #4B3D34;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 20px;
+}
+
+.login-button:disabled {
+	background-color: #999999;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.login-button:hover:not(:disabled) {
+	background-color: #594D44;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
+}
+
+.loading {
+	position: relative;
+}
+
+.loading::after {
+	content: "";
+	position: absolute;
+	right: -25px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	border: 2px solid transparent;
+	border-top: 2px solid #ffffff;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from { transform: translateY(-50%) rotate(0deg); }
+	to { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Social Login */
+.social-login {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	margin-bottom: 30px;
+}
+
+.google-login-button {
+	width: 100%;
+	height: 50px;
+	background-color: #f5f5f5;
+	border: 1px solid #cccccc;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+}
+
+.google-login-button:hover {
+	background-color: #e8e8e8;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.google-icon {
+	width: 24px;
+	height: 24px;
+	background-image: url("@/assets/google-login.png");
+	background-size: contain;
+	background-position: center;
+	background-repeat: no-repeat;
+	flex-shrink: 0;
+}
+
+.button-text {
+	font-family: "Inter", sans-serif;
+	font-weight: 600;
+	font-size: 16px;
+	line-height: 19.36px;
+	letter-spacing: 0;
+}
+
+.login-button .button-text {
+	color: #ffffff;
+}
+
+.google-login-button .button-text,
+.button-text {
+	color: #333333;
+}
+
+/* Links */
+.links {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 10px;
+	margin-top: 20px;
+	margin-bottom: 50px;
+}
+
+.link {
+	color: #808080;
+	text-decoration: none;
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 16.94px;
+	transition: color 0.3s ease;
+}
+
+.link:hover {
+	color: #666666;
+}
+
+.separator {
+	color: #808080;
+	font-size: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 440px) {
+	.login-form {
+		padding: 0 20px;
+	}
+
+	.login-container {
+		width: 100vw;
+	}
+}
+
+@media (min-width: 441px) {
+	.login-container {
+		width: 440px;
+		margin: 0 auto;
+	}
+}
+</style>

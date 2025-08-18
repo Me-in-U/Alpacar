@@ -1,0 +1,28 @@
+{
+  "name": "Alpacar - 스마트 주차 서비스",
+  "short_name": "Alpacar",
+  "description": "알파카와 함께하는 스마트 주차 관리 서비스",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F9F5EC",
+  "theme_color": "#4B3D34",
+  "lang": "ko",
+  "scope": "/",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/alpaca-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/alpaca-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["transportation", "utilities"],
+  "screenshots": []
+}
