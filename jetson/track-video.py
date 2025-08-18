@@ -33,7 +33,7 @@ logging.basicConfig(
 # =============================
 
 VIDEO_PATH = 0
-# VIDEO_PATH = "WIN_20250817_00_00_55_Pro.mp4"
+# VIDEO_PATH = "video_part_2.mp4"
 MODEL_PATH = "track-obb.pt"
 TRACKER_CFG_NAME = "bytetrack.yaml"
 WSS_URL = "wss://i13e102.p.ssafy.io/ws/jetson/"
