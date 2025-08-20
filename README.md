@@ -5,11 +5,18 @@
 <p align="center">
   <img src="./docs/assets/alpacar-onboarding-banner2.png" alt="온보딩배너">
 </p>
-<!-- <p align="center">
-  <img src="https://img.shields.io/badge/STATUS-Development-yellow?style=for-the-badge&logo=github">
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge&logo=open-source-initiative">
-  <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge&logo=github">
-</p> -->
+
+<p align="center">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=alert_status&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=ncloc&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=sqale_rating&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=security_rating&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=code_smells&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=vulnerabilities&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=bugs&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+  <img src="https://sonarcloud.io/api/project_badges/measure?project=Me-in-U_Alpacar&metric=reliability_rating&token=8bc7b7c1cca9c1fd1fcc87a630a04d7b33ffefa7">
+</p>
+
 ---
 
 ## 📌 프로젝트 소개
