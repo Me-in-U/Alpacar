@@ -1,10 +1,13 @@
 # jetson/consumers.py
+
 import json
 from typing import Any, Dict, List, Tuple
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from events.models import VehicleEvent
 from parking.models import ParkingSpace
 from parking.services import (
@@ -12,10 +15,6 @@ from parking.services import (
     handle_assignment_from_jetson,
     mark_parking_complete_from_ai,
 )
-from django.utils import timezone
-from django.db import transaction
-from channels.generic.websocket import AsyncWebsocketConsumer
-import json
 
 JETSON_CONTROL_GROUP = "jetson-control"
 PARKING_STATUS_GROUP = "parking-status"

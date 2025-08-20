@@ -6,7 +6,7 @@
 		<div class="notification" @click="openNotificationModal">
 			<img src="@/assets/notification-bell.png" alt="Notification" class="notification-bell" />
 			<span v-if="notificationStore.unreadCount > 0" class="notification-badge">
-				{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}
+				{{ notificationStore.unreadCount > 99 ? "99+" : notificationStore.unreadCount }}
 			</span>
 		</div>
 	</div>
@@ -26,22 +26,18 @@
 				</div>
 
 				<!-- 로딩 상태 -->
-				<div v-if="notificationStore.isLoading && notificationStore.notifications.length === 0" class="loading">
-					알림을 불러오는 중...
-				</div>
+				<div v-if="notificationStore.isLoading && notificationStore.notifications.length === 0" class="loading">알림을 불러오는 중...</div>
 
 				<!-- 알림이 없는 경우 -->
-				<div v-else-if="notificationStore.notifications.length === 0" class="no-notifications">
-					알림이 없습니다.
-				</div>
+				<div v-else-if="notificationStore.notifications.length === 0" class="no-notifications">알림이 없습니다.</div>
 
 				<!-- 실제 알림 목록 -->
 				<div v-else>
-					<div 
-						v-for="notification in notificationStore.notifications" 
+					<div
+						v-for="notification in notificationStore.notifications"
 						:key="notification.id"
 						class="notification-item"
-						:class="{ 'unread': !notification.is_read }"
+						:class="{ unread: !notification.is_read }"
 						@click="handleNotificationClick(notification)"
 					>
 						<div class="notification-content">
@@ -54,7 +50,7 @@
 								<!-- 주차 완료 알림인 경우 특별한 형태로 표시 -->
 								<div v-if="notification.notification_type === 'parking_complete'">
 									<p class="notification-text">주차 일시: {{ formatParkingTime(notification.data.parking_time) }}</p>
-									<p class="notification-text">주차 공간: {{ notification.data.parking_space || 'A4' }}</p>
+									<p class="notification-text">주차 공간: {{ notification.data.parking_space || "A4" }}</p>
 								</div>
 								<!-- 기타 알림 -->
 								<div v-else>
@@ -68,7 +64,7 @@
 					<!-- 더보기 버튼 -->
 					<div v-if="notificationStore.hasMore" class="load-more">
 						<button @click="loadMoreNotifications" :disabled="notificationStore.isLoading" class="load-more-button">
-							{{ notificationStore.isLoading ? '로딩 중...' : '더보기' }}
+							{{ notificationStore.isLoading ? "로딩 중..." : "더보기" }}
 						</button>
 					</div>
 				</div>
@@ -86,7 +82,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { useNotificationStore, type Notification } from "@/stores/notification";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import { alertSuccess, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
 const showNotificationModal = ref(false);
@@ -126,28 +122,21 @@ const handleNotificationClick = async (notification: Notification) => {
 	try {
 		// 알림을 읽음으로 표시
 		await notificationStore.markAsRead(notification.id);
-		
+
 		// 모달 닫기
 		showNotificationModal.value = false;
-		
-		// 알림 타입별 라우팅
-		if (notification.notification_type === 'parking_assigned' ||
-			notification.title?.includes('주차 배정') ||
-			notification.message?.includes('주차 배정')) {
-			// 주차 배정 알림인 경우 parking-recommend 페이지로 이동
-			router.push('/parking-recommend');
-		} else if (
-			notification.notification_type === 'parking_complete' ||
-			notification.title?.includes('주차 완료')) {
-			// 주차 완료 알림인 경우 parking-history 페이지로 이동
-			router.push('/parking-history');
-		} else if (
-			notification.notification_type === 'exit' ||
-			notification.title?.includes('출차 완료')) {
-			// 출차 완료 알림인 경우 parking-history 페이지로 이동
-			router.push('/parking-history');
-		}
 
+		// 알림 타입별 라우팅
+		if (notification.notification_type === "parking_assigned" || notification.title?.includes("주차 배정") || notification.message?.includes("주차 배정")) {
+			// 주차 배정 알림인 경우 parking-recommend 페이지로 이동
+			router.push("/parking-recommend");
+		} else if (notification.notification_type === "parking_complete" || notification.title?.includes("주차 완료")) {
+			// 주차 완료 알림인 경우 parking-history 페이지로 이동
+			router.push("/parking-history");
+		} else if (notification.notification_type === "exit" || notification.title?.includes("출차 완료")) {
+			// 출차 완료 알림인 경우 parking-history 페이지로 이동
+			router.push("/parking-history");
+		}
 	} catch (error) {
 		console.error("알림 처리 실패:", error);
 	}
@@ -185,20 +174,20 @@ const loadMoreNotifications = async () => {
 };
 
 const formatParkingTime = (timeString: string | undefined): string => {
-	if (!timeString) return '';
-	
-	try {
-		const date = new Date(timeString);
-		return date.toLocaleString('ko-KR', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-		});
-	} catch (error) {
+	if (!timeString) return "";
+
+	const date = new Date(timeString);
+	if (Number.isNaN(date.getTime())) {
 		return timeString;
 	}
+
+	return date.toLocaleString("ko-KR", {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
 };
 
 // 컴포넌트 마운트 시 읽지 않은 알림 개수 조회
@@ -211,7 +200,6 @@ onMounted(async () => {
 		}
 	}
 });
-
 </script>
 
 <style scoped>
@@ -222,7 +210,7 @@ onMounted(async () => {
 	left: 0;
 	right: 0;
 	height: 60px;
-	background: #4B3D34;
+	background: #4b3d34;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -283,7 +271,7 @@ onMounted(async () => {
 .modal-content {
 	width: 440px;
 	height: 500px;
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 	border-radius: 12px;
 	display: flex;
 	flex-direction: column;
@@ -328,7 +316,8 @@ onMounted(async () => {
 	background-color: rgba(0, 0, 0, 0.1);
 }
 
-.loading, .no-notifications {
+.loading,
+.no-notifications {
 	text-align: center;
 	color: #666;
 	font-size: 14px;
@@ -359,10 +348,9 @@ onMounted(async () => {
 }
 
 .notification-item.unread {
-	border-left: 4px solid #4B3D34;
+	border-left: 4px solid #4b3d34;
 	background: #f0ede8;
 }
-
 
 .load-more {
 	text-align: center;
@@ -370,7 +358,7 @@ onMounted(async () => {
 }
 
 .load-more-button {
-	background: #4B3D34;
+	background: #4b3d34;
 	color: white;
 	border: none;
 	border-radius: 6px;
@@ -382,7 +370,7 @@ onMounted(async () => {
 }
 
 .load-more-button:hover:not(:disabled) {
-	background: #594D44;
+	background: #594d44;
 }
 
 .load-more-button:disabled {
@@ -458,7 +446,7 @@ onMounted(async () => {
 .close-button {
 	width: 280px;
 	height: 50px;
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	color: #ffffff;
 	border: none;
 	border-radius: 8px;
@@ -470,7 +458,7 @@ onMounted(async () => {
 }
 
 .close-button:hover {
-	background-color: #594D44;
+	background-color: #594d44;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
