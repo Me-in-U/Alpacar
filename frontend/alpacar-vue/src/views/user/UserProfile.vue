@@ -630,6 +630,22 @@ const closeSettingsAuthModal = () => {
 	settingsAuthError.value = "";
 };
 
+// S2245 대응: 안전한 토큰 생성기
+function secureRandomToken(): string {
+	// 우선 UUID 사용
+	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+		return crypto.randomUUID();
+	}
+	// UUID가 없으면 CSPRNG 바이트로 토큰 생성
+	if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+		const arr = new Uint8Array(16);
+		crypto.getRandomValues(arr);
+		return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+	}
+	// 최후 수단: 예측 가능하지만 Math.random은 사용하지 않음(클라이언트 측 임시 게이트용)
+	return `t_${Date.now()}_${performance.now().toString().replace(".", "")}`;
+}
+
 const verifySettingsPassword = async () => {
 	settingsAuthError.value = "";
 
@@ -670,11 +686,11 @@ const verifySettingsPassword = async () => {
 		// 성공: 토큰은 저장/갱신하지 않고 바로 폐기(검증 목적)
 		closeSettingsAuthModal();
 
-		// 일회용 인증 토큰 생성 (5초간만 유효)
+		// 일회용 인증 토큰 생성 (5초간만 유효) - CSPRNG 사용
 		const oneTimeToken = {
 			timestamp: Date.now(),
 			userEmail: email,
-			token: `auth_${Date.now()}_${Math.random()}`,
+			token: secureRandomToken(),
 		};
 		sessionStorage.setItem("user-setting-one-time-auth", JSON.stringify(oneTimeToken));
 

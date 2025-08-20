@@ -9,6 +9,7 @@ from decouple import config
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.views.decorators.http import require_safe
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # ── 환경／상수 ───────────────────────────────────────────────────────────
@@ -36,9 +37,11 @@ def issue_tokens(user):
     }
 
 
-def google_login():
+@require_safe  # S3752: 안전한 메서드만 허용(GET/HEAD)
+def google_login(request):
     """
-    구글 OAuth 동의 화면으로 리다이렉트
+    구글 OAuth 동의 화면으로 리다이렉트 (read-only).
+    Safe methods only(GET/HEAD).
     """
     client_id = config("GOOGLE_CLIENT_ID")  # .env에서 클라이언트 ID 가져오기
     params = {

@@ -52,89 +52,90 @@ def create_notification(user, title, message, notification_type="system", data=N
         raise e
 
 
-def send_push_notification(user, title, message, data=None, notification_type="system"):
-    """
-    특정 사용자에게 푸시 알림 전송
+from typing import Dict, Tuple, Optional
+import json
 
-    Args:
-        user: 알림을 받을 사용자
-        title: 알림 제목
-        message: 알림 내용
-        data: 추가 데이터 (선택)
-        notification_type: 알림 타입 (Service Worker 라우팅용)
-    """
-    if data is None:
-        data = {}
 
-    # 사용자의 모든 구독 정보 조회
-    subscriptions = PushSubscription.objects.filter(user=user)
-
-    if not subscriptions.exists():
-        print(f"[PUSH] 구독 정보 없음: {user.email}")
-        return
-
-    print(f"[PUSH] 구독 정보 {subscriptions.count()}개 발견: {user.email}")
-
-    # 푸시 알림 페이로드 구성 (Service Worker 라우팅을 위한 type 필드 추가)
-    payload = {
+def _build_payload(
+    title: str, message: str, data: Optional[Dict], notification_type: str
+) -> Dict:
+    return {
         "title": title,
         "body": message,
-        "icon": "/icons/favicon-32x32.png",  # PWA 아이콘
+        "icon": "/icons/favicon-32x32.png",
         "badge": "/icons/favicon-16x16.png",
         "tag": f"notification-{notification_type}",
         "requireInteraction": True,
-        "type": notification_type,  # ← Service Worker에서 라우팅에 사용할 type 필드
-        "data": data if data else {},
+        "type": notification_type,
+        "data": data or {},
     }
 
-    # VAPID 설정
-    vapid_private_key = getattr(settings, "VAPID_PRIVATE_KEY", None)
-    vapid_public_key = getattr(settings, "VAPID_PUBLIC_KEY", None)
-    vapid_claims = {"sub": "mailto:admin@i13e102.p.ssafy.io"}
 
-    if not vapid_private_key or not vapid_public_key:
+def _get_vapid() -> Tuple[Optional[str], Optional[str], Dict]:
+    private_key = getattr(settings, "VAPID_PRIVATE_KEY", None)
+    public_key = getattr(settings, "VAPID_PUBLIC_KEY", None)
+    claims = {"sub": "mailto:admin@i13e102.p.ssafy.io"}
+    return private_key, public_key, claims
+
+
+def _send_one(
+    subscription, payload: Dict, vapid_private_key: str, vapid_claims: Dict
+) -> None:
+    """단일 구독으로 푸시 전송 & 예외 처리(삭제 여부 포함)"""
+    try:
+        print(f"[PUSH] 전송 시도 중: {subscription.endpoint[:50]}...")
+        webpush(
+            subscription_info={
+                "endpoint": subscription.endpoint,
+                "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
+            },
+            data=json.dumps(payload),
+            vapid_private_key=vapid_private_key,
+            vapid_claims=vapid_claims,
+        )
+        print("[PUSH] 전송 성공")
+    except WebPushException as ex:
+        status = getattr(getattr(ex, "response", None), "status_code", None)
+        if status is not None:
+            # 응답 있는 실패 (404/410 → 구독 만료)
+            print(f"[PUSH ERROR] WebPush 실패: {status} - {ex}")
+            if status in (404, 410):
+                subscription.delete()
+                print(f"[PUSH] 만료된 구독 삭제: {subscription.endpoint[:50]}...")
+            return
+        # 응답 없는 실패
+        print(f"[PUSH ERROR] WebPush 실패 (응답 없음): {ex}")
+        if "test-endpoint" in subscription.endpoint:
+            subscription.delete()
+            print(f"[PUSH] 테스트 구독 삭제: {subscription.endpoint[:50]}...")
+    except Exception as ex:
+        print(f"[PUSH ERROR] 일반 오류: {ex}")
+
+
+def send_push_notification(
+    user, title, message, data=None, notification_type: str = "system"
+):
+    """특정 사용자에게 푸시 알림 전송 (인지 복잡도 감소 버전)"""
+    # 구독 조회 + 가드 절
+    subscriptions = PushSubscription.objects.filter(user=user)
+    if not subscriptions.exists():
+        print(f"[PUSH] 구독 정보 없음: {getattr(user, 'email', user)}")
+        return
+    print(f"[PUSH] 구독 {subscriptions.count()}개 발견: {getattr(user, 'email', user)}")
+
+    # 페이로드 & VAPID
+    payload = _build_payload(title, message, data, notification_type)
+    vapid_private_key, vapid_public_key, vapid_claims = _get_vapid()
+    if not (vapid_private_key and vapid_public_key):
         print(
-            f"[PUSH ERROR] VAPID 키 설정 누락 - private_key: {bool(vapid_private_key)}, public_key: {bool(vapid_public_key)}"
+            f"[PUSH ERROR] VAPID 키 설정 누락 - private:{bool(vapid_private_key)} public:{bool(vapid_public_key)}"
         )
         return
+    print("[PUSH] VAPID 확인, 페이로드 준비 완료")
 
-    print(f"[PUSH] VAPID 설정 확인됨, 페이로드: {payload}")
-
-    # 각 구독 정보에 푸시 알림 전송
-    for subscription in subscriptions:
-        try:
-            print(f"[PUSH] 전송 시도 중: {subscription.endpoint[:50]}...")
-            webpush(
-                subscription_info={
-                    "endpoint": subscription.endpoint,
-                    "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
-                },
-                data=json.dumps(payload),
-                vapid_private_key=vapid_private_key,
-                vapid_claims=vapid_claims,
-            )
-            print(f"[PUSH] 전송 성공: {title}")
-        except WebPushException as ex:
-            # WebPush 응답이 있는 경우
-            if hasattr(ex, "response") and ex.response is not None:
-                print(
-                    f"[PUSH ERROR] WebPush 실패: {ex.response.status_code} - {str(ex)}"
-                )
-                if ex.response.status_code in [404, 410]:
-                    subscription.delete()
-                    print(
-                        f"[PUSH] 만료된 구독 정보 삭제: {subscription.endpoint[:50]}..."
-                    )
-            else:
-                print(f"[PUSH ERROR] WebPush 실패 (응답 없음): {str(ex)}")
-                # 테스트 엔드포인트인 경우 삭제
-                if "test-endpoint" in subscription.endpoint:
-                    subscription.delete()
-                    print(
-                        f"[PUSH] 테스트 구독 정보 삭제: {subscription.endpoint[:50]}..."
-                    )
-        except Exception as ex:
-            print(f"[PUSH ERROR] 일반 오류: {str(ex)}")
+    # 전송
+    for sub in subscriptions:
+        _send_one(sub, payload, vapid_private_key, vapid_claims)
 
 
 def send_vehicle_entry_notification(user, entry_data):
