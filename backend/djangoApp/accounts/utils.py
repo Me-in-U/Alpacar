@@ -52,8 +52,8 @@ def create_notification(user, title, message, notification_type="system", data=N
         raise e
 
 
-from typing import Dict, Tuple, Optional
 import json
+from typing import Dict, Optional, Tuple
 
 
 def _build_payload(
