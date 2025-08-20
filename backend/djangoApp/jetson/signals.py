@@ -1,14 +1,11 @@
 # events/signals.py
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
 
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from events.models import VehicleEvent
 from parking.models import ParkingAssignment, ParkingSpace
 
-from jetson.feed import (
-    broadcast_parking_space,
-    broadcast_active_vehicles,
-)
+from jetson.feed import broadcast_active_vehicles, broadcast_parking_space
 
 
 @receiver(post_save, sender=VehicleEvent)

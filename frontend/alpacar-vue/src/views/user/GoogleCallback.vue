@@ -6,7 +6,7 @@
 import { defineComponent, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import { alertError } from "@/composables/useAlert";
 export default defineComponent({
 	name: "GoogleCallback",
 	setup() {

@@ -190,14 +190,11 @@ function setRecognizedStable(next: boolean) {
 	if (!next) {
 		// 미인식 전환 시에만 초기화(필요 시 원하는 값만 리셋)
 		isLoading.value = false;
-		// recommendedId.value = ""; // 추천 유지하고 싶으면 주석 처리 유지
-		// resetPin();                // 핀 초기화도 원치 않으면 주석
 	}
 }
 
 /* ===== WS 엔드포인트 (관리자와 동일) ===== */
 const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
-// const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
 
 /* ===== 상태 ===== */
 const router = useRouter();
@@ -1095,17 +1092,6 @@ onBeforeUnmount(() => {
 .complete-btn:hover {
 	background: #5a9857;
 }
-.test-btn {
-	background: #444;
-	color: #fff;
-	padding: 8px 16px;
-	border-radius: 6px;
-	border: none;
-	cursor: pointer;
-}
-.test-btn:hover {
-	background: #666;
-}
 .test-panel {
 	display: flex;
 	gap: 8px;
@@ -1120,22 +1106,6 @@ onBeforeUnmount(() => {
 	padding: 0 10px;
 	border: 1px solid #ddd;
 	border-radius: 6px;
-}
-.test-btn {
-	height: 36px;
-	padding: 0 12px;
-	border: none;
-	border-radius: 6px;
-	background: #444;
-	color: #fff;
-	cursor: pointer;
-}
-.test-btn.ghost {
-	background: #888;
-}
-.test-btn:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
 }
 /* 인식 건너뛰기 버튼 */
 .skip-btn {

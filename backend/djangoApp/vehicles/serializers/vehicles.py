@@ -1,3 +1,5 @@
+# vehicles\serializers\vehicles.py
+
 from rest_framework import serializers
 from vehicles.models import Vehicle, VehicleModel
 

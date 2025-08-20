@@ -1,13 +1,13 @@
 # backend\djangoApp\streamapp\signals.py
-from django.db.models.signals import pre_save, post_save, post_delete
-from django.dispatch import receiver
-from django.utils import timezone
 
-from .broadcast import broadcast_plate
+from django.db.models.signals import post_delete, post_save, pre_save
+from django.dispatch import receiver
+from events.models import VehicleEvent
 
 # 프로젝트 스키마에 맞는 모델 import
 from parking.models import ParkingAssignment
-from events.models import VehicleEvent
+
+from .broadcast import broadcast_plate
 
 
 # ---- 상태 상수 유틸 (대소문자 혼용 대비) ----

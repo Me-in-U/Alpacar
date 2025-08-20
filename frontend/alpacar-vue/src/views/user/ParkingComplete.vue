@@ -25,7 +25,7 @@ import BottomNavigation from "@/components/BottomNavigation.vue";
 	width: 100vw;
 	max-width: 440px;
 	min-height: 100vh;
-	background: #F9F5EC;
+	background: #f9f5ec;
 	margin: 0 auto;
 	display: flex;
 	flex-direction: column;

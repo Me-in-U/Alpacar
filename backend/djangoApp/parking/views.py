@@ -1,20 +1,21 @@
 # parking/views.py
+
+from accounts.utils import create_notification
 from django.utils import timezone
-from rest_framework import generics, status
+from events.models import VehicleEvent
+from parking.origin import set_ws_origin
+from rest_framework import generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
-
-from events.models import VehicleEvent
-from parking.origin import set_ws_origin
 from vehicles.models import Vehicle
-from accounts.utils import create_notification
+
 from .models import (
     ParkingAssignment,
     ParkingAssignmentHistory,
     ParkingSpace,
-    update_user_average_score,
     get_korean_now,
+    update_user_average_score,
 )
 from .serializers import (
     AssignRequestSerializer,
@@ -51,9 +52,13 @@ class ParkingScoreHistoryView(generics.ListAPIView):
         )[:10]
 
 
-@api_view(["GET"])
+@api_view(["GET", "HEAD", "OPTIONS"])  # S3752: 안전한 메서드만 허용 (read-only)
 @permission_classes([IsAuthenticated])
 def parking_chart_data(request):
+    """
+    Read-only endpoint for chart data.
+    - Safe methods only (GET/HEAD/OPTIONS), no state change → S3752 compliant.
+    """
     try:
         assignments = ParkingAssignment.objects.filter(user=request.user).order_by(
             "-start_time"
@@ -85,9 +90,16 @@ def create_parking_assignment(request):
     return Response(ser.errors, status=400)
 
 
-@api_view(["POST"])
+@api_view(
+    ["POST"]
+)  # S3752: 상태 변경 엔드포인트 → 안전한 메서드(GET/HEAD 등) 허용하지 않음
 @permission_classes([IsAuthenticated])
 def complete_parking(request, assignment_id):
+    """
+    주차 완료 처리 (state-changing).
+    - Unsafe method only: POST
+    - 서버 상태 변경(DB 업데이트) 동작으로, 안전한 메서드 접근은 허용하지 않습니다. (S3752)
+    """
     try:
         assignment = ParkingAssignment.objects.get(
             id=assignment_id, user=request.user, status="ASSIGNED"

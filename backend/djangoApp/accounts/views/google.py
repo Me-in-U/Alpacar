@@ -1,19 +1,15 @@
 # accounts/views/google.py
 
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import requests
+from accounts.models import User
 from allauth.socialaccount.models import SocialAccount
 from decouple import config
 from django.db import transaction
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from accounts.models import User
-from urllib.parse import urlparse, urlencode
-from django.shortcuts import redirect
-
 
 # ── 환경／상수 ───────────────────────────────────────────────────────────
 
@@ -40,7 +36,7 @@ def issue_tokens(user):
     }
 
 
-def google_login(request):
+def google_login():
     """
     구글 OAuth 동의 화면으로 리다이렉트
     """

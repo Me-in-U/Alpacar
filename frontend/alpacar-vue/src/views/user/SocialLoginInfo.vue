@@ -51,7 +51,7 @@
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
-				
+
 				<div class="modal-header">
 					<h3 class="modal-title">차량 번호를 입력해주세요</h3>
 				</div>
@@ -86,7 +86,7 @@ import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
 import { SecureTokenManager } from "@/utils/security";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import { alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -100,9 +100,9 @@ const vehicleNumber = ref("");
 // 한국 번호판 정규식 패턴 (더 정확한 한글 문자 제한)
 const KOREAN_PLATE_CHARS = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배";
 const plateRegex = new RegExp(
-  `^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` +  // 01-99 또는 100-999
-  `[${KOREAN_PLATE_CHARS}]` +              // 한글 1자 (지정된 문자만)
-  `[1-9]\\d{3}$`                          // 1000-9999
+	`^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` + // 01-99 또는 100-999
+		`[${KOREAN_PLATE_CHARS}]` + // 한글 1자 (지정된 문자만)
+		`[1-9]\\d{3}$` // 1000-9999
 );
 
 const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
@@ -124,7 +124,6 @@ onMounted(() => {
 	if (isAdmin) {
 		console.log("[SOCIAL-LOGIN-INFO] 관리자 접근 차단 → /admin-main");
 		router.replace("/admin-main");
-		return;
 	}
 });
 
@@ -141,7 +140,7 @@ onMounted(async () => {
 		router.replace("/login");
 		return;
 	}
-	
+
 	// 사용자 정보도 확인
 	const isAdmin = userStore.me?.is_staff ?? false;
 	if (!userStore.me && !isAdmin) {
@@ -149,10 +148,10 @@ onMounted(async () => {
 		router.replace("/login");
 		return;
 	}
-	
+
 	// 토큰이 만료되었는지 확인하는 API 호출
 	verifyToken(token);
-	
+
 	// 기존 등록된 차량 정보 확인
 	try {
 		await userStore.fetchMyVehicles();
@@ -216,21 +215,21 @@ watch(vehicleNumber, () => {
 	plateTimer = setTimeout(async () => {
 		try {
 			const url = `${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`;
-			console.log('[차량번호 검증] 요청 URL:', url);
-			console.log('[차량번호 검증] 원본 번호:', vehicleNumber.value);
-			console.log('[차량번호 검증] 인코딩된 번호:', encodeURIComponent(vehicleNumber.value));
-			
+			console.log("[차량번호 검증] 요청 URL:", url);
+			console.log("[차량번호 검증] 원본 번호:", vehicleNumber.value);
+			console.log("[차량번호 검증] 인코딩된 번호:", encodeURIComponent(vehicleNumber.value));
+
 			const res = await fetch(url);
-			console.log('[차량번호 검증] 응답 상태:', res.status, res.statusText);
-			
+			console.log("[차량번호 검증] 응답 상태:", res.status, res.statusText);
+
 			if (!res.ok) {
-				console.error('[차량번호 검증] HTTP 오류:', res.status, res.statusText);
+				console.error("[차량번호 검증] HTTP 오류:", res.status, res.statusText);
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 			}
-			
+
 			const data = await res.json();
-			console.log('[차량번호 검증] 응답 데이터:', data);
-			
+			console.log("[차량번호 검증] 응답 데이터:", data);
+
 			// 새로운 API 응답 형식 처리
 			if (data.status === "valid") {
 				plateStatus.value = "ok";
@@ -239,11 +238,11 @@ watch(vehicleNumber, () => {
 			} else if (data.status === "invalid") {
 				plateStatus.value = "invalid";
 			} else {
-				console.warn('[차량번호 검증] 예상치 못한 status:', data.status);
+				console.warn("[차량번호 검증] 예상치 못한 status:", data.status);
 				plateStatus.value = "error";
 			}
 		} catch (error) {
-			console.error('[차량번호 검증] 에러:', error);
+			console.error("[차량번호 검증] 에러:", error);
 			plateStatus.value = "error";
 		}
 	}, 400);
@@ -319,12 +318,12 @@ const completeSetup = async () => {
 	console.log("[설정완료 디버그] 시작", {
 		vehicleNumber: formData.vehicleNumber,
 		selectedSkill: selectedSkill.value,
-		userInfo: userStore.me
+		userInfo: userStore.me,
 	});
 
 	// 차량 등록 여부 확인 - formData.vehicleNumber 또는 userStore.vehicles 확인
 	const hasVehicle = formData.vehicleNumber || (userStore.vehicles && userStore.vehicles.length > 0);
-	
+
 	if (!hasVehicle) {
 		console.log("[설정완료 디버그] 차량 등록 필요");
 		await alertWarning("차량 번호를 먼저 등록해주세요.");
@@ -345,7 +344,7 @@ const completeSetup = async () => {
 		console.log("[설정완료 디버그] API 요청 전", {
 			skill: selectedSkill.value,
 			score: userScore,
-			apiUrl: `${BACKEND_BASE_URL}/user/parking-skill/`
+			apiUrl: `${BACKEND_BASE_URL}/user/parking-skill/`,
 		});
 
 		const response = await fetch(`${BACKEND_BASE_URL}/user/parking-skill/`, {
@@ -363,13 +362,13 @@ const completeSetup = async () => {
 		console.log("[설정완료 디버그] API 응답", {
 			status: response.status,
 			statusText: response.statusText,
-			ok: response.ok
+			ok: response.ok,
 		});
 
 		if (response.ok) {
 			console.log("[설정완료 디버그] 성공 - 메인페이지로 리다이렉트 시도");
 			await alertSuccess(`차량 정보 설정이 완료되었습니다! (주차 점수: ${userScore}점)`);
-			
+
 			// 강제 리다이렉트 시도
 			try {
 				await router.push("/main");
@@ -413,7 +412,7 @@ const completeSetup = async () => {
 	width: 440px;
 	height: 956px;
 	position: relative;
-	background: #F9F5EC;
+	background: #f9f5ec;
 	overflow: hidden;
 	margin: 0 auto;
 }
@@ -542,7 +541,7 @@ const completeSetup = async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 0;
-	border: 1px solid #F9F5EC;
+	border: 1px solid #f9f5ec;
 	border-radius: 8px;
 	overflow: hidden;
 }
@@ -561,14 +560,14 @@ const completeSetup = async () => {
 	padding: 0 15px;
 }
 .skill-button.selected {
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	color: #f5f5f5;
 }
 .skill-button:hover {
 	background-color: #d4c8b8;
 }
 .skill-button.selected:hover {
-	background-color: #594D44;
+	background-color: #594d44;
 }
 
 /* Complete Button */
@@ -582,7 +581,7 @@ const completeSetup = async () => {
 .complete-button {
 	width: 100%;
 	height: 100%;
-	background: #4B3D34;
+	background: #4b3d34;
 	border: none;
 	cursor: pointer;
 	overflow: hidden;
@@ -592,7 +591,7 @@ const completeSetup = async () => {
 	transition: all 0.3s ease;
 }
 .complete-button:hover {
-	background: #594D44;
+	background: #594d44;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
@@ -619,7 +618,7 @@ const completeSetup = async () => {
 }
 .modal-content {
 	width: 375px;
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 	border-radius: 12px;
 	padding: 20px;
 	display: flex;
@@ -659,7 +658,7 @@ const completeSetup = async () => {
 	color: #999999;
 }
 .modal-input:focus {
-	border-color: #4B3D34;
+	border-color: #4b3d34;
 }
 .modal-footer {
 	display: flex;
@@ -668,7 +667,7 @@ const completeSetup = async () => {
 .modal-complete-button {
 	width: 280px;
 	height: 50px;
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -707,7 +706,7 @@ const completeSetup = async () => {
 	color: #ff9800;
 }
 .status.checking {
-	color: #4B3D34;
+	color: #4b3d34;
 }
 
 .error-message {

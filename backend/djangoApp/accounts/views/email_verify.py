@@ -1,15 +1,14 @@
 # accounts/views/email_verify.py
 
-import random
+import secrets
 import string
 
+from accounts.models import VerificationCode
 from django.core.mail import send_mail
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from accounts.models import VerificationCode
 
 
 class SignupEmailVerifyRequestAPIView(APIView):
@@ -27,8 +26,8 @@ class SignupEmailVerifyRequestAPIView(APIView):
                 {"detail": "이메일을 입력해주세요."}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 6자리 난수 생성
-        code = "".join(random.choices(string.digits, k=6))
+        # 6자리 난수 생성 (S2245 대응: CSPRNG 사용)
+        code = "".join(secrets.choice(string.digits) for _ in range(6))
         # 기존에 남아있는 코드는 삭제하거나 그냥 덮어쓰기
         VerificationCode.objects.create(email=email, code=code)
 

@@ -1,9 +1,8 @@
 # accounts\serializers\profile.py
 
-from rest_framework import serializers
-
 from accounts.models import User
 from djangoApp import settings
+from rest_framework import serializers
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -26,10 +25,19 @@ class ProfileSerializer(serializers.ModelSerializer):
         VAPID 공개키 반환
         """
         return settings.VAPID_PUBLIC_KEY
-    
+
     class Meta:
         model = User
         # API에 노출할 필드 목록 (vapid_public_key 추가)
-        fields = ["email", "name", "nickname", "phone", "push_on", "score", "is_staff", "vapid_public_key"]
+        fields = [
+            "email",
+            "name",
+            "nickname",
+            "phone",
+            "push_on",
+            "score",
+            "is_staff",
+            "vapid_public_key",
+        ]
         # email과 vapid_public_key는 사용자가 수정할 수 없도록 읽기 전용
         read_only_fields = ["email", "is_staff", "vapid_public_key"]

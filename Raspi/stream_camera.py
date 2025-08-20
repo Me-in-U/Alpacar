@@ -3,11 +3,19 @@
 # Picamera2를 사용하여 카메라 스트림을 처리합니다.
 
 from flask import Flask, Response
+from flask_wtf import CSRFProtect  # CSRFProtect 사용을 위한 import
 import cv2
 from picamera2 import Picamera2
 from libcamera import controls
 
+
 app = Flask(__name__)
+csrf = CSRFProtect()
+csrf.init_app(app)  # GET/HEAD/OPTIONS는 기본적으로 CSRF 검사 대상 아님
+# CSRF 안내(S4502):
+# - 이 서비스는 스트리밍(읽기 전용)만 제공하며 서버 상태를 변경하지 않습니다.
+# - 세션/쿠키/인증 정보를 사용하지 않습니다.
+# - 따라서 본 엔드포인트는 CSRF 보호 미적용이 안전합니다. (python:S4502)
 
 # --- Picamera2 초기 설정 (기존 설정 그대로) ---
 picam2 = Picamera2()
@@ -47,11 +55,14 @@ def mjpeg_generator():
         yield (boundary + b"Content-Type: image/jpeg\r\n\r\n" + jpg.tobytes() + b"\r\n")
 
 
-@app.route("/stream")
+@app.route("/stream", methods=["GET"])  # CSRF-safe: read-only GET endpoint (S4502)
 def stream():
     """
     브라우저 <img src="/stream"> 으로 접속하면
     메인 해상도로 MJPEG 스트리밍이 시작됩니다.
+
+    보안 참고:
+    - GET 전용, 서버 상태 변경 없음, 세션/쿠키 미사용 → CSRF 토큰 불필요 (S4502)
     """
     return Response(
         mjpeg_generator(), mimetype="multipart/x-mixed-replace; boundary=frame"

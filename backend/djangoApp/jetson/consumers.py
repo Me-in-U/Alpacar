@@ -187,10 +187,8 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
 
             used_label = slot_label or assigned_label or occupied_label
 
-            # ✅ 2.5) 유저 테이블 점수 갱신 (활성 이벤트의 차량 소유자 기준)
-            ok_user, msg_user, user_id = await self._update_user_score_for_plate(
-                plate, score
-            )
+            # 2.5) 유저 테이블 점수 갱신 (활성 이벤트의 차량 소유자 기준)
+            ok_user, _, user_id = await self._update_user_score_for_plate(plate, score)
 
             # 3) ACK
             await self.send(
@@ -310,7 +308,6 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                         "origin": "ai",
                     }
                 )
-            return
 
     # ---------- 내부 유틸/DB ----------
     @database_sync_to_async
