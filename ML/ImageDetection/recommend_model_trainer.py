@@ -86,9 +86,9 @@ X_train, X_val, y_step_tr, y_step_val, y_score_tr, y_score_val = train_test_spli
 # -----------------------
 # 5. 모델 학습 (RandomForest)
 # -----------------------
-rf_params = dict(n_estimators=400, max_features="sqrt", random_state=42, n_jobs=-1)
-rf_step = RandomForestRegressor(**rf_params).fit(X_train, y_step_tr)
-rf_score = RandomForestRegressor(**rf_params).fit(X_train, y_score_tr)
+rf_params = {"n_estimators": 400, "random_state": 42, "n_jobs": -1}
+rf_step = RandomForestRegressor(max_features="sqrt", min_samples_leaf=1, **rf_params).fit(X_train, y_step_tr)
+rf_score = RandomForestRegressor(max_features="sqrt", min_samples_leaf=1, **rf_params).fit(X_train, y_score_tr)
 
 # -----------------------
 # 6. 성능 평가

@@ -67,8 +67,6 @@ class LinearSpline2D:
                     lon = self.s_samples[idx] + projection
                     lat = pose.project_onto_orthonormal(position)
                     return lon, lat
-                else:
-                    ValueError("No valid projection could be found")
         pose = self.poses[0]
         lon = pose.project_onto_normal(position)
         lat = pose.project_onto_orthonormal(position)
