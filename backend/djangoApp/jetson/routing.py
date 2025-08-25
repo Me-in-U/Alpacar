@@ -1,5 +1,7 @@
 # jetson/routing.py
+
 from django.urls import re_path
+
 from .consumers import JetsonIngestConsumer, ParkingStatusConsumer
 
 websocket_urlpatterns = [

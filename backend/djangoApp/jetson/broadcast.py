@@ -1,4 +1,5 @@
 # jetson/broadcast.py
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -8,10 +9,10 @@ JETSON_CONTROL_GROUP = "jetson-control"
 def get_user_skill_level(score: int) -> str:
     """
     사용자 점수를 기반으로 실력 레벨을 반환합니다.
-    
+
     Args:
         score: 사용자 점수 (0-100)
-        
+
     Returns:
         str: 실력 레벨 (beginner, intermediate, advanced)
     """
@@ -23,7 +24,9 @@ def get_user_skill_level(score: int) -> str:
         return "advanced"
 
 
-def send_request_assignment(license_plate: str, size_class: str, user_skill_level: str = None) -> None:
+def send_request_assignment(
+    license_plate: str, size_class: str, user_skill_level: str = None
+) -> None:
     async_to_sync(get_channel_layer().group_send)(
         JETSON_CONTROL_GROUP,
         {

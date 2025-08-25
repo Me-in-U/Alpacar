@@ -90,11 +90,11 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh; /* 화면 전체 높이 */
-	background-color: #F9F5EC; /* 페이지 배경색 */
+	background-color: #f9f5ec; /* 페이지 배경색 */
 }
 
 .container {
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 	min-height: calc(100vh - 64px); /* 네비게이션바 높이 감안 */
 	padding: 48px 64px;
 	box-sizing: border-box;
@@ -106,7 +106,7 @@ export default defineComponent({
 .title {
 	font-size: 36px;
 	font-weight: 700;
-	font-family: "Inter-Bold", Helvetica;
+	font-family: "Inter-Bold", Helvetica, Arial, sans-serif;
 	color: #333333;
 	margin-bottom: 32px;
 	align-self: flex-start;
@@ -297,11 +297,6 @@ export default defineComponent({
 	background: rgba(250, 248, 245, 0.92);
 	color: #6b6257;
 	border-color: #eadfd2;
-}
-
-/* 컨테이너 기본 여백 조정(이미 있으면 유지) */
-.container {
-	align-items: center; /* 가운데 정렬 */
 }
 
 /* 반응형 */

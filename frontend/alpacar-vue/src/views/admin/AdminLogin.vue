@@ -17,11 +17,7 @@
 				<!-- Auto Login Checkbox -->
 				<div class="auto-login-container">
 					<label class="auto-login-label">
-						<input 
-							type="checkbox" 
-							v-model="autoLogin" 
-							class="auto-login-checkbox"
-						/>
+						<input type="checkbox" v-model="autoLogin" class="auto-login-checkbox" />
 						<span class="auto-login-text">자동 로그인</span>
 					</label>
 				</div>
@@ -59,13 +55,13 @@ export default defineComponent({
 			if (!adminId.value || !adminPassword.value) {
 				return await alertWarning("이메일과 비밀번호를 모두 입력해주세요.");
 			}
-			
+
 			isLoading.value = true;
 			try {
 				// 관리자 로그인 시도 (자동 로그인 옵션 포함)
 				console.log("[ADMIN LOGIN] 로그인 시도 중...");
 				await userStore.adminLogin(adminId.value, adminPassword.value, autoLogin.value);
-				
+
 				// 로그인 성공 후 사용자 정보 확인
 				console.log("[ADMIN LOGIN] 로그인 성공. 사용자 정보:", userStore.me);
 				console.log("[ADMIN LOGIN] 관리자 여부:", userStore.me?.is_staff);
@@ -97,7 +93,7 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 }
 
 .login-wrapper {
@@ -177,8 +173,8 @@ export default defineComponent({
 }
 
 .auto-login-checkbox:checked {
-	background-color: #4B3D34;
-	border-color: #4B3D34;
+	background-color: #4b3d34;
+	border-color: #4b3d34;
 }
 
 .auto-login-checkbox:checked::after {
@@ -200,7 +196,7 @@ export default defineComponent({
 }
 
 .login-button {
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	color: white;
 	text-align: center;
 	padding: 12px;
@@ -217,7 +213,7 @@ export default defineComponent({
 }
 
 .login-button:hover:not(:disabled) {
-	background-color: #594D44;
+	background-color: #594d44;
 }
 
 .loading {
@@ -239,7 +235,11 @@ export default defineComponent({
 }
 
 @keyframes spin {
-	from { transform: translateY(-50%) rotate(0deg); }
-	to { transform: translateY(-50%) rotate(360deg); }
+	from {
+		transform: translateY(-50%) rotate(0deg);
+	}
+	to {
+		transform: translateY(-50%) rotate(360deg);
+	}
 }
 </style>

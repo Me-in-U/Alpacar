@@ -101,21 +101,21 @@ class IDMVehicle(ControlledVehicle):
         """
         if self.crashed:
             return
-        action = {}
+        command = {}
         # Lateral: MOBIL
         self.follow_road()
         if self.enable_lane_change:
             self.change_lane_policy()
-        action["steering"] = self.steering_control(self.target_lane_index)
-        action["steering"] = np.clip(
-            action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
+        command["steering"] = self.steering_control(self.target_lane_index)
+        command["steering"] = np.clip(
+            command["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
         )
 
         # Longitudinal: IDM
         front_vehicle, rear_vehicle = self.road.neighbour_vehicles(
             self, self.lane_index
         )
-        action["acceleration"] = self.acceleration(
+        command["acceleration"] = self.acceleration(
             ego_vehicle=self, front_vehicle=front_vehicle, rear_vehicle=rear_vehicle
         )
         # When changing lane, check both current and target lanes
@@ -126,15 +126,15 @@ class IDMVehicle(ControlledVehicle):
             target_idm_acceleration = self.acceleration(
                 ego_vehicle=self, front_vehicle=front_vehicle, rear_vehicle=rear_vehicle
             )
-            action["acceleration"] = min(
-                action["acceleration"], target_idm_acceleration
+            command["acceleration"] = min(
+                command["acceleration"], target_idm_acceleration
             )
-        # action['acceleration'] = self.recover_from_stop(action['acceleration'])
-        action["acceleration"] = np.clip(
-            action["acceleration"], -self.ACC_MAX, self.ACC_MAX
+        # command['acceleration'] = self.recover_from_stop(command['acceleration'])
+        command["acceleration"] = np.clip(
+            command["acceleration"], -self.ACC_MAX, self.ACC_MAX
         )
         # Skip ControlledVehicle.act(), or the command will be overridden.
-        Vehicle.act(self, action)
+        Vehicle.act(self, command)
 
     def step(self, dt: float):
         """

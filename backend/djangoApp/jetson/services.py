@@ -1,19 +1,28 @@
 # parking/services.py
-from django.utils import timezone
+
 from django.db import transaction
+from django.utils import timezone
+from events.broadcast import broadcast_parking_log_event
+from events.models import VehicleEvent
+from parking.views import _broadcast_space  # 이미 있는 브로드캐스트 유틸 재사용
+from vehicles.models import Vehicle
 
 from jetson.feed import broadcast_active_vehicles
-from vehicles.models import Vehicle
-from events.models import VehicleEvent
-from .models import ParkingSpace, ParkingAssignment
-from events.broadcast import broadcast_parking_log_event
-from parking.views import _broadcast_space  # 이미 있는 브로드캐스트 유틸 재사용
+
+from .models import ParkingAssignment, ParkingSpace
 
 
 def _parse_slot_label(label: str):
     if not label or len(label) < 2:
         raise ValueError("invalid slot label")
     return label[0], int(label[1:])
+
+
+def reserve_space_for_vehicle(space, vehicle):
+    space.status = "reserved"
+    space.current_vehicle = vehicle
+    space.save(update_fields=["status", "current_vehicle", "updated_at"])
+    _broadcast_space(space)
 
 
 @transaction.atomic
@@ -65,10 +74,7 @@ def handle_assignment_from_jetson(license_plate: str, slot_label: str):
 
     if created:
         # 새 배정 → 새 슬롯 예약
-        new_space.status = "reserved"
-        new_space.current_vehicle = vehicle
-        new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
-        _broadcast_space(new_space)
+        reserve_space_for_vehicle(new_space, vehicle)
     else:
         # 재배정: 공간 변경 시 이전 공간 해제 + 새 공간 예약
         if pa.space_id != new_space.id:
@@ -84,22 +90,14 @@ def handle_assignment_from_jetson(license_plate: str, slot_label: str):
                 )
                 _broadcast_space(old_space)
 
-            new_space.status = "reserved"
-            new_space.current_vehicle = vehicle
-            new_space.save(update_fields=["status", "current_vehicle", "updated_at"])
-            _broadcast_space(new_space)
+            reserve_space_for_vehicle(new_space, vehicle)
         else:
             # 같은 슬롯을 다시 회신한 경우 → 상태만 보정
             if (
                 new_space.status != "reserved"
                 or new_space.current_vehicle_id != vehicle.id
             ):
-                new_space.status = "reserved"
-                new_space.current_vehicle = vehicle
-                new_space.save(
-                    update_fields=["status", "current_vehicle", "updated_at"]
-                )
-                _broadcast_space(new_space)
+                reserve_space_for_vehicle(new_space, vehicle)
 
     # 다른 화면들 스냅샷 갱신
     broadcast_active_vehicles()

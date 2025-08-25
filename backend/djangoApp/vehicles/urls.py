@@ -1,6 +1,6 @@
 # vehicles\urls.py
-from django.urls import path
 
+from django.urls import path
 from vehicles.views.vehicles import (
     VehicleDetailAPIView,
     VehicleListCreateAPIView,

@@ -9,15 +9,6 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
-def random_string(n=8):
-    """
-    지정한 길이(n)의 무작위 영숫자 문자열 반환
-    - 디버그나 테스트용 임시 토큰 생성 등에 활용
-    """
-    # 난수 문자열 생성
-    return "".join(random.choices(string.ascii_letters + string.digits, k=n))
-
-
 def push_setting_page(request):
     """
     푸시 알림 설정 페이지 렌더링
@@ -35,7 +26,7 @@ def push_setting_page(request):
         # 토큰이 없거나 authenticate()가 None을 반환하면 리다이렉트
         return redirect("test_methods")
 
-    user, token = auth_result  # 인증된 user와 token 분해
+    user, _ = auth_result  # 인증된 user와 token 분해
     request.user = user  # 뷰 내에서 request.user 사용 가능하도록 설정
 
     # 인증된 사용자 정보와 VAPID 공개키를 템플릿에 전달하여 렌더링

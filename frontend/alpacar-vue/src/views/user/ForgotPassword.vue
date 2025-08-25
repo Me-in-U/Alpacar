@@ -8,11 +8,11 @@
 			<div class="forgot-password-form">
 				<!-- 이름 및 이메일 입력 -->
 				<div class="field-group">
-					<label class="field-label">이름</label>
-					<input type="text" v-model="form.name" placeholder="이름 입력" class="input-field" :disabled="step !== 'request'" />
+					<label class="field-label" for="name">이름</label>
+					<input id="name" type="text" v-model="form.name" placeholder="이름 입력" class="input-field" :disabled="step !== 'request'" />
 
-					<label class="field-label">이메일</label>
-					<input type="email" v-model="form.email" placeholder="이메일 입력" class="input-field" :disabled="step !== 'request'" />
+					<label class="field-label" for="email">이메일</label>
+					<input id="email" type="email" v-model="form.email" placeholder="이메일 입력" class="input-field" :disabled="step !== 'request'" maxlength="254" />
 
 					<button class="send-verification-button" @click="sendCode" :disabled="!canSendCode">
 						<span class="button-text">인증번호 발송</span>
@@ -21,23 +21,23 @@
 
 				<!-- 인증번호 입력 -->
 				<div class="field-group">
-					<label class="field-label">인증번호 입력</label>
+					<label class="field-label" for="code">인증번호 입력</label>
 					<div class="input-with-button">
-						<input type="text" v-model="form.code" placeholder="인증번호 입력" class="input-field" :disabled="step === 'request'" />
+						<input id="code" type="text" v-model="form.code" placeholder="인증번호 입력" class="input-field" :disabled="step === 'request'" />
 						<button class="verify-button" @click="verifyCode" :disabled="!canVerify">확인</button>
 					</div>
 				</div>
 
 				<!-- 새 비밀번호 입력 -->
 				<div class="field-group">
-					<label class="field-label">새 비밀번호 입력</label>
-					<input type="password" v-model="form.newPassword" placeholder="비밀번호 입력" class="input-field" :disabled="step !== 'reset'" />
+					<label class="field-label" for="new-password">새 비밀번호 입력</label>
+					<input id="new-password" type="password" v-model="form.newPassword" placeholder="비밀번호 입력" class="input-field" :disabled="step !== 'reset'" />
 					<p class="field-help">영문, 숫자, 특수문자 조합 8-20자리</p>
 				</div>
 
 				<div class="field-group">
-					<label class="field-label">새 비밀번호 확인</label>
-					<input type="password" v-model="form.newPasswordConfirm" placeholder="비밀번호 입력" class="input-field" :disabled="step !== 'reset'" />
+					<label class="field-label" for="new-password-confirm">새 비밀번호 확인</label>
+					<input id="new-password-confirm" type="password" v-model="form.newPasswordConfirm" placeholder="비밀번호 입력" class="input-field" :disabled="step !== 'reset'" />
 					<p class="field-help">위와 동일한 비밀번호를 다시 입력해주세요</p>
 				</div>
 
@@ -53,7 +53,7 @@
 import { defineComponent, reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import { alertSuccess, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "ForgotPassword",
@@ -68,8 +68,25 @@ export default defineComponent({
 			newPasswordConfirm: "",
 		});
 
+		// S5852 대응: 정규식 제거, 선형 시간 문자열 검사 기반 검증 사용
+		const EMAIL_MAX_LEN = 254;
+		const isValidEmail = (raw: string) => {
+			const email = raw.trim();
+			if (!email || email.length > EMAIL_MAX_LEN) return false;
+			if (email.includes(" ")) return false; // 공백 불가
+			const at = email.indexOf("@");
+			if (at <= 0 || at !== email.lastIndexOf("@")) return false; // '@'는 하나만, 맨앞/맨뒤 불가
+			const local = email.slice(0, at);
+			const domain = email.slice(at + 1);
+			if (!local || domain.length < 3) return false;
+			if (email.includes("..")) return false; // 연속 점 방지
+			const lastDot = domain.lastIndexOf(".");
+			if (lastDot <= 0 || lastDot === domain.length - 1) return false; // 도메인에 점 포함, TLD 존재
+			return true;
+		};
+
 		// 1단계: 이름·이메일이 올바르면 활성화
-		const canSendCode = computed(() => step.value === "request" && form.name.trim() !== "" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email));
+		const canSendCode = computed(() => step.value === "request" && form.name.trim() !== "" && isValidEmail(form.email));
 		// 2단계: 코드가 입력되면 활성화
 		const canVerify = computed(() => step.value === "verify" && form.code.trim() !== "");
 		// 3단계: 새 비밀번호가 조건 충족 시 활성화
@@ -158,7 +175,7 @@ export default defineComponent({
 .forgot-password-container {
 	width: 100%;
 	min-height: 100vh;
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 	position: relative;
 	overflow-x: hidden;
 	font-family: "Inter", sans-serif;
@@ -238,7 +255,7 @@ export default defineComponent({
 }
 
 .input-field:focus {
-	border-color: #4B3D34;
+	border-color: #4b3d34;
 }
 
 .input-with-button {
@@ -267,17 +284,17 @@ button:disabled {
 /* 버튼 호버링: 활성화된 버튼만 */
 .send-verification-button:not(:disabled):hover,
 .change-password-button:not(:disabled):hover {
-	background-color: #594D44;
+	background-color: #594d44;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
 
 .verify-button:not(:disabled):hover {
-	background-color: #594D44;
+	background-color: #594d44;
 }
 .verify-button {
 	height: 30px;
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	border: none;
 	border-radius: 4px;
 	color: #ffffff;
@@ -301,7 +318,7 @@ button:disabled {
 .change-password-button {
 	width: 100%;
 	height: 50px;
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -313,7 +330,7 @@ button:disabled {
 
 .send-verification-button:hover,
 .change-password-button:hover {
-	background-color: #594D44;
+	background-color: #594d44;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }

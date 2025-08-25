@@ -1,14 +1,8 @@
 import { defineStore } from "pinia";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/utils/pwa";
-import { 
-  SecureTokenManager, 
-  encryptUserData, 
-  decryptUserData, 
-  validateAutoLoginExpiry 
-} from "@/utils/security";
+import { SecureTokenManager, decryptUserData, validateAutoLoginExpiry } from "@/utils/security";
 import { apiClient } from "@/api/parking";
-
 
 export interface VehicleModel {
 	id: number;
@@ -59,10 +53,10 @@ export const useUserStore = defineStore("user", {
 		},
 		// 허용된 키만 추출하는 화이트리스트 방식
 		extractMinimalData(userData: any): any {
-			const allowedKeys = ['nickname', 'is_staff', 'push_on', 'score', 'is_social_user'];
+			const allowedKeys = ["nickname", "is_staff", "push_on", "score", "is_social_user"];
 			const minimalData: any = {};
-			allowedKeys.forEach(key => {
-				if (userData && userData.hasOwnProperty(key)) {
+			allowedKeys.forEach((key) => {
+				if (userData?.hasOwnProperty(key)) {
 					minimalData[key] = userData[key];
 				}
 			});
@@ -92,7 +86,7 @@ export const useUserStore = defineStore("user", {
 						return userData;
 					}
 				}
-				
+
 				// 암호화된 데이터가 없거나 복호화 실패 시 마스킹된 데이터 사용
 				const userDataString = localStorage.getItem("user");
 				if (userDataString) {
@@ -100,7 +94,7 @@ export const useUserStore = defineStore("user", {
 					this.me = userData;
 					return userData;
 				}
-				
+
 				return null;
 			} catch (error) {
 				console.warn("사용자 정보 복원 실패:", error);
@@ -141,9 +135,7 @@ export const useUserStore = defineStore("user", {
 				// baseUrl이 있으면 절대경로, 없으면 apiClient의 baseURL 기준 상대경로
 				const url = baseUrl ? `${baseUrl}/users/me/` : "/users/me/";
 
-				const { data } = await apiClient.get<User>(url, {
-
-				});
+				const { data } = await apiClient.get<User>(url, {});
 
 				this.setUser(data);
 				return data;
@@ -281,14 +273,16 @@ export const useUserStore = defineStore("user", {
 			}
 
 			await this.fetchMe(data.access);
-			
+
 			// 로그인 성공 시 차량 정보 백그라운드에서 로드 (차단하지 않음)
-			this.fetchMyVehicles().then(() => {
-				console.log("로그인 후 차량 정보 백그라운드 로드 완료");
-			}).catch((vehicleError) => {
-				console.warn("차량 정보 로드 실패 (무시):", vehicleError);
-			});
-			
+			this.fetchMyVehicles()
+				.then(() => {
+					console.log("로그인 후 차량 정보 백그라운드 로드 완료");
+				})
+				.catch((vehicleError) => {
+					console.warn("차량 정보 로드 실패 (무시):", vehicleError);
+				});
+
 			return this.me;
 		},
 
@@ -343,14 +337,16 @@ export const useUserStore = defineStore("user", {
 				localStorage.setItem("refresh_token", data.refresh);
 
 				await this.fetchMe(data.access, backendUrl);
-				
+
 				// 로그인 성공 시 차량 정보 백그라운드에서 로드 (차단하지 않음)
-				this.fetchMyVehicles().then(() => {
-					console.log("동적 URL 로그인 후 차량 정보 백그라운드 로드 완료");
-				}).catch((vehicleError) => {
-					console.warn("차량 정보 로드 실패 (무시):", vehicleError);
-				});
-				
+				this.fetchMyVehicles()
+					.then(() => {
+						console.log("동적 URL 로그인 후 차량 정보 백그라운드 로드 완료");
+					})
+					.catch((vehicleError) => {
+						console.warn("차량 정보 로드 실패 (무시):", vehicleError);
+					});
+
 				return this.me;
 			} catch (error: any) {
 				// Mixed Content나 네트워크 오류에 대한 사용자 친화적 메시지
@@ -370,14 +366,14 @@ export const useUserStore = defineStore("user", {
 				console.warn("togglePush: 이미 처리 중");
 				return;
 			}
-			
+
 			console.log("[togglePush] 시작, 변경 요청:", on);
 			console.log("[togglePush] 사용자 VAPID 키 상태:", {
 				hasVapidKey: !!this.me.vapid_public_key,
 				vapidKeyLength: this.me.vapid_public_key?.length || 0,
-				vapidKeyPreview: this.me.vapid_public_key?.substring(0, 10) + '...' || 'MISSING'
+				vapidKeyPreview: this.me.vapid_public_key?.substring(0, 10) + "..." || "MISSING",
 			});
-			
+
 			this.isToggling = true;
 			const prev = this.me.push_on;
 			this.me.push_on = on;
@@ -386,7 +382,7 @@ export const useUserStore = defineStore("user", {
 				// VAPID 키 사전 체크
 				if (!this.me.vapid_public_key) {
 					console.error("[togglePush] VAPID 키 없음 - 사용자 정보 새로고침 시도");
-					
+
 					// 사용자 정보 새로고침 시도
 					const token = SecureTokenManager.getSecureToken("access_token");
 					if (token) {

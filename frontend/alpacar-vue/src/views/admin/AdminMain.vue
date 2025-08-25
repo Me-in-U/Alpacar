@@ -22,7 +22,7 @@
 				</div>
 				<div class="assign-layout">
 					<!-- 좌: 입차 차량 리스트 -->
-					<aside class="assign-sidebar">
+					<aside class="assign-sidebar" aria-label="입차 차량 목록">
 						<div class="sidebar-title">입차 차량</div>
 						<div class="vehicle-list">
 							<button
@@ -113,7 +113,7 @@
 					</div>
 
 					<!-- 우: 선택 요약/배정 -->
-					<aside class="assign-panel">
+					<aside class="assign-panel" aria-label="선택 요약 및 배정 패널">
 						<!--  공통: 선택 슬롯 요약 (한 줄) -->
 						<div class="panel-card selection-card">
 							<div class="selection-row flash-in" :key="(selectedSpot || 'none') + '-' + (selectedSpot ? statusMap[selectedSpot] : 'none')">
@@ -167,11 +167,10 @@ import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import AdminAuthRequiredModal from "@/views/admin/AdminAuthRequiredModal.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { SecureTokenManager } from "@/utils/security";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
-import carTopImg from "@/assets/navi_topview_car_1.png"; // ⬅️ 탑뷰 자동차 이미지
+import { alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import carTopImg from "@/assets/navi_topview_car_1.png"; // 탑뷰 자동차 이미지
 
 const WSS_PARKING_STATUS_URL = `wss://i13e102.p.ssafy.io/ws/parking_status`;
-// const WSS_PARKING_STATUS_URL = `ws://localhost:8000/ws/parking_status`;
 
 export default defineComponent({
 	components: { AdminNavbar, AdminAuthRequiredModal },
@@ -338,7 +337,7 @@ export default defineComponent({
 			zone: string;
 			slot_number: number;
 			label: string;
-			status?: "free" | "occupied" | "reserved";
+			status?: ParkingStatus;
 		};
 		type ActiveVehicleItem = {
 			id?: number;
@@ -348,6 +347,9 @@ export default defineComponent({
 			status: string;
 			assigned_space?: AssignedSpace | null;
 		};
+
+		// 타입 별칭 추가: ParkingStatus
+		type ParkingStatus = "free" | "occupied" | "reserved";
 
 		const spaceVehicleMap = reactive<Record<string, { vehicle_id: number | null; plate: string | null }>>({});
 		const selectedVehicle = ref<null | ActiveVehicleItem>(null);
@@ -404,7 +406,6 @@ export default defineComponent({
 				await alertWarning("실시간 수신 중에는 수동 배정이 비활성화됩니다.");
 				return;
 			}
-			const token = SecureTokenManager.getSecureToken("access_token");
 			const plate = selectedVehicle.value!.license_plate;
 			const { zone, slot_number } = parseSpot(selectedSpot.value!);
 			const slotLabel = selectedSpot.value!;
@@ -453,7 +454,7 @@ export default defineComponent({
 		});
 
 		/* ===== 슬롯 상태 맵 초기화 ===== */
-		const statusMap = reactive<Record<string, "free" | "occupied" | "reserved">>({});
+		const statusMap = reactive<Record<string, ParkingStatus>>({});
 		function initStatusMap() {
 			layout.rows.forEach((row) => {
 				[...row.left, ...row.right].forEach((spot) => {
@@ -495,7 +496,7 @@ export default defineComponent({
 
 		const canChangeStatus = computed(() => !!selectedSpot.value && !jetsonLive.value);
 
-		async function changeSelectedStatus(status: "free" | "occupied" | "reserved") {
+		async function changeSelectedStatus(status: ParkingStatus) {
 			if (!canChangeStatus.value || !selectedSpot.value) return;
 			await setSlot(selectedSpot.value, status);
 		}
@@ -635,7 +636,6 @@ export default defineComponent({
 
 		async function fetchUsageToday() {
 			try {
-				const token = SecureTokenManager.getSecureToken("access_token");
 				const res = await fetch(`${BACKEND_BASE_URL}/parking/stats/today/`, {
 					headers: authHeaders(),
 				});
@@ -675,8 +675,7 @@ export default defineComponent({
 		function parseSpot(spot: string) {
 			return { zone: spot[0], slot_number: Number(spot.slice(1)) };
 		}
-		async function setSlot(spot: string, status: "free" | "occupied" | "reserved") {
-			const token = SecureTokenManager.getSecureToken("access_token");
+		async function setSlot(spot: string, status: ParkingStatus) {
 			const { zone, slot_number } = parseSpot(spot);
 			const prev = statusMap[spot];
 			statusMap[spot] = status;
@@ -1290,10 +1289,6 @@ export default defineComponent({
 }
 .flash-in {
 	animation: flashIn 300ms ease-out;
-}
-
-.assign-panel .panel-card + .panel-card {
-	margin-top: 8px;
 }
 
 /* 패널 간격 살짝 조정 */

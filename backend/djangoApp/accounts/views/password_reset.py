@@ -1,13 +1,7 @@
 # accounts/views/password_reset.py
 
-import random
+import secrets
 import string
-
-from django.core.mail import send_mail
-from rest_framework import serializers, status
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from accounts.models import User, VerificationCode
 from accounts.serializers.password_reset import (
@@ -15,6 +9,11 @@ from accounts.serializers.password_reset import (
     PasswordResetRequestSerializer,
     VerificationCodeSerializer,
 )
+from django.core.mail import send_mail
+from rest_framework import serializers, status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 
 class PasswordResetRequestAPIView(APIView):
@@ -34,7 +33,9 @@ class PasswordResetRequestAPIView(APIView):
 
         user = ser.validated_data["user"]  # 조회된 User
         email = ser.validated_data["email"]  # 대상 이메일
-        code = "".join(random.choices(string.digits, k=6))  # 6자리 난수 코드 생성
+        code = "".join(
+            secrets.choice(string.digits) for _ in range(6)
+        )  # CSPRNG 사용(S2245)
         VerificationCode.objects.create(email=email, code=code)  # 코드 DB 저장
 
         # 이메일 발송

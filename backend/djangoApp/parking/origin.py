@@ -1,6 +1,7 @@
 # parking/origin.py
-import threading
+
 import contextlib
+import threading
 
 _local = threading.local()
 

@@ -1,7 +1,8 @@
 # parking/urls.py
-from django.urls import path
 
+from django.urls import path
 from events.views import active_vehicle_events
+
 from . import views
 
 urlpatterns = [

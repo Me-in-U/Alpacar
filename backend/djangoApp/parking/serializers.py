@@ -1,7 +1,9 @@
 # parking/serializers.py
+
 from rest_framework import serializers
-from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
 from vehicles.models import Vehicle
+
+from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
 
 
 # 수동 배정 요청 시리얼라이저

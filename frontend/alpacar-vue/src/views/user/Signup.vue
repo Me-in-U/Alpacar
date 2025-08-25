@@ -18,16 +18,31 @@
 			<div class="signup-form">
 				<!-- Name Field -->
 				<div class="field-group">
-					<label class="field-label">이름 *</label>
-					<input v-model="formData.full_name" @input="handleNameInput" @keypress="preventInvalidNameChars" :class="['input-field', { error: formData.full_name && !nameValid }]" placeholder="이름을 입력하세요" maxlength="18" />
+					<label class="field-label" for="full_name">이름 *</label>
+					<input
+						id="full_name"
+						v-model="formData.full_name"
+						@input="handleNameInput"
+						@keypress="preventInvalidNameChars"
+						:class="['input-field', { error: formData.full_name && !nameValid }]"
+						placeholder="이름을 입력하세요"
+						maxlength="18"
+					/>
 					<p v-if="formData.full_name && !nameValid" class="field-help error-text">한글/영문만 1~18자</p>
 				</div>
 
 				<!-- Email + 인증번호 받기 -->
 				<div class="field-group">
-					<label class="field-label">이메일 *</label>
+					<label class="field-label" for="email">이메일 *</label>
 					<div class="input-with-button">
-						<input v-model="formData.email" @input="emailVerified = false" :class="['input-field', { error: formData.email && !emailFormatValid }]" placeholder="이메일을 입력하세요" maxlength="50" />
+						<input
+							id="email"
+							v-model="formData.email"
+							@input="emailVerified = false"
+							:class="['input-field', { error: formData.email && !emailFormatValid }]"
+							placeholder="이메일을 입력하세요"
+							maxlength="50"
+						/>
 						<button class="duplicate-check-button" :disabled="!emailFormatValid || emailSent" @click="sendCode">인증번호 받기</button>
 						<span v-if="emailVerified" class="checkmark">✔</span>
 					</div>
@@ -36,17 +51,24 @@
 
 				<!-- 인증번호 입력 & 확인 -->
 				<div class="field-group" v-if="emailSent && !emailVerified">
-					<label class="field-label">인증번호 입력</label>
+					<label class="field-label" for="email_code">인증번호 입력</label>
 					<div class="input-with-button">
-						<input v-model="formData.code" placeholder="인증번호 6자리" maxlength="6" class="input-field" />
+						<input id="email_code" v-model="formData.code" placeholder="인증번호 6자리" maxlength="6" class="input-field" />
 						<button class="duplicate-check-button" :disabled="!formData.code" @click="verifyCode">확인</button>
 					</div>
 				</div>
 
 				<!-- Password Field -->
 				<div class="field-group">
-					<label class="field-label">비밀번호 *</label>
-					<input type="password" v-model="formData.password" :class="['input-field', { error: formData.password && !passwordValid }]" placeholder="비밀번호를 입력하세요" maxlength="20" />
+					<label class="field-label" for="password">비밀번호 *</label>
+					<input
+						id="password"
+						type="password"
+						v-model="formData.password"
+						:class="['input-field', { error: formData.password && !passwordValid }]"
+						placeholder="비밀번호를 입력하세요"
+						maxlength="20"
+					/>
 					<ul v-if="formData.password && !passwordValid" class="password-rules">
 						<li :class="lengthValid ? 'valid' : 'invalid'">8~20자</li>
 						<li :class="letterValid ? 'valid' : 'invalid'">문자 포함</li>
@@ -59,8 +81,9 @@
 
 				<!-- Password Confirm -->
 				<div class="field-group">
-					<label class="field-label">비밀번호 확인 *</label>
+					<label class="field-label" for="passwordConfirm">비밀번호 확인 *</label>
 					<input
+						id="passwordConfirm"
 						type="password"
 						v-model="formData.passwordConfirm"
 						:class="['input-field', { error: formData.passwordConfirm && !passwordConfirmValid }]"
@@ -74,17 +97,33 @@
 
 				<!-- Phone Field -->
 				<div class="field-group">
-					<label class="field-label">전화번호 *</label>
+					<label class="field-label" for="phone">전화번호 *</label>
 
-					<input v-model="formData.phoneDisplay" @input="onPhoneInput" @keypress="preventInvalidPhoneChars" :class="['input-field', { error: formData.phone && !phoneValid }]" placeholder="ex) 010-1234-1234" maxlength="13" />
+					<input
+						id="phone"
+						v-model="formData.phoneDisplay"
+						@input="onPhoneInput"
+						@keypress="preventInvalidPhoneChars"
+						:class="['input-field', { error: formData.phone && !phoneValid }]"
+						placeholder="ex) 010-1234-1234"
+						maxlength="13"
+					/>
 					<p v-if="formData.phone && !phoneValid" class="field-help error-text">010, 011, 016, 017, 018, 019로 시작하는 10~11자리 번호만 입력 가능</p>
 				</div>
 
 				<!-- Nickname + 중복확인 -->
 				<div class="field-group">
-					<label class="field-label">닉네임 *</label>
+					<label class="field-label" for="nickname">닉네임 *</label>
 					<div class="input-with-button">
-						<input v-model="formData.nickname" @input="handleNicknameInput" @keypress="preventInvalidNicknameChars" :class="['input-field', { error: formData.nickname && !nicknameValid }]" placeholder="닉네임을 입력하세요" maxlength="18" />
+						<input
+							id="nickname"
+							v-model="formData.nickname"
+							@input="handleNicknameInput"
+							@keypress="preventInvalidNicknameChars"
+							:class="['input-field', { error: formData.nickname && !nicknameValid }]"
+							placeholder="닉네임을 입력하세요"
+							maxlength="18"
+						/>
 						<button class="duplicate-check-button" @click="checkNickname">중복확인</button>
 						<span v-if="nickOK" class="checkmark">✔</span>
 					</div>
@@ -103,7 +142,7 @@ import { defineComponent, reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { useUserStore } from "@/stores/user";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import { alertSuccess, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "Signup",
@@ -137,7 +176,7 @@ export default defineComponent({
 		const preventInvalidNameChars = (e: KeyboardEvent) => {
 			const char = e.key;
 			// 한글, 영문, 백스페이스, 방향키 등 허용
-			if (!/[a-zA-Z가-힣]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+			if (!/[a-zA-Z가-힣]/.test(char) && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(char)) {
 				e.preventDefault();
 			}
 		};
@@ -185,11 +224,11 @@ export default defineComponent({
 			if (!formData.phone || formData.phone.length < 10 || formData.phone.length > 11) {
 				return false;
 			}
-			return /^(010|011|016|017|018|019)[0-9]{7,8}$/.test(formData.phone);
+			return /^(010|011|016|017|018|019)\d{7,8}$/.test(formData.phone);
 		});
 		const onPhoneInput = (e: Event) => {
 			// 입력값에서 숫자만 추출
-			let digits = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, "");
+			let digits = (e.target as HTMLInputElement).value.replace(/\D/g, "");
 			if (digits.length > 11) digits = digits.slice(0, 11);
 			// 화면용: 3-4-4 포맷
 			const part1 = digits.slice(0, 3);
@@ -202,25 +241,25 @@ export default defineComponent({
 		const preventInvalidPhoneChars = (e: KeyboardEvent) => {
 			const char = e.key;
 			// 숫자, 백스페이스, 방향키 등만 허용
-			if (!/[0-9]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+			if (!/\d/.test(char) && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(char)) {
 				e.preventDefault();
 			}
 		};
 
 		// 6) 닉네임 - 특수문자 금지 (한글, 영문, 숫자만 허용)
 		const nicknameValid = computed(() => {
-			const noSpecialChars = /^[a-zA-Z가-힣0-9]+$/.test(formData.nickname);
+			const noSpecialChars = /^[a-zA-Z가-힣\d]+$/.test(formData.nickname);
 			return formData.nickname.length > 0 && formData.nickname.length <= 18 && noSpecialChars && nickOK.value;
 		});
 		const handleNicknameInput = () => {
 			// 특수문자 제거 및 한글/영문/숫자만 유지
-			formData.nickname = formData.nickname.replace(/[^a-zA-Z가-힣0-9]/g, "");
+			formData.nickname = formData.nickname.replace(/[^a-zA-Z가-힣\d]/g, "");
 			nickOK.value = false;
 		};
 		const preventInvalidNicknameChars = (e: KeyboardEvent) => {
 			const char = e.key;
 			// 한글, 영문, 숫자, 백스페이스, 방향키 등 허용
-			if (!/[a-zA-Z가-힣0-9]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+			if (!/[a-zA-Z가-힣\d]/.test(char) && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(char)) {
 				e.preventDefault();
 			}
 		};
@@ -280,7 +319,7 @@ export default defineComponent({
 			try {
 				// userStore의 보안 로그인 기능 사용하여 민감한 정보 암호화 저장
 				await userStore.login(formData.email, formData.password, false);
-				
+
 				console.log("자동 로그인 성공");
 				router.push("/social-login-info");
 			} catch (error) {
@@ -372,7 +411,7 @@ export default defineComponent({
 .signup-container {
 	width: 100%;
 	min-height: 100vh;
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 	position: relative;
 	overflow-x: hidden;
 	font-family: "Inter", sans-serif;
@@ -490,7 +529,7 @@ export default defineComponent({
 }
 
 .input-field:focus {
-	border-color: #4B3D34;
+	border-color: #4b3d34;
 }
 
 .input-field.error {
@@ -510,7 +549,7 @@ export default defineComponent({
 
 .duplicate-check-button {
 	height: 27px;
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	border: none;
 	border-radius: 4px;
 	color: #ffffff;
@@ -537,7 +576,7 @@ export default defineComponent({
 .signup-button {
 	width: 100%;
 	height: 50px;
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -549,7 +588,7 @@ export default defineComponent({
 }
 
 .signup-button:hover {
-	background-color: #594D44;
+	background-color: #594d44;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
