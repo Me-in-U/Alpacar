@@ -74,7 +74,7 @@ import { defineComponent, ref, onMounted, onBeforeUnmount } from "vue";
 import AdminNavbar from "@/views/admin/AdminNavbar.vue";
 import { BACKEND_BASE_URL } from "@/utils/api";
 import { SecureTokenManager } from "@/utils/security";
-import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
+import { alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 export default defineComponent({
 	name: "AdminParkingLogs",
@@ -238,7 +238,6 @@ export default defineComponent({
 		onMounted(async () => {
 			await fetchPage();
 
-			// ws = new WebSocket("ws://localhost:8000/ws/parking-logs/");
 			ws = new WebSocket("wss://i13e102.p.ssafy.io/ws/parking-logs/");
 			ws.onopen = () => {
 				console.log("[WebSocket] ✅ Connected");
@@ -309,11 +308,11 @@ export default defineComponent({
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 }
 
 .container {
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 	min-height: calc(100vh - 64px);
 	padding: 48px 64px;
 	box-sizing: border-box;

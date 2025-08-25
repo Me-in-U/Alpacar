@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { computed, ref, reactive, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import Header from "@/components/Header.vue";
 import BottomNavigation from "@/components/BottomNavigation.vue";
@@ -170,7 +170,7 @@ onMounted(() => {
 	width: 440px;
 	height: 956px;
 	position: relative;
-	background: #F9F5EC;
+	background: #f9f5ec;
 	overflow: hidden;
 	margin: 0 auto;
 }
@@ -233,7 +233,7 @@ onMounted(() => {
 }
 
 .history-text.score {
-	color: #4B3D34;
+	color: #4b3d34;
 	font-weight: 600;
 }
 
@@ -244,7 +244,7 @@ onMounted(() => {
 }
 
 .show-more-btn {
-	background: #4B3D34;
+	background: #4b3d34;
 	color: #ffffff;
 	border: none;
 	border-radius: 20px;
@@ -257,7 +257,7 @@ onMounted(() => {
 }
 
 .show-more-btn:hover {
-	background: #594D44;
+	background: #594d44;
 	transform: translateY(-1px);
 	box-shadow: 0 2px 8px rgba(75, 61, 52, 0.3);
 }
@@ -290,7 +290,7 @@ onMounted(() => {
 }
 
 .retry-btn {
-	background: #4B3D34;
+	background: #4b3d34;
 	color: #ffffff;
 	border: none;
 	border-radius: 6px;
@@ -303,7 +303,7 @@ onMounted(() => {
 }
 
 .retry-btn:hover {
-	background: #594D44;
+	background: #594d44;
 	transform: translateY(-1px);
 	box-shadow: 0 2px 8px rgba(75, 61, 52, 0.3);
 }

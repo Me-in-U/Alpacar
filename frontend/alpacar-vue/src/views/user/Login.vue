@@ -11,34 +11,18 @@
 			<div class="login-form">
 				<!-- Email Input -->
 				<div class="input-field">
-					<input 
-						type="email" 
-						placeholder="이메일 입력" 
-						v-model="email" 
-						class="input"
-						@keyup.enter="handleLogin" 
-					/>
+					<input type="email" placeholder="이메일 입력" v-model="email" class="input" @keyup.enter="handleLogin" />
 				</div>
 
 				<!-- Password Input -->
 				<div class="input-field">
-					<input 
-						type="password" 
-						placeholder="비밀번호 입력" 
-						v-model="password" 
-						class="input"
-						@keyup.enter="handleLogin" 
-					/>
+					<input type="password" placeholder="비밀번호 입력" v-model="password" class="input" @keyup.enter="handleLogin" />
 				</div>
 
 				<!-- Auto Login Checkbox -->
 				<div class="auto-login-container">
 					<label class="auto-login-label">
-						<input 
-							type="checkbox" 
-							v-model="autoLogin" 
-							class="auto-login-checkbox"
-						/>
+						<input type="checkbox" v-model="autoLogin" class="auto-login-checkbox" />
 						<span class="auto-login-text">자동 로그인</span>
 					</label>
 				</div>
@@ -49,7 +33,6 @@
 					<span class="button-text loading" v-else>로그인 중...</span>
 				</button>
 
-
 				<!-- Social Login Buttons -->
 				<div class="social-login">
 					<!-- Google Login -->
@@ -57,7 +40,6 @@
 						<div class="google-icon"></div>
 						<span class="button-text">구글 로그인</span>
 					</button>
-
 				</div>
 
 				<!-- Links -->
@@ -113,7 +95,7 @@ export default defineComponent({
 			const backendUrl = BACKEND_BASE_URL || "https://i13e102.p.ssafy.io/api";
 			const googleLoginUrl = `${backendUrl}/auth/social/google/login/`;
 			console.log("🔗 리다이렉트 URL:", googleLoginUrl);
-			
+
 			try {
 				console.log("🚀 리다이렉트 시작...");
 				window.location.href = googleLoginUrl;
@@ -123,7 +105,6 @@ export default defineComponent({
 				alertError(`구글 로그인 중 오류가 발생했습니다: ${errorMessage}`);
 			}
 		};
-
 
 		return {
 			email,
@@ -141,7 +122,7 @@ export default defineComponent({
 .login-container {
 	width: 100%;
 	min-height: 100vh;
-	background-color: #F9F5EC;
+	background-color: #f9f5ec;
 	position: relative;
 	overflow-x: hidden;
 	font-family: "Inter", sans-serif;
@@ -215,7 +196,7 @@ export default defineComponent({
 }
 
 .input:focus {
-	border-color: #4B3D34;
+	border-color: #4b3d34;
 }
 
 /* Auto Login Checkbox */
@@ -246,8 +227,8 @@ export default defineComponent({
 }
 
 .auto-login-checkbox:checked {
-	background-color: #4B3D34;
-	border-color: #4B3D34;
+	background-color: #4b3d34;
+	border-color: #4b3d34;
 }
 
 .auto-login-checkbox:checked::after {
@@ -272,7 +253,7 @@ export default defineComponent({
 .login-button {
 	width: 100%;
 	height: 50px;
-	background-color: #4B3D34;
+	background-color: #4b3d34;
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
@@ -290,7 +271,7 @@ export default defineComponent({
 }
 
 .login-button:hover:not(:disabled) {
-	background-color: #594D44;
+	background-color: #594d44;
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(75, 61, 52, 0.3);
 }
@@ -314,8 +295,12 @@ export default defineComponent({
 }
 
 @keyframes spin {
-	from { transform: translateY(-50%) rotate(0deg); }
-	to { transform: translateY(-50%) rotate(360deg); }
+	from {
+		transform: translateY(-50%) rotate(0deg);
+	}
+	to {
+		transform: translateY(-50%) rotate(360deg);
+	}
 }
 
 /* Social Login */

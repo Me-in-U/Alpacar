@@ -18,44 +18,25 @@
 						</div>
 
 						<!-- ↓ 이메일 줄 삭제하고, 토글 배치 -->
-						<button
-							class="headline-expand"
-							type="button"
-							@click="isInfoExpanded = !isInfoExpanded"
-							:aria-label="isInfoExpanded ? '기본 정보 닫기' : '기본 정보 보기'"
-						>
+						<button class="headline-expand" type="button" @click="isInfoExpanded = !isInfoExpanded" :aria-label="isInfoExpanded ? '기본 정보 닫기' : '기본 정보 보기'">
 							<span class="expand-label">
-								{{ isInfoExpanded ? '기본 정보 닫기' : '기본 정보 보기' }}
+								{{ isInfoExpanded ? "기본 정보 닫기" : "기본 정보 보기" }}
 							</span>
-							<svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"
-									:class="{ 'is-open': isInfoExpanded }">
+							<svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true" :class="{ 'is-open': isInfoExpanded }">
 								<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" fill="currentColor" />
 							</svg>
 						</button>
 					</div>
 
 					<!-- 우측 설정 아이콘: 비밀번호 확인 모달 (소셜 로그인 유저는 숨김) -->
-					<img 
-						v-if="!isSocialUser"
-						class="settings-icon" 
-						src="@/assets/setting.png" 
-						alt="설정" 
-						@click="openSettingsAuthModal" 
-					/>
+					<img v-if="!isSocialUser" class="settings-icon" src="@/assets/setting.png" alt="설정" @click="openSettingsAuthModal" />
 				</div>
 
 				<!-- ▼ 더보기 영역 -->
 				<transition name="fade">
 					<div v-if="isInfoExpanded">
 						<!-- 닉네임(별도 아이콘) -->
-						<div
-							class="user-info__item user-info__item--action"
-							@click="openNicknameModal"
-							role="button"
-							tabindex="0"
-							@keydown.enter.prevent="openNicknameModal"
-							@keydown.space.prevent="openNicknameModal"
-						>
+						<button type="button" class="user-info__item user-info__item--action" @click="openNicknameModal" aria-label="닉네임 수정 열기">
 							<div class="user-info__icon-wrapper">
 								<div class="user-info__icon user-info__icon--nickname"></div>
 							</div>
@@ -65,10 +46,10 @@
 							</div>
 							<span class="chevron" aria-hidden="true">
 								<svg viewBox="0 0 24 24">
-									<path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
 								</svg>
 							</span>
-						</div>
+						</button>
 						<div class="user-info__divider"></div>
 
 						<!-- 이름 -->
@@ -78,7 +59,7 @@
 							</div>
 							<div class="user-info__content">
 								<div class="user-info__label">이름</div>
-								<div class="user-info__value">{{ isLoadingUserInfo ? '로딩 중...' : (userInfo?.name || "-") }}</div>
+								<div class="user-info__value">{{ isLoadingUserInfo ? "로딩 중..." : userInfo?.name || "-" }}</div>
 							</div>
 						</div>
 
@@ -91,7 +72,7 @@
 							</div>
 							<div class="user-info__content">
 								<div class="user-info__label">이메일</div>
-								<div class="user-info__value">{{ isLoadingUserInfo ? '로딩 중...' : (userInfo?.email || "-") }}</div>
+								<div class="user-info__value">{{ isLoadingUserInfo ? "로딩 중..." : userInfo?.email || "-" }}</div>
 							</div>
 						</div>
 
@@ -104,12 +85,11 @@
 							</div>
 							<div class="user-info__content">
 								<div class="user-info__label">전화번호</div>
-								<div class="user-info__value">{{ isLoadingUserInfo ? '로딩 중...' : (formatPhoneNumber(userInfo?.phone) || "-") }}</div>
+								<div class="user-info__value">{{ isLoadingUserInfo ? "로딩 중..." : formatPhoneNumber(userInfo?.phone) || "-" }}</div>
 							</div>
 						</div>
 					</div>
 				</transition>
-
 			</div>
 
 			<!-- 내 차량정보 -->
@@ -151,7 +131,7 @@
 					</div>
 					<div class="notification-item__toggle">
 						<button class="toggle-button" :class="{ 'toggle-button--active': isNotificationEnabled }" @click="toggleNotifications">
-							{{ isNotificationEnabled ? '켜짐' : '꺼짐' }}
+							{{ isNotificationEnabled ? "켜짐" : "꺼짐" }}
 						</button>
 					</div>
 				</div>
@@ -163,7 +143,7 @@
 					</div>
 					<div class="notification-item__toggle">
 						<button class="install-button" @click="installPWA" :disabled="!canInstallPWA">
-							{{ canInstallPWA ? '설치' : '설치됨' }}
+							{{ canInstallPWA ? "설치" : "설치됨" }}
 						</button>
 					</div>
 				</div>
@@ -186,7 +166,7 @@
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
-				
+
 				<h3 class="modal__title">차량 번호를 입력하세요</h3>
 
 				<div class="modal__input-field">
@@ -217,22 +197,15 @@
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
-				
+
 				<h3 class="modal__title">차량이 1대밖에 없어 삭제할 수 없습니다.</h3>
 				<button class="modal__button" @click="showSingleVehicleWarning = false">확인</button>
 			</div>
 		</div>
 
 		<!-- 닉네임 수정 모달 -->
-		<div
-			v-if="showNicknameModal"
-			class="modal-overlay"
-			@click="showNicknameModal = false"
-		>
-			<div
-				class="modal modal--nickname"
-				@click.stop
-			>
+		<div v-if="showNicknameModal" class="modal-overlay" @click="showNicknameModal = false">
+			<div class="modal modal--nickname" @click.stop>
 				<!-- X Close Button -->
 				<button class="modal-close-btn" @click="showNicknameModal = false" aria-label="닫기">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -240,10 +213,8 @@
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
-				
-				<h3 class="modal__title">
-					수정할 닉네임을 입력하세요
-				</h3>
+
+				<h3 class="modal__title">수정할 닉네임을 입력하세요</h3>
 
 				<div class="modal__input-field">
 					<input
@@ -261,20 +232,9 @@
 					/>
 				</div>
 
-				<div
-					v-if="newNickname && !isNicknameValid"
-					class="error-message"
-				>
-					닉네임은 한글, 영문, 숫자만 사용 가능 (2-18자)
-				</div>
+				<div v-if="newNickname && !isNicknameValid" class="error-message">닉네임은 한글, 영문, 숫자만 사용 가능 (2-18자)</div>
 
-				<button
-					class="modal__button"
-					@click="updateNickname"
-					:disabled="!isNicknameValid"
-				>
-					설정 완료
-				</button>
+				<button class="modal__button" @click="updateNickname" :disabled="!isNicknameValid">설정 완료</button>
 			</div>
 		</div>
 
@@ -288,7 +248,7 @@
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
-				
+
 				<h3 class="modal__title">비밀번호 확인</h3>
 
 				<div class="modal__input-field">
@@ -319,7 +279,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { BACKEND_BASE_URL } from "@/utils/api";
-import { subscribeToPushNotifications, unsubscribeFromPushNotifications, getSubscriptionStatus, showLocalNotification } from "@/utils/pwa";
+import { showLocalNotification } from "@/utils/pwa";
 import { alert, alertSuccess, alertWarning, alertError } from "@/composables/useAlert";
 
 const router = useRouter();
@@ -335,19 +295,19 @@ const userInfo = computed(() => detailedUserInfo.value || userStore.me);
 
 // 민감한 사용자 정보 동적 로딩
 const loadDetailedUserInfo = async () => {
-  if (isLoadingUserInfo.value) return;
-  
-  try {
-    isLoadingUserInfo.value = true;
-    const userData = await userStore.fetchDetailedUserInfo();
-    detailedUserInfo.value = userData;
-    console.log('[UserProfile] 사용자 상세 정보 로딩 완료');
-  } catch (error) {
-    console.error('[UserProfile] 사용자 정보 로딩 실패:', error);
-    // 로딩 실패 시 기본 정보 사용 (민감정보 없이)
-  } finally {
-    isLoadingUserInfo.value = false;
-  }
+	if (isLoadingUserInfo.value) return;
+
+	try {
+		isLoadingUserInfo.value = true;
+		const userData = await userStore.fetchDetailedUserInfo();
+		detailedUserInfo.value = userData;
+		console.log("[UserProfile] 사용자 상세 정보 로딩 완료");
+	} catch (error) {
+		console.error("[UserProfile] 사용자 정보 로딩 실패:", error);
+		// 로딩 실패 시 기본 정보 사용 (민감정보 없이)
+	} finally {
+		isLoadingUserInfo.value = false;
+	}
 };
 const vehicles = computed(() => userStore.vehicles);
 
@@ -358,7 +318,12 @@ const isSocialUser = computed(() => {
 });
 
 const showAllVehicles = ref(false);
-const displayedVehicles = computed(() => (vehicles.value.length <= 3 ? vehicles.value : showAllVehicles.value ? vehicles.value : vehicles.value.slice(0, 3)));
+// 기존 중첩 삼항 연산자를 가독성 좋은 조건문으로 변경
+const displayedVehicles = computed(() => {
+	const all = vehicles.value;
+	if (all.length <= 3) return all;
+	return showAllVehicles.value ? all : all.slice(0, 3);
+});
 
 /* 사용자 정보 카드 토글 */
 const isInfoExpanded = ref(false);
@@ -369,9 +334,9 @@ const vehicleNumber = ref("");
 // 한국 번호판 정규식 패턴 (더 정확한 한글 문자 제한)
 const KOREAN_PLATE_CHARS = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배";
 const plateRegex = new RegExp(
-  `^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` +  // 01-99 또는 100-999
-  `[${KOREAN_PLATE_CHARS}]` +              // 한글 1자 (지정된 문자만)
-  `[1-9]\\d{3}$`                          // 1000-9999
+	`^(?:0[1-9]|[1-9]\\d|[1-9]\\d{2})` + // 01-99 또는 100-999
+		`[${KOREAN_PLATE_CHARS}]` + // 한글 1자 (지정된 문자만)
+		`[1-9]\\d{3}$` // 1000-9999
 );
 
 const isVehicleNumberValid = computed(() => plateRegex.test(vehicleNumber.value));
@@ -414,21 +379,21 @@ watch(vehicleNumber, () => {
 	plateTimer = setTimeout(async () => {
 		try {
 			const url = `${BACKEND_BASE_URL}/vehicles/check-license/?license=${encodeURIComponent(vehicleNumber.value)}`;
-			console.log('[차량번호 검증] 요청 URL:', url);
-			console.log('[차량번호 검증] 원본 번호:', vehicleNumber.value);
-			console.log('[차량번호 검증] 인코딩된 번호:', encodeURIComponent(vehicleNumber.value));
-			
+			console.log("[차량번호 검증] 요청 URL:", url);
+			console.log("[차량번호 검증] 원본 번호:", vehicleNumber.value);
+			console.log("[차량번호 검증] 인코딩된 번호:", encodeURIComponent(vehicleNumber.value));
+
 			const res = await fetch(url);
-			console.log('[차량번호 검증] 응답 상태:', res.status, res.statusText);
-			
+			console.log("[차량번호 검증] 응답 상태:", res.status, res.statusText);
+
 			if (!res.ok) {
-				console.error('[차량번호 검증] HTTP 오류:', res.status, res.statusText);
+				console.error("[차량번호 검증] HTTP 오류:", res.status, res.statusText);
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 			}
-			
+
 			const data = await res.json();
-			console.log('[차량번호 검증] 응답 데이터:', data);
-			
+			console.log("[차량번호 검증] 응답 데이터:", data);
+
 			// 새로운 API 응답 형식 처리
 			if (data.status === "valid") {
 				plateStatus.value = "ok";
@@ -437,11 +402,11 @@ watch(vehicleNumber, () => {
 			} else if (data.status === "invalid") {
 				plateStatus.value = "invalid";
 			} else {
-				console.warn('[차량번호 검증] 예상치 못한 status:', data.status);
+				console.warn("[차량번호 검증] 예상치 못한 status:", data.status);
 				plateStatus.value = "error";
 			}
 		} catch (error) {
-			console.error('[차량번호 검증] 에러:', error);
+			console.error("[차량번호 검증] 에러:", error);
 			plateStatus.value = "error";
 		}
 	}, 400);
@@ -477,7 +442,7 @@ const addVehicle = async () => {
 			vehicleNumber.value = "";
 			plateStatus.value = "idle";
 			try {
-				// await userStore.fetchMyVehicles();
+				await userStore.fetchMyVehicles();
 			} catch {}
 		} else {
 			const contentType = response.headers.get("content-type");
@@ -539,25 +504,16 @@ const getVehicleImageUrl = (imageUrl: string | undefined) => {
 const handleLogout = () => {
 	// 사용자 스토어 클리어
 	userStore.clearUser();
-	
+
 	// 로컬 스토리지에서 인증 관련 데이터 모두 삭제
-	[
-		"access_token", "refresh_token",
-		"access", "refresh", "accessToken", "refreshToken",
-		"token", "user"
-	].forEach((key) => localStorage.removeItem(key));
-	
+	["access_token", "refresh_token", "access", "refresh", "accessToken", "refreshToken", "token", "user"].forEach((key) => localStorage.removeItem(key));
+
 	// 세션 스토리지에서도 제거
-	[
-		"access_token", "refresh_token",
-		"access", "refresh", "accessToken", "refreshToken",
-		"token", "user"
-	].forEach((key) => sessionStorage.removeItem(key));
-	
+	["access_token", "refresh_token", "access", "refresh", "accessToken", "refreshToken", "token", "user"].forEach((key) => sessionStorage.removeItem(key));
+
 	// 로그인 페이지로 리다이렉트
 	router.push("/login");
 };
-
 
 /* ====== 닉네임 ====== */
 const showNicknameModal = ref(false);
@@ -569,12 +525,14 @@ const isNicknameValid = computed(() => {
 	return noSpecialChars && lengthValid;
 });
 
-const openNicknameModal = () => { 
-	newNickname.value = userInfo.value?.nickname || ""; 
-	showNicknameModal.value = true; 
+const openNicknameModal = () => {
+	newNickname.value = userInfo.value?.nickname || "";
+	showNicknameModal.value = true;
 };
 
-const onNicknameCompositionStart = () => { isNicknameComposing.value = true; };
+const onNicknameCompositionStart = () => {
+	isNicknameComposing.value = true;
+};
 const onNicknameCompositionUpdate = (e: CompositionEvent) => {
 	const input = e.target as HTMLInputElement;
 	if (input.value.length > 18) {
@@ -589,7 +547,9 @@ const onNicknameCompositionEnd = (e: Event) => {
 	const cleaned = input.value.replace(/[^a-zA-Z가-힣0-9]/g, "").slice(0, 18);
 	if (input.value !== cleaned) {
 		newNickname.value = cleaned;
-		setTimeout(() => { input.value = cleaned; }, 0);
+		setTimeout(() => {
+			input.value = cleaned;
+		}, 0);
 	}
 };
 const handleNicknameInput = (e: Event) => {
@@ -604,7 +564,9 @@ const handleNicknameInput = (e: Event) => {
 	const cleaned = input.value.replace(/[^a-zA-Z가-힣0-9]/g, "").slice(0, 18);
 	if (input.value !== cleaned) {
 		newNickname.value = cleaned;
-		setTimeout(() => { if (input.value !== cleaned) input.value = cleaned; }, 0);
+		setTimeout(() => {
+			if (input.value !== cleaned) input.value = cleaned;
+		}, 0);
 	}
 };
 const preventNicknameLengthExceed = (e: Event) => {
@@ -612,18 +574,27 @@ const preventNicknameLengthExceed = (e: Event) => {
 	const ev = e as InputEvent;
 	const len = input.value.length;
 	if (ev.inputType && (ev.inputType.includes("insert") || ev.inputType.includes("replace") || ev.inputType === "insertText" || ev.inputType === "insertCompositionText")) {
-		if (len >= 18) { e.preventDefault(); return; }
+		if (len >= 18) {
+			e.preventDefault();
+			return;
+		}
 		const data = ev.data || "";
-		if (len + data.length > 18) { e.preventDefault(); return; }
+		if (len + data.length > 18) {
+			e.preventDefault();
+			return;
+		}
 	}
 };
 const preventInvalidNicknameChars = (e: KeyboardEvent) => {
 	if (isNicknameComposing.value) return;
 	const char = e.key;
 	const input = e.target as HTMLInputElement;
-	if (["Backspace","Delete","ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Tab","Enter","Escape"].includes(char)) return;
+	if (["Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Tab", "Enter", "Escape"].includes(char)) return;
 	if (e.isComposing || char === "Process") return;
-	if (input.value.length >= 18) { e.preventDefault(); return; }
+	if (input.value.length >= 18) {
+		e.preventDefault();
+		return;
+	}
 	if (!/[a-zA-Z가-힣0-9]/.test(char)) e.preventDefault();
 };
 
@@ -640,7 +611,6 @@ const updateNickname = async () => {
 		await alertError("변경 실패: " + err.message);
 	}
 };
-
 
 /* ===== 설정 진입 전 비밀번호 인증 (UserSetting의 currentPassword 컨셉 재사용) ===== */
 const showSettingsAuthModal = ref(false);
@@ -659,6 +629,22 @@ const closeSettingsAuthModal = () => {
 	settingsPassword.value = "";
 	settingsAuthError.value = "";
 };
+
+// S2245 대응: 안전한 토큰 생성기
+function secureRandomToken(): string {
+	// 우선 UUID 사용
+	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+		return crypto.randomUUID();
+	}
+	// UUID가 없으면 CSPRNG 바이트로 토큰 생성
+	if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+		const arr = new Uint8Array(16);
+		crypto.getRandomValues(arr);
+		return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+	}
+	// 최후 수단: 예측 가능하지만 Math.random은 사용하지 않음(클라이언트 측 임시 게이트용)
+	return `t_${Date.now()}_${performance.now().toString().replace(".", "")}`;
+}
 
 const verifySettingsPassword = async () => {
 	settingsAuthError.value = "";
@@ -699,15 +685,15 @@ const verifySettingsPassword = async () => {
 
 		// 성공: 토큰은 저장/갱신하지 않고 바로 폐기(검증 목적)
 		closeSettingsAuthModal();
-		
-		// 일회용 인증 토큰 생성 (5초간만 유효)
+
+		// 일회용 인증 토큰 생성 (5초간만 유효) - CSPRNG 사용
 		const oneTimeToken = {
 			timestamp: Date.now(),
 			userEmail: email,
-			token: `auth_${Date.now()}_${Math.random()}`
+			token: secureRandomToken(),
 		};
-		sessionStorage.setItem('user-setting-one-time-auth', JSON.stringify(oneTimeToken));
-		
+		sessionStorage.setItem("user-setting-one-time-auth", JSON.stringify(oneTimeToken));
+
 		router.push("/user-setting");
 	} catch (e) {
 		console.error(e);
@@ -717,99 +703,100 @@ const verifySettingsPassword = async () => {
 	}
 };
 
-
 /* ====== 알림(PWA) ====== */
 // 헤더와 동기화를 위해 userStore의 push_on 상태를 사용
 const isNotificationEnabled = computed<boolean>({
-  get: () => userStore.me?.push_on ?? false,
-  set: (value: boolean) => {
-    // userStore의 togglePush 메서드를 사용하여 상태 변경
-    userStore.togglePush(value);
-  }
+	get: () => userStore.me?.push_on ?? false,
+	set: (value: boolean) => {
+		// userStore의 togglePush 메서드를 사용하여 상태 변경
+		userStore.togglePush(value);
+	},
 });
 
 const canInstallPWA = ref(false);
 let deferredPrompt: any = null;
 
 const toggleNotifications = async () => {
-  try {
-    console.log("[UserProfile] 푸시 알림 토글 시작:", !isNotificationEnabled.value);
-    
-    // userStore의 togglePush 메서드를 사용하여 헤더와 동기화
-    await userStore.togglePush(!isNotificationEnabled.value);
-    
-    // 성공 메시지 표시
-    if (isNotificationEnabled.value) {
-      await alertSuccess("푸시 알림이 활성화되었습니다.");
-      setTimeout(() => {
-        showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
-      }, 1000);
-    } else {
-      await alertSuccess("푸시 알림이 해제되었습니다.");
-    }
-  } catch (e) {
-    console.error("[UserProfile] 알림 설정 변경 중 오류:", e);
-    await alertError(`알림 설정 변경 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
-  }
+	try {
+		console.log("[UserProfile] 푸시 알림 토글 시작:", !isNotificationEnabled.value);
+
+		// userStore의 togglePush 메서드를 사용하여 헤더와 동기화
+		await userStore.togglePush(!isNotificationEnabled.value);
+
+		// 성공 메시지 표시
+		if (isNotificationEnabled.value) {
+			await alertSuccess("푸시 알림이 활성화되었습니다.");
+			setTimeout(() => {
+				showLocalNotification({ type: "general", title: "🎉 알림 설정 완료", body: "이제 주차 알림을 받을 수 있습니다!" });
+			}, 1000);
+		} else {
+			await alertSuccess("푸시 알림이 해제되었습니다.");
+		}
+	} catch (e) {
+		console.error("[UserProfile] 알림 설정 변경 중 오류:", e);
+		await alertError(`알림 설정 변경 중 오류가 발생했습니다: ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
+	}
 };
 
 const installPWA = async () => {
-  if (deferredPrompt) {
-    try {
-      deferredPrompt.prompt();
-      const choiceResult = await deferredPrompt.userChoice;
-      if (choiceResult.outcome === "accepted") { canInstallPWA.value = false; }
-      deferredPrompt = null;
-    } catch (e) {
-      console.error(e);
-      await alertError("PWA 설치 중 오류가 발생했습니다.");
-    }
-  } else if (window.matchMedia("(display-mode: standalone)").matches) {
-    await alert("이미 PWA로 설치되어 실행 중입니다.");
-  } else {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("android")) await alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
-    else if (ua.includes("iphone") || ua.includes("ipad")) await alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
-    else await alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
-  }
+	if (deferredPrompt) {
+		try {
+			deferredPrompt.prompt();
+			const choiceResult = await deferredPrompt.userChoice;
+			if (choiceResult.outcome === "accepted") {
+				canInstallPWA.value = false;
+			}
+			deferredPrompt = null;
+		} catch (e) {
+			console.error(e);
+			await alertError("PWA 설치 중 오류가 발생했습니다.");
+		}
+	} else if (window.matchMedia("(display-mode: standalone)").matches) {
+		await alert("이미 PWA로 설치되어 실행 중입니다.");
+	} else {
+		const ua = navigator.userAgent.toLowerCase();
+		if (ua.includes("android")) await alert('Chrome 메뉴 → "홈 화면에 추가"를 선택하세요.');
+		else if (ua.includes("iphone") || ua.includes("ipad")) await alert('Safari 공유 버튼 → "홈 화면에 추가"를 선택하세요.');
+		else await alert('브라우저 메뉴에서 "앱 설치" 또는 "홈 화면에 추가"를 선택하세요.');
+	}
 };
 
 const checkNotificationStatus = async () => {
-  try {
-    // PWA 설치 상태만 확인 (알림 상태는 userStore에서 관리)
-    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
-    const isInWebAppiOS = (window.navigator as any).standalone === true;
-    const isInstalled = isStandalone || isInWebAppiOS;
-    canInstallPWA.value = !isInstalled && (!!deferredPrompt || "serviceWorker" in navigator);
-    
-    console.log("[UserProfile] 알림 상태 확인:", {
-      userStorePushOn: userStore.me?.push_on,
-      computedIsEnabled: isNotificationEnabled.value,
-      canInstallPWA: canInstallPWA.value
-    });
-  } catch (e) {
-    console.error("[UserProfile] 알림 상태 확인 중 오류:", e);
-  }
+	try {
+		// PWA 설치 상태만 확인 (알림 상태는 userStore에서 관리)
+		const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+		const isInWebAppiOS = (window.navigator as any).standalone === true;
+		const isInstalled = isStandalone || isInWebAppiOS;
+		canInstallPWA.value = !isInstalled && (!!deferredPrompt || "serviceWorker" in navigator);
+
+		console.log("[UserProfile] 알림 상태 확인:", {
+			userStorePushOn: userStore.me?.push_on,
+			computedIsEnabled: isNotificationEnabled.value,
+			canInstallPWA: canInstallPWA.value,
+		});
+	} catch (e) {
+		console.error("[UserProfile] 알림 상태 확인 중 오류:", e);
+	}
 };
 
 const setupPWAListeners = () => {
-  window.addEventListener("beforeinstallprompt", (e) => {
-    (e as Event).preventDefault?.();
-    deferredPrompt = e;
-    canInstallPWA.value = true;
-  });
-  window.addEventListener("appinstalled", () => {
-    canInstallPWA.value = false;
-    deferredPrompt = null;
-  });
+	window.addEventListener("beforeinstallprompt", (e) => {
+		(e as Event).preventDefault?.();
+		deferredPrompt = e;
+		canInstallPWA.value = true;
+	});
+	window.addEventListener("appinstalled", () => {
+		canInstallPWA.value = false;
+		deferredPrompt = null;
+	});
 };
 
 onMounted(async () => {
-  setupPWAListeners();
-  await checkNotificationStatus();
-  
-  // 민감한 사용자 정보 동적 로딩
-  await loadDetailedUserInfo();
+	setupPWAListeners();
+	await checkNotificationStatus();
+
+	// 민감한 사용자 정보 동적 로딩
+	await loadDetailedUserInfo();
 });
 </script>
 
@@ -818,7 +805,7 @@ onMounted(async () => {
 	width: 440px;
 	height: 956px;
 	position: relative;
-	background: #F9F5EC;
+	background: #f9f5ec;
 	overflow: hidden;
 	margin: 0 auto;
 }
@@ -850,7 +837,7 @@ onMounted(async () => {
 	left: 0;
 	right: 0;
 	height: 3px;
-	background: linear-gradient(90deg, #4B3D34, #594D44, #4B3D34);
+	background: linear-gradient(90deg, #4b3d34, #594d44, #4b3d34);
 	border-radius: 16px 16px 0 0;
 }
 
@@ -859,7 +846,7 @@ onMounted(async () => {
 	align-items: center;
 	justify-content: space-between;
 	padding: 14px 12px 12px 12px;
-	background: linear-gradient(135deg, #EDE6DF 0%, #E1D6CC 100%);
+	background: linear-gradient(135deg, #ede6df 0%, #e1d6cc 100%);
 	border-bottom: 1px solid rgba(119, 107, 93, 0.08);
 }
 
@@ -880,30 +867,30 @@ onMounted(async () => {
 
 /* 펼쳐졌을 때(compact) 항목 높이 축소 */
 .user-info.is-compact .user-info__item {
-  /* 상하 여백 ↓ */
-  padding: 10px 16px;
-  /* min-height가 행 높이를 잡고 있으니 낮추거나 제거 */
-  min-height: 52px; /* 필요하면 48px까지 낮춰도 OK */
+	/* 상하 여백 ↓ */
+	padding: 10px 16px;
+	/* min-height가 행 높이를 잡고 있으니 낮추거나 제거 */
+	min-height: 52px; /* 필요하면 48px까지 낮춰도 OK */
 }
 
 /* 아이콘이 너무 커서 행 높이를 밀면 살짝만 줄이기(선택) */
 .user-info.is-compact .user-info__icon {
-  height: 36px;
-  width: 36px;
+	height: 36px;
+	width: 36px;
 }
 .user-info.is-compact .user-info__icon::before {
-  height: 18px;
-  width: 18px;
+	height: 18px;
+	width: 18px;
 }
 
 /* Divider 좌우 여백도 살짝 줄이기(선택) */
 .user-info.is-compact .user-info__divider {
-  margin: 0 16px 0 64px;
+	margin: 0 16px 0 64px;
 }
 
 /* 라벨-값 사이 간격 미세 조정(선택) */
 .user-info.is-compact .user-info__label {
-  margin-bottom: 1px;
+	margin-bottom: 1px;
 }
 
 .headline-name {
@@ -916,23 +903,23 @@ onMounted(async () => {
 
 /* 닉네임 아래 토글(텍스트+아이콘) */
 .headline-expand {
-  margin-top: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;            /* 글자와 아이콘 간격 */
-  background: transparent;
-  border: 0;
-  padding: 0;
-  color: #6b6257;
-  cursor: pointer;
-  border-radius: 6px;
+	margin-top: 4px;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px; /* 글자와 아이콘 간격 */
+	background: transparent;
+	border: 0;
+	padding: 0;
+	color: #6b6257;
+	cursor: pointer;
+	border-radius: 6px;
 	align-self: flex-start;
-  margin-left: 0;
+	margin-left: 0;
 }
 
 .headline-expand:focus-visible {
-  outline: 2px solid rgba(119,107,93,0.4);
-  outline-offset: 2px;
+	outline: 2px solid rgba(119, 107, 93, 0.4);
+	outline-offset: 2px;
 }
 
 .settings-icon {
@@ -945,21 +932,21 @@ onMounted(async () => {
 /* ▼ 화살표 토글 버튼 */
 /* 새 래퍼: 우측 정렬, 라벨-버튼 나란히 */
 .user-info__footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 12px 12px 12px; /* 카드 하단 패딩 */
-  gap: 2px;                 /* 라벨과 버튼 간격 */
-  color: #6b6257;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	padding: 0 12px 12px 12px; /* 카드 하단 패딩 */
+	gap: 2px; /* 라벨과 버튼 간격 */
+	color: #6b6257;
 }
 
 /* 라벨 모양 */
 .expand-label {
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  user-select: none;
-  line-height: 1;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	user-select: none;
+	line-height: 1;
 	margin: 0;
 }
 
@@ -985,12 +972,12 @@ onMounted(async () => {
 }
 
 .expand-icon {
-  width: 20px;
-  height: 20px;
-  transition: transform 0.18s ease;
+	width: 20px;
+	height: 20px;
+	transition: transform 0.18s ease;
 }
 .expand-icon.is-open {
-  transform: rotate(180deg);
+	transform: rotate(180deg);
 }
 
 /* ── User Info Rows (펼쳐질 내용) ── */
@@ -1011,79 +998,85 @@ onMounted(async () => {
 }
 
 .user-info__icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  position: relative;
-  transition: transform 0.2s ease;
-  background: transparent;
+	width: 40px;
+	height: 40px;
+	border-radius: 10px;
+	position: relative;
+	transition: transform 0.2s ease;
+	background: transparent;
 }
 .user-info__icon::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 20px;
-  height: 20px;
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 20px;
+	height: 20px;
 
-  /* 아이콘 색상 */
-  background-color: #212730;
+	/* 아이콘 색상 */
+	background-color: #212730;
 
-  /* 마스크 공통 옵션 */
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-          mask-position: center;
-  -webkit-mask-size: contain;
-          mask-size: contain;
+	/* 마스크 공통 옵션 */
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	mask-size: contain;
 
-  /* 혹시 남아있을 기존 배경이미지 무효화 */
-  background-image: none !important;
+	/* 혹시 남아있을 기존 배경이미지 무효화 */
+	background-image: none !important;
 }
 
 /* 닉네임: 큰 별 아이콘으로 변경 */
-.user-info__icon--nickname { 
-  background: transparent; 
+.user-info__icon--nickname {
+	background: transparent;
 }
 .user-info__icon--nickname::before {
-  /* 아이콘 자체를 조금 더 키워서 눈에 띄게 */
-  width: 22px;
-  height: 22px;
+	/* 아이콘 자체를 조금 더 키워서 눈에 띄게 */
+	width: 22px;
+	height: 22px;
 
-  /* 단색 채우기 */
-  background-color: #212730;
+	/* 단색 채우기 */
+	background-color: #212730;
 
-  /* 마스크(별) */
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 17.27L18.18 21 16.54 13.97 22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
-          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 17.27L18.18 21 16.54 13.97 22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-          mask-position: center;
-  -webkit-mask-size: contain;
-          mask-size: contain;
+	/* 마스크(별) */
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 17.27L18.18 21 16.54 13.97 22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 17.27L18.18 21 16.54 13.97 22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	mask-size: contain;
 }
 
 /* 이름 */
-.user-info__icon--name { background: transparent; }
+.user-info__icon--name {
+	background: transparent;
+}
 .user-info__icon--name::before {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
-          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
 }
 
 /* 이메일 */
-.user-info__icon--email { background: transparent; }
+.user-info__icon--email {
+	background: transparent;
+}
 .user-info__icon--email::before {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
-          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
 }
 
 /* 전화번호 */
-.user-info__icon--phone { background: transparent; }
+.user-info__icon--phone {
+	background: transparent;
+}
 .user-info__icon--phone::before {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
-          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/%3E%3C/svg%3E");
 }
 .user-info__content {
 	flex: 1;
@@ -1093,7 +1086,7 @@ onMounted(async () => {
 .user-info__label {
 	font-size: 14px;
 	font-weight: 500;
-	color: #4B3D34;
+	color: #4b3d34;
 	margin-bottom: 2px;
 }
 
@@ -1124,7 +1117,7 @@ onMounted(async () => {
 }
 
 .button {
-	background: #4B3D34;
+	background: #4b3d34;
 	border-radius: 5px;
 	cursor: pointer;
 	display: inline-flex;
@@ -1216,7 +1209,7 @@ onMounted(async () => {
 	z-index: 1000;
 }
 .modal {
-	background: #F9F5EC;
+	background: #f9f5ec;
 	width: 90%;
 	max-width: 320px;
 	padding: 27px 24px 50px;
@@ -1248,7 +1241,7 @@ onMounted(async () => {
 .modal__button {
 	width: 100%;
 	height: 50px;
-	background: #4B3D34;
+	background: #4b3d34;
 	color: #fff;
 	border: none;
 	font-size: 16px;
@@ -1276,7 +1269,7 @@ onMounted(async () => {
 }
 
 .license-check-button {
-	background: #4B3D34;
+	background: #4b3d34;
 	color: white;
 	border: none;
 	padding: 8px 12px;
@@ -1343,7 +1336,26 @@ onMounted(async () => {
 	color: #ff9800;
 }
 .status.checking {
-	color: #4B3D34;
+	color: #4b3d34;
+}
+
+/* 버튼 기본 스타일 제거 및 행 스타일 유지 */
+button.user-info__item {
+	width: 100%;
+	background: transparent;
+	border: none;
+	text-align: left;
+	padding: 18px 20px; /* 안전하게 명시 */
+}
+.user-info.is-compact button.user-info__item {
+	padding: 10px 16px; /* compact 상태 보정 */
+}
+
+/* 포커스 가시성 */
+.user-info__item--action:focus-visible {
+	outline: 2px solid rgba(119, 107, 93, 0.4);
+	outline-offset: 2px;
+	border-radius: 8px;
 }
 
 /* Responsive */
@@ -1403,23 +1415,28 @@ onMounted(async () => {
 }
 
 /* Chevron icon (for actionable rows) */
-.user-info__item--action { cursor: pointer; }
-.chevron {
-  flex: 0 0 24px;
-  width: 24px;
-  height: 24px;
-  color: #8a837a;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.user-info__item--action {
+	cursor: pointer;
 }
-.chevron svg { width: 20px; height: 20px; }
+.chevron {
+	flex: 0 0 24px;
+	width: 24px;
+	height: 24px;
+	color: #8a837a;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+.chevron svg {
+	width: 20px;
+	height: 20px;
+}
 
 /* 닉네임 모달 전용 보정 */
 .modal--nickname {
-  max-width: 360px;
-  border-radius: 10px;
-  padding: 27px 24px 32px;
+	max-width: 360px;
+	border-radius: 10px;
+	padding: 27px 24px 32px;
 }
 
 /* Modal Close Button */
@@ -1453,70 +1470,83 @@ onMounted(async () => {
 
 /* ── 알림 카드 ── */
 .section-title + .notification-settings {
-  margin-top: 16px; /* 12~20px 선호 */
+	margin-top: 16px; /* 12~20px 선호 */
 }
 
 .notification-settings {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(119, 107, 93, 0.1);
+	background: #ffffff;
+	border-radius: 16px;
+	padding: 20px;
+	margin-bottom: 30px;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+	border: 1px solid rgba(119, 107, 93, 0.1);
 }
 
 .notification-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(119, 107, 93, 0.1);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 0;
+	border-bottom: 1px solid rgba(119, 107, 93, 0.1);
 }
-.notification-item:last-child { border-bottom: none; }
-.notification-item__content { flex: 1; }
+.notification-item:last-child {
+	border-bottom: none;
+}
+.notification-item__content {
+	flex: 1;
+}
 .notification-item__label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333333;
-  margin-bottom: 4px;
+	font-size: 16px;
+	font-weight: 600;
+	color: #333333;
+	margin-bottom: 4px;
 }
 .notification-item__desc {
-  font-size: 14px;
-  color: #4B3D34;
+	font-size: 14px;
+	color: #4b3d34;
 }
-.notification-item__toggle { margin-left: 16px; }
+.notification-item__toggle {
+	margin-left: 16px;
+}
 
 .toggle-button {
-  padding: 8px 16px;
-  border: 2px solid #4B3D34;
-  border-radius: 20px;
-  background: #ffffff;
-  color: #4B3D34;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 60px;
+	padding: 8px 16px;
+	border: 2px solid #4b3d34;
+	border-radius: 20px;
+	background: #ffffff;
+	color: #4b3d34;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	min-width: 60px;
 }
-.toggle-button:hover { background: rgba(119, 107, 93, 0.1); }
-.toggle-button--active { background: #4B3D34; color: #ffffff; }
+.toggle-button:hover {
+	background: rgba(119, 107, 93, 0.1);
+}
+.toggle-button--active {
+	background: #4b3d34;
+	color: #ffffff;
+}
 
 .install-button {
-  padding: 8px 16px;
-  border: 2px solid #4caf50;
-  border-radius: 20px;
-  background: #ffffff;
-  color: #4caf50;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 60px;
+	padding: 8px 16px;
+	border: 2px solid #4caf50;
+	border-radius: 20px;
+	background: #ffffff;
+	color: #4caf50;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	min-width: 60px;
 }
-.install-button:hover:not(:disabled) { background: rgba(76, 175, 80, 0.1); }
+.install-button:hover:not(:disabled) {
+	background: rgba(76, 175, 80, 0.1);
+}
 .install-button:disabled {
-  border-color: #cccccc;
-  color: #cccccc;
-  cursor: not-allowed;
+	border-color: #cccccc;
+	color: #cccccc;
+	cursor: not-allowed;
 }
 </style>

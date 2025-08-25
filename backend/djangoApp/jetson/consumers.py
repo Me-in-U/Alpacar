@@ -1,10 +1,13 @@
 # jetson/consumers.py
+
 import json
 from typing import Any, Dict, List, Tuple
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from events.models import VehicleEvent
 from parking.models import ParkingSpace
 from parking.services import (
@@ -12,10 +15,6 @@ from parking.services import (
     handle_assignment_from_jetson,
     mark_parking_complete_from_ai,
 )
-from django.utils import timezone
-from django.db import transaction
-from channels.generic.websocket import AsyncWebsocketConsumer
-import json
 
 JETSON_CONTROL_GROUP = "jetson-control"
 PARKING_STATUS_GROUP = "parking-status"
@@ -187,10 +186,8 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
 
             used_label = slot_label or assigned_label or occupied_label
 
-            # ✅ 2.5) 유저 테이블 점수 갱신 (활성 이벤트의 차량 소유자 기준)
-            ok_user, msg_user, user_id = await self._update_user_score_for_plate(
-                plate, score
-            )
+            # 2.5) 유저 테이블 점수 갱신 (활성 이벤트의 차량 소유자 기준)
+            ok_user, _, user_id = await self._update_user_score_for_plate(plate, score)
 
             # 3) ACK
             await self.send(
@@ -310,7 +307,6 @@ class JetsonIngestConsumer(AsyncWebsocketConsumer):
                         "origin": "ai",
                     }
                 )
-            return
 
     # ---------- 내부 유틸/DB ----------
     @database_sync_to_async

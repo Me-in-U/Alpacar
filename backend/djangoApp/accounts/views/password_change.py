@@ -1,6 +1,7 @@
+# accounts\views\password_change.py
+
 from accounts.serializers.password_change import PasswordChangeSerializer
 from rest_framework import status
-
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView

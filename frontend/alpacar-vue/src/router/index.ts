@@ -31,12 +31,11 @@ import { useUserStore } from "@/stores/user";
 import { SecureTokenManager } from "@/utils/security";
 import UserSetting from "@/views/user/UserSetting.vue";
 
-
 // 보안 강화된 로그인 상태 확인 함수
 async function isAuthenticated(): Promise<boolean> {
 	try {
 		const userStore = useUserStore();
-		
+
 		// 먼저 사용자 정보가 복원되었는지 확인
 		if (!userStore.me) {
 			const restoredUser = userStore.restoreUserFromStorage();
@@ -44,7 +43,7 @@ async function isAuthenticated(): Promise<boolean> {
 				console.log("라우터에서 사용자 정보 복원:", restoredUser);
 			}
 		}
-		
+
 		// 보안 토큰 매니저에서 토큰 확인
 		const token = SecureTokenManager.getSecureToken("access_token");
 
@@ -94,11 +93,13 @@ async function hasVehicleRegistered(): Promise<boolean> {
 		try {
 			const { result, timestamp } = JSON.parse(cached);
 			const now = Date.now();
-			if (now - timestamp < 5 * 60 * 1000) { // 5분
+			if (now - timestamp < 5 * 60 * 1000) {
+				// 5분
 				console.log("[VEHICLE CHECK] 캐시된 결과 사용:", result);
 				return result;
 			}
 		} catch (e) {
+			console.warn("[VEHICLE CHECK] 캐시 파싱 중 예외 발생:", e);
 			sessionStorage.removeItem("vehicle_check_cache");
 		}
 	}
@@ -108,10 +109,10 @@ async function hasVehicleRegistered(): Promise<boolean> {
 	for (let attempt = 1; attempt <= 3; attempt++) {
 		try {
 			console.log(`[VEHICLE CHECK] API 호출 시도 ${attempt}/3`);
-			
+
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
-			
+
 			const response = await fetch(`${BACKEND_BASE_URL}/vehicles/check/`, {
 				method: "GET",
 				headers: {
@@ -127,13 +128,16 @@ async function hasVehicleRegistered(): Promise<boolean> {
 			if (response.ok) {
 				const data = await response.json();
 				const result = data.has_vehicle ?? false;
-				
+
 				// 성공 시 결과 캐시
-				sessionStorage.setItem("vehicle_check_cache", JSON.stringify({
-					result,
-					timestamp: Date.now()
-				}));
-				
+				sessionStorage.setItem(
+					"vehicle_check_cache",
+					JSON.stringify({
+						result,
+						timestamp: Date.now(),
+					})
+				);
+
 				console.log(`[VEHICLE CHECK] API 성공 (시도 ${attempt}):`, result);
 				return result;
 			} else if (response.status === 401 || response.status === 403) {
@@ -146,7 +150,7 @@ async function hasVehicleRegistered(): Promise<boolean> {
 			}
 		} catch (error: any) {
 			lastError = error;
-			if (error.name === 'AbortError') {
+			if (error.name === "AbortError") {
 				console.warn(`[VEHICLE CHECK] 타임아웃 (시도 ${attempt})`);
 			} else {
 				console.warn(`[VEHICLE CHECK] 네트워크 오류 (시도 ${attempt}):`, error.message);
@@ -155,20 +159,20 @@ async function hasVehicleRegistered(): Promise<boolean> {
 
 		// 마지막 시도가 아니면 대기 후 재시도
 		if (attempt < 3) {
-			await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 1초, 2초 대기
+			await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // 1초, 2초 대기
 		}
 	}
 
 	// 모든 시도 실패 시 안전한 기본값 반환
 	console.error("[VEHICLE CHECK] 모든 시도 실패:", lastError?.message);
-	
+
 	// 사용자 스토어에서 기존 차량 정보 확인
 	const userStore = useUserStore();
 	if (userStore.vehicles && userStore.vehicles.length > 0) {
 		console.log("[VEHICLE CHECK] 스토어에서 차량 정보 발견, true 반환");
 		return true;
 	}
-	
+
 	// 최후의 수단: 이전 성공 캐시가 있다면 사용 (만료되어도)
 	if (cached) {
 		try {
@@ -176,10 +180,11 @@ async function hasVehicleRegistered(): Promise<boolean> {
 			console.log("[VEHICLE CHECK] 만료된 캐시 사용:", result);
 			return result;
 		} catch (e) {
-			// 무시
+			console.warn("[VEHICLE CHECK] 만료된 캐시 파싱 중 예외 발생:", e);
+			sessionStorage.removeItem("vehicle_check_cache");
 		}
 	}
-	
+
 	console.warn("[VEHICLE CHECK] 기본값 false 반환 - 네트워크 문제로 추정");
 	return false;
 }
@@ -430,7 +435,7 @@ router.beforeEach(async (to, from, next) => {
 					sessionStorage.removeItem("user-setting-one-time-auth");
 					console.log("[ROUTER GUARD] 일회용 인증 토큰 검증 완료 및 삭제");
 				} catch (error) {
-					console.log("[ROUTER GUARD] 일회용 인증 토큰 손상");
+					console.error("[ROUTER GUARD] 일회용 인증 토큰 손상:", error);
 					sessionStorage.removeItem("user-setting-one-time-auth");
 					alert("인증 정보가 올바르지 않습니다.");
 					return next("/user-profile");
@@ -445,7 +450,7 @@ router.beforeEach(async (to, from, next) => {
 			if (to.path === "/parking-history") {
 				console.log(`[PARKING HISTORY DEBUG] 일반 사용자가 접근 중`);
 			}
-			
+
 			// 차량 등록 확인 전 토큰 재검증 (모바일 환경 안정성)
 			const vehicleCheckToken = SecureTokenManager.getSecureToken("access_token");
 			if (!vehicleCheckToken) {
@@ -453,7 +458,7 @@ router.beforeEach(async (to, from, next) => {
 				next("/login");
 				return;
 			}
-			
+
 			const hasVehicle = await hasVehicleRegistered();
 			console.log(`[ROUTER DEBUG] 차량 등록 여부: ${hasVehicle}`);
 
@@ -482,11 +487,11 @@ router.beforeEach(async (to, from, next) => {
 				next("/admin-main");
 			} else {
 				console.log("이미 로그인된 일반 사용자입니다. 차량 등록 여부를 확인합니다.");
-				
+
 				// 일반 사용자의 경우 차량 등록 여부에 따라 리다이렉트
 				const hasVehicle = await hasVehicleRegistered();
 				console.log(`[LOGIN REDIRECT] 차량 등록 여부: ${hasVehicle}`);
-				
+
 				if (hasVehicle) {
 					console.log("차량 등록 완료. 메인 페이지로 이동합니다.");
 					next("/main");

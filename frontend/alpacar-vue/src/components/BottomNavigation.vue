@@ -52,7 +52,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import navBarHome from '@/assets/nav_bar_home.png'
 import navBarHomeSelected from '@/assets/nav_bar_home_selected.png'

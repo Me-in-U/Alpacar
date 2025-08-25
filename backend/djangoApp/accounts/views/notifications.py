@@ -1,26 +1,26 @@
 # accounts/views/notifications.py
+
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
-from django.shortcuts import get_object_or_404
-from django.conf import settings
-from django.utils import timezone
-import random
 
 from ..models import Notification
-from ..serializers.notifications import NotificationSerializer, NotificationUpdateSerializer
-from ..utils import create_notification, send_vehicle_entry_notification, send_parking_complete_notification, send_grade_upgrade_notification
-from vehicles.models import Vehicle
+from ..serializers.notifications import (
+    NotificationSerializer,
+    NotificationUpdateSerializer,
+)
 
 
 class NotificationPagination(PageNumberPagination):
     """
     알림 목록 페이지네이션
     """
+
     page_size = 20
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 100
 
 
@@ -34,22 +34,19 @@ def notification_list(request):
     - 페이지네이션 적용
     """
     user = request.user
-    notifications = Notification.objects.filter(user=user).order_by('-created_at')
-    
+    notifications = Notification.objects.filter(user=user).order_by("-created_at")
+
     # 페이지네이션 적용
     paginator = NotificationPagination()
     page = paginator.paginate_queryset(notifications, request)
-    
+
     if page is not None:
         serializer = NotificationSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
-    
+
     # 페이지네이션 없이 전체 조회
     serializer = NotificationSerializer(notifications, many=True)
-    return Response({
-        'count': len(notifications),
-        'results': serializer.data
-    })
+    return Response({"count": len(notifications), "results": serializer.data})
 
 
 @api_view(["GET", "PUT"])
@@ -62,14 +59,16 @@ def notification_detail(request, notification_id):
     """
     user = request.user
     notification = get_object_or_404(Notification, id=notification_id, user=user)
-    
+
     if request.method == "GET":
         serializer = NotificationSerializer(notification)
         return Response(serializer.data)
-    
+
     elif request.method == "PUT":
         # 읽음 상태 업데이트
-        serializer = NotificationUpdateSerializer(notification, data=request.data, partial=True)
+        serializer = NotificationUpdateSerializer(
+            notification, data=request.data, partial=True
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -97,10 +96,13 @@ def notification_delete_all(request):
     user = request.user
     deleted_count = Notification.objects.filter(user=user).count()
     Notification.objects.filter(user=user).delete()
-    return Response({
-        'message': f'{deleted_count}개의 알림이 삭제되었습니다.',
-        'deleted_count': deleted_count
-    }, status=status.HTTP_200_OK)
+    return Response(
+        {
+            "message": f"{deleted_count}개의 알림이 삭제되었습니다.",
+            "deleted_count": deleted_count,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["PUT"])
@@ -110,11 +112,16 @@ def notification_mark_all_read(request):
     사용자의 모든 알림을 읽음 상태로 변경
     """
     user = request.user
-    updated_count = Notification.objects.filter(user=user, is_read=False).update(is_read=True)
-    return Response({
-        'message': f'{updated_count}개의 알림이 읽음 처리되었습니다.',
-        'updated_count': updated_count
-    }, status=status.HTTP_200_OK)
+    updated_count = Notification.objects.filter(user=user, is_read=False).update(
+        is_read=True
+    )
+    return Response(
+        {
+            "message": f"{updated_count}개의 알림이 읽음 처리되었습니다.",
+            "updated_count": updated_count,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["GET"])
@@ -125,6 +132,4 @@ def notification_unread_count(request):
     """
     user = request.user
     unread_count = Notification.objects.filter(user=user, is_read=False).count()
-    return Response({
-        'unread_count': unread_count
-    })
+    return Response({"unread_count": unread_count})

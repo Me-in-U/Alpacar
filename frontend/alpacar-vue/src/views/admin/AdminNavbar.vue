@@ -46,7 +46,7 @@ const isOpen = ref(false);
 const showAuthModal = ref(false);
 const isLoggedIn = ref(false);
 
-const emit = defineEmits<{ (e: "logout"): void }>();
+const emit = defineEmits<(e: "logout") => void>();
 
 function readAuth(): boolean {
 	const token = SecureTokenManager.getSecureToken("access_token");

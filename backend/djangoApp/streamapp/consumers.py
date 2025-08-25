@@ -1,17 +1,16 @@
 # streamapp\consumers.py
+
 import asyncio
 import json
 import re
 import sys
-from datetime import datetime
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
 from django.utils import timezone
-from pywebpush import WebPushException, webpush
-
 from events.models import VehicleEvent
+from pywebpush import WebPushException, webpush
 from vehicles.models import Vehicle
 
 # ─── 전역 상태 ───────────────────────────────────────────────────────────
@@ -85,8 +84,6 @@ class PiUploadConsumer(AsyncWebsocketConsumer):
     RPi에서 전송된 이미지/텍스트 수신 및 처리
     "ws/upload/"
     """
-
-    # last_entered = None  # 마지막 입차된 번호판 기록
 
     async def connect(self):
         print(f"[SERVER][PiUploadConsumer] connect: {self.channel_name}")

@@ -1,4 +1,5 @@
-# 변경 후: 새로 생성
+# accounts\serializers\password_change.py
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers

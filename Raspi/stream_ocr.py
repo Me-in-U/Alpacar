@@ -14,7 +14,6 @@ from ultralytics import YOLO
 from websocket import create_connection
 
 # ─── 백엔드 서버 주소 설정 ─────────────────────────────────────────────────────────
-WS_URL = "ws://192.168.137.1:8000/ws/upload/"
 WS_URL = "wss://i13e102.p.ssafy.io/ws/upload/"
 
 # ─── HTTP 세션 재사용 ────────────────────────────────────────────────────────
@@ -165,7 +164,7 @@ def ocr_and_annotate():
 
 
 # ─── WebSocket 전송 함수 ────────────────────────────────────────────────
-def send_with_retry(ws, msg, url, max_retries=3, backoff=3):
+def send_with_retry(ws, msg, url, backoff=3):
     payload = json.dumps(msg)
     while True:
         try:
@@ -176,7 +175,7 @@ def send_with_retry(ws, msg, url, max_retries=3, backoff=3):
             # 연결 닫고
             try:
                 ws.close()
-            except:
+            except Exception:
                 pass
             time.sleep(backoff)
             # 재연결

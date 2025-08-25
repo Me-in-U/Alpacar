@@ -6,7 +6,7 @@ export interface Notification {
 	id: number;
 	title: string;
 	message: string;
-	notification_type: 'parking_complete' | 'parking_assigned' | 'entry' | 'exit' | 'grade_upgrade' | 'system' | 'maintenance' | 'warning' | 'general';
+	notification_type: "parking_complete" | "parking_assigned" | "entry" | "exit" | "grade_upgrade" | "system" | "maintenance" | "warning" | "general";
 	data: Record<string, any>;
 	is_read: boolean;
 	created_at: string;
@@ -36,9 +36,7 @@ export const useNotificationStore = defineStore("notification", {
 
 			try {
 				// refresh가 true이면 처음부터 다시 로드
-				const url = refresh || !this.nextUrl 
-					? `${BACKEND_BASE_URL}/notifications/`
-					: this.nextUrl;
+				const url = refresh || !this.nextUrl ? `${BACKEND_BASE_URL}/notifications/` : this.nextUrl;
 
 				const res = await fetch(url, {
 					headers: {
@@ -52,7 +50,7 @@ export const useNotificationStore = defineStore("notification", {
 				}
 
 				const data: NotificationResponse = await res.json();
-				
+
 				if (refresh) {
 					this.notifications = data.results;
 				} else {
@@ -115,12 +113,11 @@ export const useNotificationStore = defineStore("notification", {
 				}
 
 				// 스토어 상태 업데이트
-				const notification = this.notifications.find(n => n.id === notificationId);
+				const notification = this.notifications.find((n) => n.id === notificationId);
 				if (notification && !notification.is_read) {
 					notification.is_read = true;
 					this.unreadCount = Math.max(0, this.unreadCount - 1);
 				}
-
 			} catch (error) {
 				console.error("알림 읽음 처리 실패:", error);
 				throw error;
@@ -145,7 +142,7 @@ export const useNotificationStore = defineStore("notification", {
 				}
 
 				// 스토어 상태 업데이트
-				const index = this.notifications.findIndex(n => n.id === notificationId);
+				const index = this.notifications.findIndex((n) => n.id === notificationId);
 				if (index !== -1) {
 					const notification = this.notifications[index];
 					if (!notification.is_read) {
@@ -153,7 +150,6 @@ export const useNotificationStore = defineStore("notification", {
 					}
 					this.notifications.splice(index, 1);
 				}
-
 			} catch (error) {
 				console.error("알림 삭제 실패:", error);
 				throw error;
@@ -178,7 +174,7 @@ export const useNotificationStore = defineStore("notification", {
 				}
 
 				const data = await res.json();
-				
+
 				// 스토어 상태 초기화
 				this.notifications = [];
 				this.unreadCount = 0;
@@ -210,11 +206,10 @@ export const useNotificationStore = defineStore("notification", {
 				}
 
 				// 스토어 상태 업데이트
-				this.notifications.forEach(notification => {
+				this.notifications.forEach((notification) => {
 					notification.is_read = true;
 				});
 				this.unreadCount = 0;
-
 			} catch (error) {
 				console.error("전체 알림 읽음 처리 실패:", error);
 				throw error;
@@ -242,10 +237,10 @@ export const useNotificationStore = defineStore("notification", {
 			} else if (diffInHours < 24 * 7) {
 				return `${Math.floor(diffInHours / 24)}일 전`;
 			} else {
-				return date.toLocaleDateString('ko-KR', {
-					year: 'numeric',
-					month: 'long',
-					day: 'numeric'
+				return date.toLocaleDateString("ko-KR", {
+					year: "numeric",
+					month: "long",
+					day: "numeric",
 				});
 			}
 		},
@@ -253,27 +248,27 @@ export const useNotificationStore = defineStore("notification", {
 		// 알림 타입별 아이콘 가져오기
 		getNotificationIcon(type: string): string {
 			switch (type) {
-				case 'parking_complete':
-					return '🚗';
-				case 'parking_assigned':
-					return '🅿️';
-				case 'entry':
-					return '🚪';
-				case 'exit':
-					return '🚗';
-				case 'grade_upgrade':
-					return '⭐';
-				case 'system':
-					return 'ℹ️';
-				case 'maintenance':
-					return '🔧';
-				case 'warning':
-					return '⚠️';
-				case 'general':
-					return '📢';
+				case "parking_complete":
+					return "🚗";
+				case "parking_assigned":
+					return "🅿️";
+				case "entry":
+					return "🚪";
+				case "exit":
+					return "🚗";
+				case "grade_upgrade":
+					return "⭐";
+				case "system":
+					return "ℹ️";
+				case "maintenance":
+					return "🔧";
+				case "warning":
+					return "⚠️";
+				case "general":
+					return "📢";
 				default:
-					return '📢';
+					return "📢";
 			}
-		}
+		},
 	},
 });

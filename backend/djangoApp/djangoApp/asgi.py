@@ -1,4 +1,5 @@
 # djangoApp/asgi.py
+
 """
 ASGI config for djangoApp project.
 
@@ -17,18 +18,20 @@ from django.core.asgi import get_asgi_application
 
 django_asgi_app = get_asgi_application()
 
+# 로깅 설정
+import logging
+
+import events.routing
+
+# 라우팅 설정
+import streamapp.routing
+
 # Channels import (이제 models, apps 모두 로드된 이후)
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 
-# 라우팅 설정
-import streamapp.routing
-import events.routing
 import jetson.routing
-
-# 로깅 설정
-import logging
 
 logger = logging.getLogger("channels")
 

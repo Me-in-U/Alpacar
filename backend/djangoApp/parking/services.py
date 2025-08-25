@@ -1,9 +1,11 @@
 # parking/services.py
-from django.utils import timezone
+
 from django.db import transaction
-from vehicles.models import Vehicle
+from django.utils import timezone
 from events.models import VehicleEvent
-from .models import ParkingSpace, ParkingAssignment, ParkingAssignmentHistory
+from vehicles.models import Vehicle
+
+from .models import ParkingAssignment, ParkingAssignmentHistory, ParkingSpace
 
 
 def _parse_slot_label(label: str):
