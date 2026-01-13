@@ -30,27 +30,77 @@
 
 <!-- 깃허브 등 본인의 링크 추가해주세요 -->
 
-| 이름                                    | 역할                     |
-| --------------------------------------- | ------------------------ |
-| [김민규](https://github.com/Me-in-U)    | Backend ⚙️ & Embedded 🔌 |
-| [이재훈]()                              | AI 🤖 & Infra ☁️         |
-| [이유니]()                              | Embedded 🔌              |
-| [김가현]()                              | Embedded 🔌              |
-| [백종석](https://github.com/baekjs0123) | PM 📋 & Frontend 🎨      |
-| [양정은]()                              | Frontend 🎨              |
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <a href="https://github.com/Me-in-U"><b>김민규</b></a><br>
+      Backend ⚙️ & Embedded 🔌
+    </td>
+    <td align="center" width="50%">
+      <b>이재훈</b><br>
+      AI 🤖 & Infra ☁️
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>이유니</b><br>
+      Embedded 🔌
+    </td>
+    <td align="center" width="50%">
+      <b>김가현</b><br>
+      Embedded 🔌
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <a href="https://github.com/baekjs0123"><b>백종석</b></a><br>
+      PM 📋 & Frontend 🎨
+    </td>
+    <td align="center" width="50%">
+      <b>양정은</b><br>
+      Frontend 🎨
+    </td>
+  </tr>
+</table>
 
 ---
 
 ## 🌟 주요 기능
 
-1. 🔍 번호판 **객체탐지 & OCR 인식**
-2. 🚘 차량 모델 **자동 조회**
-3. 🅿️ **최적 주차 구역 자동 추천**
-4. 📱 **웹 앱(PWA) 기반 사용자 안내**
-5. 💡 디스플레이에 **차량번호 출력**
-6. 🧑‍✈️ 운전자 **주차 능력 반영**
-7. 🖥 관리자 **실시간 모니터링**
-8. 🔔 차량 이벤트 발생시 사용자 **푸시 알림 전송**
+<table>
+  <tr>
+    <td width="50%">
+      1. 🔍 번호판 <b>객체탐지 & OCR 인식</b>
+    </td>
+    <td width="50%">
+      2. 🚘 차량 모델 <b>자동 조회</b>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      3. 🅿️ <b>최적 주차 구역 자동 추천</b>
+    </td>
+    <td width="50%">
+      4. 📱 <b>웹 앱(PWA) 기반 사용자 안내</b>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      5. 💡 디스플레이에 <b>차량번호 출력</b>
+    </td>
+    <td width="50%">
+      6. 🧑‍✈️ 운전자 <b>주차 능력 반영</b>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      7. 🖥 관리자 <b>실시간 모니터링</b>
+    </td>
+    <td width="50%">
+      8. 🔔 차량 이벤트 발생시 사용자 <b>푸시 알림 전송</b>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -67,154 +117,11 @@
 
 ---
 
-## 📂 프로젝트 폴더 구조
-
-### Arduino
-
-<details>
-  <summary>펼쳐보기</summary>
-
-```plantext
-Arduino/
-├── get_ocr_kor_ws/
-│   ├── get_ocr_kor_ws_update_0812.ino
-│   └── get_ocr_kor_ws.ino
-└── individual_lcd/
-    └── individual_lcd.ino
-```
-
-</details>
-
-### Backend
-
-<details>
-  <summary>펼쳐보기</summary>
-
-```plantext
-backend/
-└── djangoApp/
-    ├── djangoApp/
-    │   ├── __init__.py
-    │   ├── asgi.py
-    │   ├── settings.py
-    │   ├── urls.py
-    │   └── wsgi.py
-    ├── accounts/
-    ├── Database/
-    ├── events/
-    ├── jetson/
-    ├── parking/
-    ├── staticfiles/
-    ├── streamapp/
-    ├── vehicles/
-    ├── venv/
-    ├── check_mappings.py
-    ├── debug_encoding.py
-    ├── Dockerfile
-    ├── insert_data.py
-    ├── manage.py
-    ├── readme.md
-    └── requirements.txt
-```
-
-</details>
-
-### Frontend
-
-<details>
-  <summary>펼쳐보기</summary>
-
-```plantext
-frontend/
-└── alpacar-vue/
-    ├── public/
-    ├── src/
-    │   ├── api/
-    │   ├── assets/
-    │   ├── components/
-    │   ├── composables/
-    │   ├── data/
-    │   ├── router/
-    │   ├── stores/
-    │   ├── types/
-    │   ├── utils/
-    │   ├── views/
-    │   ├── App.vue
-    │   └── main.ts
-    ├── .vscode/
-    ├── dev-dist/
-    ├── node_modules/
-    ├── .gitignore
-    ├── Dockerfile
-    ├── env.d.ts
-    ├── index.html
-    ├── MOBILE_DEBUG.md
-    ├── package.json
-    ├── package-lock.json
-    ├── README.md
-    ├── replace-alerts.js
-    ├── tsconfig.app.json
-    ├── tsconfig.json
-    ├── tsconfig.node.json
-    └── vite.config.ts
-```
-
-</details>
-
-### jetson
-
-<details>
-  <summary>펼쳐보기</summary>
-
-```plantext
-jetson/
-├── ml/
-│   ├── artifacts/
-│   │   ├── experiments_history.csv
-│   │   ├── rf_score_model.joblib
-│   │   └── rf_step_model.joblib
-│   ├── advanced_extract_goal_features_dataset.csv
-│   └── recommender.py
-│
-├── best.pt (5.6MB)
-├── bytetrack.yaml
-├── camera_tracking_obb.py
-├── image_detector.py
-├── local-websocket-server.py
-├── output_obb.mp4 (14MB)
-├── parking_check copy.py
-├── parking_check.py
-├── requirements.txt
-├── sample.mp4 (2.9MB)
-├── track.py
-├── track-video.py
-└── video_split.py
-```
-
-</details>
-
-### Raspi
-
-<details>
-  <summary>펼쳐보기</summary>
-
-```plantext
-Raspi/
-├── autorun.service
-├── best.pt
-├── requirements.txt
-├── service_start.md
-├── stream_camera.py
-└── stream_ocr.py
-```
-
-</details>
-
----
-
 ## 🧩 인프라 구조도
 
 ![인프라구조도](./exec/imgs/인프라구조도.png)
+
+---
 
 ## 협업 방식
 
@@ -255,67 +162,99 @@ Raspi/
 
 ## 🖥️ 화면 구성
 
-### 랜딩페이지
+### 웹앱 화면
 
-![온보딩](./docs/assets/온보딩.gif)
+<table>
+  <tr>
+    <td width="45%">
+      <h3>웹앱 메인페이지</h3>
+      <ul>
+        <li>앞면에는 사용자의 점수에 해당하는 등급에 맞는 알파카 아바타 표시</li>
+        <li>뒷면에는 도로모양의 점수바에 현재 위치 표시</li>
+      </ul>
+      <img src="./docs/assets/3d카드.gif" width="100%">
+    </td>
+    <td width="45%">
+      <h3>주차 자리 추천 받기</h3>
+      <ul>
+        <li>OCR로 차량 번호가 인식되면 차량 크기와 운전자의 주차실력을 고려해 최적의 주차 공간 추천</li>
+        <li>추천 받은 위치가 주차장 도면에 표시되며 내 차의 위치가 실시간으로 추적됨</li>
+      </ul>
+      <img src="./docs/assets/주차%20공간%20추천.gif" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="45%">
+      <h3>주차 기록 확인하기</h3>
+      <ul>
+        <li>주차 일시와 장소, 점수를 확인</li>
+        <li>그래프로 주차 점수 변화를 한 눈에 확인</li>
+      </ul>
+      <img src="./docs/assets/히스토리.gif" width="100%">
+    </td>
+    <td width="45%">
+      <h3>유저 프로필 페이지</h3>
+      <ul>
+        <li>사용자 정보와 등록한 차량 정보를 확인</li>
+        <li>웹앱 알림 켜가/끄기 설정</li>
+        <li>웹앱 다운로드</li>
+      </ul>
+      <img src="./docs/assets/유저프로필.gif" width="100%">
+    </td>
+  </tr>
+</table>
 
-### 웹앱 - 회원가입
+### 관리자
 
-- 이메일 방식/구글 소셜 로그인 방식으로 회원가입 가능
-- 차량 번호 등록 및 주차 실력 선택
-  ![회원가입](./docs/assets/회원가입%20후%20사용자%20정보%20기입.gif)
+<table>
+  <tr>
+    <td width="100%">
+      <h3>실시간 주차장 현황</h3>
+      <ul>
+        <li>실시간으로 주차장 차량 현황 확인</li>
+        <li>차량 배정 상태 수동 변경 가능</li>
+      </ul>
+      <img src="./docs/assets/실시간주차현황.gif" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="100%">
+      <h3>로그 및 기록</h3>
+      <ul>
+        <li>OCR 기반 차량번호 인식 후 차량번호와 입차/주차/출차 시간, 주차자리 기록</li>
+        <li>수동으로 차량 상태 변경 및 푸시 알림 발송 기능</li>
+      </ul>
+      <img src="./docs/assets/로그%20및%20기록.gif" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="100%">
+      <h3>실시간 번호판 인식</h3>
+      <ul>
+        <li>OCR 기반 차량번호 인식</li>
+        <li>인식된 차량번호는 주차장 입구에 설치된 LED에 표시됨</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
-### 웹앱 - 메인페이지
+### 시연
 
-- 앞면에는 사용자의 점수에 해당하는 등급에 맞는 알파카 아바타 표시
-- 뒷면에는 도로모양의 점수바에 현재 위치 표시
-  ![3d카드](./docs/assets/3d카드.gif)
-
-### 웹앱 - 주차 자리 추천 받기
-
-- OCR로 차량 번호가 인식되면 차량 크기와 운전자의 주차실력을 고려해 최적의 주차 공간 추천
-- 추천 받은 위치가 주차장 도면에 표시되며 내 차의 위치가 실시간으로 추적됨
-  ![주차공간추천](./docs/assets/주차%20공간%20추천.gif)
-
-### 웹앱 - 주차 기록 확인하기
-
-- 주차 일시와 장소, 점수를 확인
-- 그래프로 주차 점수 변화를 한 눈에 확인
-<p align="center">
-<img src="./docs/assets/히스토리.gif" width=30%>
-</p>
-
-### 웹앱 - 유저 프로필 페이지
-
-- 사용자 정보와 등록한 차량 정보를 확인
-- 웹앱 알림 켜가/끄기 설정
-- 웹앱 다운로드
-
-<p align="center">
-<img src="./docs/assets/유저프로필.gif" width=30%>
-</p>
-
-### 웹앱 - 회원정보 수정 페이지
-
-- 전화번호와 비밀번호 수정
-- 소셜 로그인 사용자는 접근 불가
-- 전화번호, 비밀번호는 이메일 인증 후 변경 가능
-  ![전화번호변경](./docs/assets/전화번호%20변경.gif)
-  ![비밀번호변경](./docs/assets/비밀번호%20변경.gif)
-
-### 관리자 - 실시간 주차장 현황
-
-- 실시간으로 주차장 차량 현황 확인
-- 차량 배정 상태 수동 변경 가능
-  ![실시간주차현황](./docs/assets/실시간주차현황.gif)
-
-### 관리자 - 실시간 번호판 인식
-
-- OCR 기반 차량번호 인식
-- 인식된 차량번호는 주차장 입구에 설치된 LED에 표시됨
-
-### 관리자 - 로그 및 기록
-
-- OCR 기반 차량번호 인식 후 차량번호와 입차/주차/출차 시간, 주차자리 기록
-- 수동으로 차량 상태 변경 및 푸시 알림 발송 기능
-  ![로그 및 기록](./docs/assets/로그%20및%20기록.gif)
+<table>
+  <tr>
+    <td width="50%">
+      <img src="./docs/assets/시연1.png" width="100%">
+    </td>
+    <td width="50%">
+      <img src="./docs/assets/시연2.gif" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="./docs/assets/시연3.png" width="100%">
+    </td>
+    <td width="50%">
+      <img src="./docs/assets/시연4.gif" width="100%">
+    </td>
+  </tr>
+</table>
